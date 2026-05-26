@@ -8,11 +8,12 @@
   "inProgressTopics": [
     "Monorepo + pnpm workspace",
     "TypeScript 严格模式配置",
-    "Turborepo 构建缓存原理"
+    "Turborepo 构建缓存原理",
+    "JavaScript 事件循环（Event Loop）"
   ],
   "knowledgeMap": {
     "javascript": {
-      "事件循环 & 微宏任务": "未开始",
+      "事件循环 & 微宏任务": "理解",
       "Promise 手写实现": "未开始",
       "async/await 底层原理": "未开始",
       "原型链 & 继承": "了解",
@@ -69,7 +70,7 @@
       "性能监控体系": "未开始"
     },
     "nodejs": {
-      "Event Loop（与浏览器区别）": "未开始",
+      "Event Loop（与浏览器区别）": "理解",
       "Stream 流式处理": "未开始",
       "Hono 框架": "未开始",
       "tRPC 端对端类型安全": "未开始",
