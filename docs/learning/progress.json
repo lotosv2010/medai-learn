@@ -1,0 +1,102 @@
+{
+  "currentPhase": 1,
+  "currentWeek": 1,
+  "startDate": "2025-01-01",
+  "totalSessionCount": 1,
+  "lastSession": "2026-05-26T06:34:38.690Z",
+  "completedTopics": [],
+  "inProgressTopics": [
+    "Monorepo + pnpm workspace",
+    "TypeScript 严格模式配置",
+    "Turborepo 构建缓存原理"
+  ],
+  "knowledgeMap": {
+    "javascript": {
+      "事件循环 & 微宏任务": "未开始",
+      "Promise 手写实现": "未开始",
+      "async/await 底层原理": "未开始",
+      "原型链 & 继承": "了解",
+      "闭包 & 作用域链": "了解",
+      "Generator & Iterator": "未开始",
+      "内存管理 & GC": "未开始",
+      "WeakRef & FinalizationRegistry": "未开始"
+    },
+    "typescript": {
+      "类型体操（条件/映射类型）": "未开始",
+      "泛型约束设计": "了解",
+      "工具类型原理（Partial/Required/Pick）": "了解",
+      "协变与逆变": "未开始",
+      "装饰器": "未开始",
+      "infer 关键字": "未开始"
+    },
+    "react": {
+      "Fiber 架构": "未开始",
+      "Reconciler & Diff 算法": "未开始",
+      "Concurrent Mode & Scheduler": "未开始",
+      "Hooks 实现原理": "了解",
+      "useTransition & useDeferredValue": "未开始",
+      "React Server Components": "未开始",
+      "memo/useMemo/useCallback 边界": "了解",
+      "虚拟列表实现": "未开始"
+    },
+    "nextjs": {
+      "App Router 路由机制": "未开始",
+      "RSC vs Client Component": "未开始",
+      "SSR / SSG / ISR 原理": "了解",
+      "Server Actions": "未开始",
+      "Streaming SSR": "未开始",
+      "Edge Runtime": "未开始"
+    },
+    "ai_development": {
+      "LLM API 基础接入": "未开始",
+      "Streaming 流式输出": "未开始",
+      "Function Calling / Tool Use": "未开始",
+      "Prompt Engineering 基础": "未开始",
+      "RAG 完整流程": "未开始",
+      "向量数据库使用": "未开始",
+      "文档分块策略": "未开始",
+      "AI Agent 设计": "未开始",
+      "LangChain 核心概念": "未开始",
+      "多模型路由策略": "未开始"
+    },
+    "engineering": {
+      "Monorepo + Turborepo": "进行中",
+      "Vite 原理": "了解",
+      "Webpack 5 & 模块联邦": "了解",
+      "微前端架构": "了解",
+      "CI/CD（GitHub Actions）": "了解",
+      "Docker 容器化": "了解",
+      "性能监控体系": "未开始"
+    },
+    "nodejs": {
+      "Event Loop（与浏览器区别）": "未开始",
+      "Stream 流式处理": "未开始",
+      "Hono 框架": "未开始",
+      "tRPC 端对端类型安全": "未开始",
+      "PostgreSQL + Drizzle ORM": "未开始",
+      "Redis 缓存策略": "未开始",
+      "pgvector 向量扩展": "未开始"
+    },
+    "algorithms": {
+      "双指针 & 滑动窗口": "未开始",
+      "树的遍历 DFS/BFS": "了解",
+      "动态规划基础": "未开始",
+      "手写 LRU Cache": "未开始",
+      "手写 Promise.all": "未开始",
+      "节流 & 防抖": "了解",
+      "深克隆实现": "了解",
+      "EventEmitter 实现": "未开始"
+    }
+  },
+  "sessions": [],
+  "targetCompanies": [
+    "医疗 AI 创业公司（首选）",
+    "健康科技独角兽",
+    "大厂 AI 产品线",
+    "外资科技公司（备选）"
+  ],
+  "notes": [
+    "学习状态可选值：未开始 | 了解 | 理解 | 掌握",
+    "掌握标准：能手写代码 + 能面试讲清楚 + 能在项目中灵活运用"
+  ]
+}
