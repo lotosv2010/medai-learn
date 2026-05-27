@@ -173,8 +173,8 @@ NEXTAUTH_URL=http://localhost:3000
 
 <!-- LEARNING_FOCUS_START -->
 当前阶段：Phase 1 - 基础搭建
-重点知识：Monorepo + pnpm workspace + TypeScript 严格模式配置
-已完成：0 个知识点
-本周目标：完成 packages/shared 的类型定义层 + 认证系统
-上次学习：2026-05-27T02:07:04.608Z
+重点知识：JavaScript 执行机制系列（事件循环 → 执行上下文 → 作用域链 → 词法环境 → 变量提升/TDZ）
+已完成：1 个知识点（变量提升 & TDZ）
+下一步：继续 JavaScript 深度系列，或开始 Monorepo 工程化
+上次学习：2026-05-27
 <!-- LEARNING_FOCUS_END -->
