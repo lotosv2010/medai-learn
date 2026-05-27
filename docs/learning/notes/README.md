@@ -10,6 +10,7 @@
 - [事件循环（Event Loop）](javascript/execution-mechanism/event-loop.md) — 调用栈 + 宏任务 + 微任务 + 浏览器/Node.js 差异
 - [宏任务与微任务（Macrotask & Microtask）](javascript/execution-mechanism/macrotask-microtask.md) — 设计意图 + 面试高频题 + Node.js nextTick
 - [执行上下文与调用栈（Execution Context & Call Stack）](javascript/execution-mechanism/execution-context-call-stack.md) — 变量提升 + this 绑定 + 作用域链
+- [作用域链 & 闭包（Scope Chain & Closures）](javascript/execution-mechanism/scope-chain-closures.md) — 词法作用域 + 闭包模式 + 经典陷阱
 ---
 
 ## TypeScript 深度
