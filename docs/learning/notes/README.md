@@ -17,6 +17,7 @@
 ### 原型与面向对象
 
 - [原型链机制（Prototype Chain）](javascript/prototype-oop/prototype-chain.md) — __proto__/prototype/constructor 关系 + 属性查找 + 继承实现
+- [继承的 6 种方式](javascript/prototype-oop/inheritance-6-ways.md) — 原型链 → 构造 → 组合 → 寄生组合式演进 + ES6 class 底层
 ---
 
 ## TypeScript 深度

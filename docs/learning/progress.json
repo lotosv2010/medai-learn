@@ -2,18 +2,61 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 13,
-  "lastSession": "2026-05-27",
-  "completedTopics": ["JavaScript 变量提升 & TDZ", "JavaScript 原型链机制"],
+  "totalSessionCount": 17,
+  "lastSession": "2026-05-27T11:00:00.000Z",
+  "completedTopics": [
+    {
+      "JavaScript": [
+        {
+          "执行机制": [
+            "事件循环",
+            "宏任务与微任务",
+            "执行上下文与调用栈",
+            "作用域链 & 闭包",
+            "词法环境",
+            "变量提升 & TDZ"
+          ]
+        },
+        {
+          "原型与面向对象": [
+            "原型链机制",
+            "继承的6种方式"
+          ]
+        },
+        {
+          "异步编程": []
+        },
+        {
+          "内存与性能": []
+        }
+      ]
+    },
+    {
+      "TypeScript": []
+    },
+    {
+      "React": []
+    },
+    {
+      "Next.js": []
+    },
+    {
+      "AI 开发": []
+    },
+    {
+      "工程实践": []
+    },
+    {
+      "Node.js": []
+    },
+    {
+      "算法与数据结构": []
+    }
+  ],
   "inProgressTopics": [
     "Monorepo + pnpm workspace",
     "TypeScript 严格模式配置",
-    "Turborepo 构建缓存原理",
-    "JavaScript 事件循环",
-    "JavaScript 宏任务与微任务",
-    "JavaScript 执行上下文与调用栈",
-    "JavaScript 作用域链 & 闭包",
-    "JavaScript 词法环境"
+    "Turborepo 构建缓存原理"
   ],
   "knowledgeMap": {
     "javascript": {

@@ -173,8 +173,8 @@ NEXTAUTH_URL=http://localhost:3000
 
 <!-- LEARNING_FOCUS_START -->
 当前阶段：Phase 1 - 基础搭建
-重点知识：JavaScript 深度系列（执行机制 + 原型与面向对象）
-已完成：2 个知识点（变量提升 & TDZ、原型链机制）
-下一步：继续原型与面向对象系列，或开始 Monorepo 工程化
-上次学习：2026-05-27
+重点知识：Monorepo + pnpm workspace + TypeScript 严格模式配置
+已完成：8 个知识点
+本周目标：完成 packages/shared 的类型定义层 + 认证系统
+上次学习：2026-05-27T11:00:00.000Z
 <!-- LEARNING_FOCUS_END -->
