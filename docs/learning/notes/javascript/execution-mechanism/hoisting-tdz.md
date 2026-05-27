@@ -143,17 +143,30 @@ class Person {}
 
 ## 面试角度
 
-**标准回答框架：**
+### 高频问题
 
-1. **什么是提升**：JS 编译阶段会扫描作用域内的声明，`var` 声明被提升并初始化为 `undefined`，函数声明整体提升。
+1. **"什么是变量提升？"**
+   - JS 编译阶段会扫描作用域内的声明，`var` 声明被提升并初始化为 `undefined`，函数声明整体提升（声明 + 定义一起）
 
-2. **TDZ 是什么**：`let/const` 声明也被提升，但不初始化，从块作用域开始到声明语句之间是 TDZ，访问会抛 `ReferenceError`。
+2. **"let/const 有提升吗？"**
+   - 有提升，但不初始化。从块作用域开始到声明语句之间是 TDZ，访问会抛 `ReferenceError`
 
-3. **为什么设计 TDZ**：防止在变量初始化前使用，避免 `var` 那种"声明前访问得到 `undefined`"的隐蔽 bug，让代码更可预测。
+3. **"TDZ 存在的意义是什么？"**
+   - 防止在变量初始化前使用，避免 `var` 那种"声明前访问得到 `undefined`"的隐蔽 bug，让代码更可预测
 
-4. **优先级问题**：同名的函数声明和 `var` 声明，函数声明优先级更高。
+4. **"var、let、const 的优先级？"**
+   - 同名时：函数声明 > var 声明（函数声明优先级更高）
+   - let/const 与 var 同名会报语法错误（不能在同作用域重复声明）
 
-**加分点**：结合执行上下文的创建阶段（Creation Phase）来解释，说明 VariableEnvironment 和 LexicalEnvironment 的区别。
+5. **"const 的不可变性是绝对的吗？"**
+   - 不是。const 保证的是**绑定不可变**（不能重新赋值），对象/数组的内部属性仍然可以修改
+
+### 加分回答
+
+- 提到 **VariableEnvironment vs LexicalEnvironment** 的区别：var 存在变量环境，let/const 存在词法环境
+- 提到 **函数声明优先级** 高于 var，且函数声明整体提升（不只是引用）
+- 提到 **class 也有 TDZ**：`const p = new Person()` 在 class 声明前会报错
+- 提到 **ESLint 规则** `no-use-before-define` 的原理就是基于 TDZ 机制
 
 ---
 
@@ -161,3 +174,65 @@ class Person {}
 
 1. **深入方向**：结合 V8 引擎的 Ignition 解释器，理解变量绑定（binding）的底层实现
 2. **实践方向**：ESLint 的 `no-use-before-define` 规则背后的原理，以及 `vars-on-top` 规则为何存在
+
+---
+
+## 自测问题
+
+**Q：以下代码输出什么？为什么？**
+
+```javascript
+var x = 1;
+function foo() {
+  console.log(x);    // ① 输出什么？
+  console.log(y);    // ② 输出什么？
+  var x = 2;
+  let y = 3;
+  console.log(x);    // ③ 输出什么？
+}
+foo();
+```
+
+<!-- markdownlint-disable MD033 MD040 MD031 MD032 -->
+
+<details>
+<summary>点击查看答案</summary>
+
+输出：
+
+```text
+① undefined
+② ReferenceError: Cannot access 'y' before initialization
+③ 2
+```
+
+**分析：**
+
+1. **① → `undefined`**：`var x = 2` 的声明提升到函数顶部并初始化为 `undefined`，赋值 `= 2` 留在原地。函数内的 `var x` 遮蔽了外层 `x`，所以读到的是 `undefined`，不是外层的 `1`，也不是 `2`。
+
+2. **② → `ReferenceError`**：`let y` 声明被提升但不初始化，从函数块开始到 `let y = 3` 之间是 TDZ，在此区域内访问 `y` 直接报错，不会穿透到外层。
+
+3. **③ → `2`**：此时 `var x = 2` 已执行，`x` 被赋值为 `2`。
+
+等价执行顺序：
+
+```javascript
+function foo() {
+  var x = undefined;  // var 提升：声明 + 初始化
+  // let y 处于 TDZ，不初始化
+  console.log(x);     // ① → undefined
+  console.log(y);     // ② → ReferenceError（TDZ）
+  x = 2;
+  let y = 3;          // TDZ 结束，y 初始化
+  console.log(x);     // ③ → 2
+}
+```
+
+**关键理解：**
+
+- `var` 提升后初始化为 `undefined`，`let/const` 提升但不初始化（TDZ）
+- ① 是最容易答错的，多数人会答 `1`（以为访问外层）或 `2`（以为赋值也提升了），实际是 `undefined`
+
+</details>
+
+<!-- markdownlint-restore -->

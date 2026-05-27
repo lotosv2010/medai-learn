@@ -13,6 +13,10 @@
 - [作用域链 & 闭包（Scope Chain & Closures）](javascript/execution-mechanism/scope-chain-closures.md) — 词法作用域 + 闭包模式 + 经典陷阱
 - [词法环境（Lexical Environment）](javascript/execution-mechanism/lexical-environment.md) — Environment Record + 暂时性死区 + V8 优化
 - [变量提升 & TDZ（Hoisting & Temporal Dead Zone）](javascript/execution-mechanism/hoisting-tdz.md) — var/let/const 提升差异 + TDZ 本质 + 面试高频
+
+### 原型与面向对象
+
+- [原型链机制（Prototype Chain）](javascript/prototype-oop/prototype-chain.md) — __proto__/prototype/constructor 关系 + 属性查找 + 继承实现
 ---
 
 ## TypeScript 深度
