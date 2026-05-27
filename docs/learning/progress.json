@@ -2,18 +2,20 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 1,
-  "lastSession": "2026-05-26T06:34:38.690Z",
+  "totalSessionCount": 0,
+  "lastSession": null,
+
   "completedTopics": [],
+
   "inProgressTopics": [
     "Monorepo + pnpm workspace",
     "TypeScript 严格模式配置",
-    "Turborepo 构建缓存原理",
-    "JavaScript 事件循环（Event Loop）"
+    "Turborepo 构建缓存原理"
   ],
+
   "knowledgeMap": {
     "javascript": {
-      "事件循环 & 微宏任务": "理解",
+      "事件循环 & 微宏任务": "未开始",
       "Promise 手写实现": "未开始",
       "async/await 底层原理": "未开始",
       "原型链 & 继承": "了解",
@@ -70,7 +72,7 @@
       "性能监控体系": "未开始"
     },
     "nodejs": {
-      "Event Loop（与浏览器区别）": "理解",
+      "Event Loop（与浏览器区别）": "未开始",
       "Stream 流式处理": "未开始",
       "Hono 框架": "未开始",
       "tRPC 端对端类型安全": "未开始",
@@ -89,13 +91,16 @@
       "EventEmitter 实现": "未开始"
     }
   },
+
   "sessions": [],
+
   "targetCompanies": [
     "医疗 AI 创业公司（首选）",
     "健康科技独角兽",
     "大厂 AI 产品线",
     "外资科技公司（备选）"
   ],
+
   "notes": [
     "学习状态可选值：未开始 | 了解 | 理解 | 掌握",
     "掌握标准：能手写代码 + 能面试讲清楚 + 能在项目中灵活运用"

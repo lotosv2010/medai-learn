@@ -1,362 +1,311 @@
-# 详细设计文档（DESIGN）
+# DESIGN · 设计规范
 
-> 定义模块接口、数据库 Schema、API 契约与关键算法。
+**版本**：v0.1.0 · **状态**：草稿 · **更新**：2025-01-01
 
----
-
-## 1. 数据库 Schema
-
-### users 表
-
-```sql
-CREATE TABLE users (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email         VARCHAR(255) UNIQUE NOT NULL,
-  name          VARCHAR(100) NOT NULL,
-  avatar_url    TEXT,
-  password_hash VARCHAR(255),           -- OAuth 用户可为 NULL
-  provider      VARCHAR(50) DEFAULT 'email',  -- email | google | wechat
-  created_at    TIMESTAMPTZ DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_users_email ON users(email);
-```
-
-### health_profiles 表
-
-```sql
-CREATE TABLE health_profiles (
-  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id             UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  allergies           JSONB DEFAULT '[]',      -- ["青霉素", "磺胺类"]
-  conditions          JSONB DEFAULT '[]',      -- ["高血压", "糖尿病"]
-  current_medications JSONB DEFAULT '[]',      -- ["阿莫西林 0.5g tid"]
-  blood_type          VARCHAR(10),             -- A | B | AB | O
-  birth_date          DATE,
-  gender              VARCHAR(10),
-  created_at          TIMESTAMPTZ DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
-### drugs 表
-
-```sql
-CREATE TABLE drugs (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name            VARCHAR(200) NOT NULL,       -- 商品名
-  generic_name    VARCHAR(200) NOT NULL,       -- 通用名
-  category        VARCHAR(100),                -- 分类
-  description     TEXT,                        -- 简介
-  usage           TEXT,                        -- 用法用量
-  dosage          TEXT,                        -- 剂型规格
-  side_effects    TEXT,                        -- 不良反应
-  contraindications TEXT,                      -- 禁忌
-  precautions     TEXT,                        -- 注意事项
-  storage         TEXT,                        -- 储存条件
-  manufacturer    VARCHAR(200),                -- 生产厂家
-  approval_number VARCHAR(100),                -- 批准文号
-  embedding       VECTOR(1536),                -- pgvector 向量
-  created_at      TIMESTAMPTZ DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_drugs_name ON drugs USING gin(to_tsvector('chinese', name || ' ' || generic_name));
-CREATE INDEX idx_drugs_embedding ON drugs USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-```
-
-### drug_interactions 表
-
-```sql
-CREATE TABLE drug_interactions (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  drug_a_id     UUID NOT NULL REFERENCES drugs(id),
-  drug_b_id     UUID NOT NULL REFERENCES drugs(id),
-  severity      VARCHAR(20) NOT NULL,         -- contraindicated | major | moderate | minor
-  description   TEXT NOT NULL,                -- 相互作用说明
-  created_at    TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(drug_a_id, drug_b_id)
-);
-```
-
-### conversations 表
-
-```sql
-CREATE TABLE conversations (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  title       VARCHAR(200),
-  model       VARCHAR(50) DEFAULT 'gpt-4o',  -- 使用的模型
-  created_at  TIMESTAMPTZ DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_conversations_user ON conversations(user_id, updated_at DESC);
-```
-
-### messages 表
-
-```sql
-CREATE TABLE messages (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  role            VARCHAR(20) NOT NULL,       -- user | assistant | system
-  content         TEXT NOT NULL,
-  citations       JSONB DEFAULT '[]',         -- [{drugId, drugName, relevance}]
-  token_count     INTEGER,
-  created_at      TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_messages_conversation ON messages(conversation_id, created_at);
-```
-
-### reminders 表
-
-```sql
-CREATE TABLE reminders (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  drug_id     UUID NOT NULL REFERENCES drugs(id),
-  drug_name   VARCHAR(200) NOT NULL,         -- 冗余，避免 JOIN
-  dosage      VARCHAR(100),                  -- "1片"
-  schedule    VARCHAR(100) NOT NULL,         -- cron 表达式
-  start_date  DATE NOT NULL,
-  end_date    DATE,
-  status      VARCHAR(20) DEFAULT 'active',  -- active | paused | completed
-  created_at  TIMESTAMPTZ DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ DEFAULT NOW()
-);
-```
+> 本文档定义 MedAI Learn 的视觉语言、组件规范和交互模式。
+> 设计目标：专业、克制、信任感。医疗场景不需要花哨，需要清晰和安全感。
 
 ---
 
-## 2. API 设计（tRPC Router）
+## 1. 设计原则
 
-### drugRouter
+### 1.1 核心价值
 
-```typescript
-interface DrugRouter {
-  // 搜索药品
-  search: Procedure<{ keyword: string; page?: number; pageSize?: number }, PaginatedResult<Drug>>
+| 原则 | 含义 | 体现 |
+|------|------|------|
+| **信任感** | 用户面对医疗信息需要安全感 | 干净的排版、清晰的信源标注、错误友好提示 |
+| **克制** | 不过度设计，信息优先 | 有限的颜色使用、充足的留白 |
+| **响应** | 让用户感知到系统在"思考" | 流式输出动效、加载骨架屏、即时反馈 |
+| **可及** | 所有用户都能使用 | WCAG AA 对比度、键盘导航、屏幕阅读器支持 |
 
-  // 获取详情
-  getById: Procedure<{ id: string }, Drug>
+### 1.2 设计不做什么
 
-  // 查询相互作用
-  checkInteraction: Procedure<{ drugIds: string[] }, Interaction[]>
-
-  // 获取热门药品
-  getPopular: Procedure<{ limit?: number }, Drug[]>
-}
-```
-
-### chatRouter
-
-```typescript
-interface ChatRouter {
-  // 创建会话
-  create: Procedure<{ title?: string }, Conversation>
-
-  // 发送消息（Streaming）
-  sendMessage: Procedure<{ conversationId: string; content: string }, StreamingResponse>
-
-  // 获取历史
-  getHistory: Procedure<{ conversationId: string; limit?: number }, Message[]>
-
-  // 获取会话列表
-  list: Procedure<{ page?: number }, PaginatedResult<Conversation>>
-
-  // 删除会话
-  delete: Procedure<{ id: string }, void>
-}
-```
-
-### userRouter
-
-```typescript
-interface UserRouter {
-  // 获取当前用户
-  me: Procedure<void, User>
-
-  // 更新档案
-  updateProfile: Procedure<Partial<HealthProfile>, HealthProfile>
-
-  // 获取健康档案
-  getHealthProfile: Procedure<void, HealthProfile>
-}
-```
-
-### reminderRouter
-
-```typescript
-interface ReminderRouter {
-  // 创建提醒
-  create: Procedure<CreateReminderInput, Reminder>
-
-  // 获取提醒列表
-  list: Procedure<{ status?: string }, Reminder[]>
-
-  // 更新提醒
-  update: Procedure<{ id: string; data: Partial<Reminder> }, Reminder>
-
-  // 记录服药
-  logIntake: Procedure<{ reminderId: string; status: 'taken' | 'skipped' | 'delayed' }, void>
-
-  // 删除提醒
-  delete: Procedure<{ id: string }, void>
-}
-```
+- ❌ 不使用渐变背景（医疗场景需要白色基底）
+- ❌ 不使用超过 3 种主题色（避免视觉干扰）
+- ❌ 不使用强动效（医疗用户可能在紧张状态下使用）
+- ❌ 不隐藏重要信息（AI 来源、置信度等必须可见）
 
 ---
 
-## 3. AI 模块设计
+## 2. 设计 Token（Tailwind + CSS Variables）
 
-### RAG Pipeline
+### 2.1 颜色系统
 
-```typescript
-interface RAGConfig {
-  // Embedding 配置
-  embedding: {
-    model: 'text-embedding-3-small' | 'text-embedding-3-large'
-    dimensions: number
-    chunkSize: number        // 文档分块大小
-    chunkOverlap: number     // 分块重叠
-  }
+```css
+/* packages/ui/src/tokens.css */
 
-  // 检索配置
-  retrieval: {
-    topK: number             // 返回最相关的 K 个片段
-    scoreThreshold: number   // 最低相似度阈值
-    rerank: boolean          // 是否重排序
-  }
+:root {
+  /* 主色：医疗蓝 */
+  --color-primary-50:  #EFF6FF;
+  --color-primary-100: #DBEAFE;
+  --color-primary-500: #3B82F6;
+  --color-primary-600: #2563EB;   /* 主要按钮、链接 */
+  --color-primary-700: #1D4ED8;   /* Hover 状态 */
+  --color-primary-900: #1E3A8A;
 
-  // 生成配置
-  generation: {
-    model: string
-    temperature: number
-    maxTokens: number
-    systemPrompt: string
+  /* 中性色：内容主体 */
+  --color-gray-50:  #F9FAFB;    /* 页面背景 */
+  --color-gray-100: #F3F4F6;    /* 卡片背景 */
+  --color-gray-200: #E5E7EB;    /* 分割线 */
+  --color-gray-400: #9CA3AF;    /* 占位文字 */
+  --color-gray-600: #4B5563;    /* 次要文字 */
+  --color-gray-800: #1F2937;    /* 主要文字 */
+  --color-gray-900: #111827;    /* 标题 */
+
+  /* 语义色 */
+  --color-success: #10B981;     /* 成功状态 */
+  --color-warning: #F59E0B;     /* 警告（注意事项） */
+  --color-danger:  #EF4444;     /* 错误、禁忌 */
+  --color-info:    #3B82F6;     /* 信息提示 */
+
+  /* AI 专用色（对话界面） */
+  --color-user-bubble:  #EFF6FF;  /* 用户消息气泡 */
+  --color-ai-bubble:    #FFFFFF;  /* AI 消息区域（白色卡片） */
+  --color-ai-cursor:    #3B82F6;  /* AI 打字光标 */
+}
+
+/* 暗色模式（Phase 2 后实现） */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary-600: #60A5FA;
+    --color-gray-50:  #111827;
+    --color-gray-900: #F9FAFB;
+    /* ... */
   }
 }
 ```
 
-### Prompt 模板
+### 2.2 排版
+
+```css
+/* 字体栈 */
+--font-sans: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+--font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+/* 字号（rem，基于 16px） */
+--text-xs:   0.75rem;   /* 12px - 来源标注、角标 */
+--text-sm:   0.875rem;  /* 14px - 辅助文字、时间戳 */
+--text-base: 1rem;      /* 16px - 正文（消息内容） */
+--text-lg:   1.125rem;  /* 18px - 卡片标题 */
+--text-xl:   1.25rem;   /* 20px - 页面次标题 */
+--text-2xl:  1.5rem;    /* 24px - 页面主标题 */
+
+/* 行高 */
+--leading-tight:  1.25;  /* 标题 */
+--leading-normal: 1.5;   /* 正文 */
+--leading-relaxed: 1.75; /* AI 长文本（阅读舒适） */
+```
+
+### 2.3 间距系统（4px 基准）
 
 ```
-你是一个专业的医疗 AI 助手。请基于以下参考资料回答用户的问题。
-
-【重要规则】
-1. 仅基于提供的参考资料回答，不要编造信息
-2. 如果参考资料不足以回答，请明确告知
-3. 必须标注信息来源（药品名称）
-4. 回答末尾添加免责声明
-
-【参考资料】
-{context}
-
-【用户健康档案】
-{healthProfile}
-
-【用户问题】
-{question}
+4px   → 极小间隔（badge 内边距）
+8px   → 组件内元素间距
+12px  → 小型组件间距
+16px  → 标准间距（p-4）
+24px  → 卡片内边距（p-6）
+32px  → 区块间距（py-8）
+48px  → 大区块间距（py-12）
 ```
 
-### 多模型路由策略
+### 2.4 圆角
 
-```typescript
-interface ModelRouter {
-  // 根据问题类型选择模型
-  selectModel(query: Query): ModelConfig
-
-  // 规则：
-  // - 简单药品查询 → 通义千问（成本低）
-  // - 复杂用药分析 → GPT-4o（能力强）
-  // - 敏感医疗问题 → Claude（安全性高）
-}
+```
+2px  → 极小（tag/badge）
+6px  → 标准（button、input）
+8px  → 卡片
+12px → 大卡片（对话气泡）
+16px → 模态框
+9999px → 胶囊形（status pill）
 ```
 
 ---
 
-## 4. 组件库设计（packages/ui）
+## 3. 核心组件规范
 
-### 原子组件
+### 3.1 对话气泡（ChatBubble）
+
+```
+用户消息（右对齐）:
+  ├─ 背景：var(--color-user-bubble)
+  ├─ 圆角：12px 12px 2px 12px（右下角直角）
+  ├─ 最大宽度：75%
+  └─ 字体：text-base，leading-relaxed
+
+AI 消息（左对齐）:
+  ├─ 背景：白色卡片（带 border）
+  ├─ 圆角：2px 12px 12px 12px（左上角直角）
+  ├─ 最大宽度：100%（AI 回答通常较长）
+  ├─ Markdown 渲染支持
+  └─ 底部显示：来源引用（RAGSource 组件）
+
+流式输出状态:
+  ├─ 末尾显示蓝色光标动效（CSS animation，pulse）
+  ├─ 滚动：新 token 追加时，自动滚动到底部
+  └─ abort 按钮：输出时显示"停止生成"按钮
+```
+
+### 3.2 RAG 来源引用（SourceCitation）
+
+```
+展示形态：折叠区块（默认折叠）
+标题：「参考来源 (N 个)」
+展开后显示：
+  ├─ 药品名称 + 章节名（如"布洛芬片说明书 · 药物相互作用"）
+  ├─ 相关段落摘要（截取 80 字）
+  └─ 相似度指示条（视觉化 0-1 分）
+
+颜色语义：
+  相似度 > 0.85 → 绿色（高相关）
+  相似度 0.7-0.85 → 蓝色（相关）
+  相似度 < 0.7 → 灰色（低相关，通常不展示）
+```
+
+### 3.3 输入区（ChatInput）
+
+```
+布局：固定在底部，悬浮在消息列表上方
+高度：自适应（最小 56px，最大 200px）
+
+内部结构：
+  ├─ 文本域（textarea，自动扩展）
+  ├─ 图片上传按钮（处方拍照）
+  └─ 发送按钮（Enter 发送 / Shift+Enter 换行）
+
+状态：
+  default  → 边框 gray-200
+  focused  → 边框 primary-500 + 阴影
+  loading  → 禁用输入，显示"AI 思考中..."
+  error    → 边框 danger，显示错误信息
+```
+
+### 3.4 药品警告标签（DrugWarning）
+
+```
+用于 AI 回答中标注安全信息
+级别与颜色：
+  ⚠️ 注意   → yellow 背景（var(--color-warning)）
+  ❌ 禁忌   → red 背景（var(--color-danger)）
+  💊 建议   → blue 背景（var(--color-info)）
+
+格式：
+  [图标] [标题] [内容文字]
+必须包含：建议咨询医生 的链接提示
+```
+
+---
+
+## 4. 页面布局规范
+
+### 4.1 整体布局
+
+```
+┌──────────┬──────────────────────────────────────┐
+│  侧边栏  │              主内容区                 │
+│  240px   │         calc(100% - 240px)            │
+│          │                                       │
+│ 对话列表 │  顶部导航（48px 固定）                │
+│          ├──────────────────────────────────────┤
+│          │                                       │
+│          │  消息列表（滚动区域）                  │
+│          │                                       │
+│          ├──────────────────────────────────────┤
+│          │  输入区（固定底部，auto height）       │
+└──────────┴──────────────────────────────────────┘
+
+移动端（< 768px）:
+  侧边栏：抽屉式（默认隐藏）
+  主内容：全宽
+```
+
+### 4.2 响应式断点
+
+```
+sm:  640px  → 小平板横屏
+md:  768px  → 平板竖屏（侧边栏显示分界）
+lg:  1024px → 笔记本
+xl:  1280px → 桌面（最大布局容器宽度）
+```
+
+---
+
+## 5. 动效规范
+
+### 5.1 允许的动效
+
+```
+流式文字输出：
+  光标闪烁：opacity 0→1→0，周期 1s，ease-in-out
+
+页面过渡：
+  消息列表新增：opacity 0→1，translateY 8px→0，duration 200ms
+
+加载状态：
+  骨架屏：背景渐变动画（shimmer），duration 1.5s，loop
+
+按钮交互：
+  Hover：scale(1.02)，duration 100ms
+  Active：scale(0.98)，duration 50ms
+```
+
+### 5.2 不允许的动效
+
+- 超过 300ms 的复杂动画（会让用户感到等待）
+- 循环播放的装饰性动画（分散注意力）
+- 不提供 `prefers-reduced-motion` 替代的动效
+
+---
+
+## 6. 可访问性规范
+
+```
+颜色对比度：
+  正文文字 vs 背景：最低 4.5:1（AA 标准）
+  大文字（18px+）：最低 3:1
+  禁止仅用颜色区分信息（必须配文字或图标）
+
+键盘导航：
+  所有交互元素可 Tab 到达
+  焦点样式：2px 蓝色 outline + 2px offset
+  对话：Enter 发送，Esc 取消/关闭
+
+屏幕阅读器：
+  图片必须有 alt 属性
+  图标按钮必须有 aria-label
+  流式输出区域：aria-live="polite"
+  错误提示：role="alert"
+
+国际化准备（Phase 4）：
+  所有用户可见字符串提取到 i18n 文件
+  支持中英双语（中文优先）
+```
+
+---
+
+## 7. 组件库目录结构（packages/ui）
 
 ```
 packages/ui/src/
+├── tokens.css              ← 设计 Token 变量
 ├── components/
-│   ├── button.tsx          # Button（variants: primary/secondary/ghost）
-│   ├── input.tsx           # Input（支持 icon、clearable）
-│   ├── card.tsx            # Card（header/body/footer slots）
-│   ├── dialog.tsx          # Dialog（基于 Radix）
-│   ├── select.tsx          # Select（搜索 + 多选）
-│   ├── badge.tsx           # Badge（severity 等级）
-│   ├── skeleton.tsx        # Skeleton（加载态）
-│   └── toast.tsx           # Toast（通知）
-├── layouts/
-│   ├── sidebar.tsx         # 侧边栏布局
-│   └── header.tsx          # 顶部导航
-└── patterns/
-    ├── search-bar.tsx      # 搜索栏（联想 + 历史）
-    ├── message-bubble.tsx  # 聊天气泡（支持 Markdown）
-    └── drug-card.tsx       # 药品卡片
+│   ├── chat/
+│   │   ├── ChatBubble.tsx     ← 对话气泡
+│   │   ├── ChatInput.tsx      ← 输入框
+│   │   ├── StreamingText.tsx  ← 流式输出渲染
+│   │   └── SourceCitation.tsx ← RAG 来源引用
+│   ├── drug/
+│   │   ├── DrugWarning.tsx    ← 药品警告标签
+│   │   └── DrugCard.tsx       ← 药品信息卡片
+│   ├── layout/
+│   │   ├── Sidebar.tsx
+│   │   └── PageLayout.tsx
+│   └── primitives/            ← 来自 Shadcn（不二次封装）
+│       ├── Button.tsx
+│       ├── Input.tsx
+│       └── ...
+└── index.ts                ← 统一导出
 ```
 
 ---
 
-## 5. 状态管理
-
-### 客户端状态（Zustand）
-
-```typescript
-// stores/auth-store.ts
-interface AuthStore {
-  user: User | null
-  isAuthenticated: boolean
-  login: (credentials: LoginInput) => Promise<void>
-  logout: () => Promise<void>
-  refreshToken: () => Promise<void>
-}
-
-// stores/chat-store.ts
-interface ChatStore {
-  conversations: Conversation[]
-  activeConversation: string | null
-  isStreaming: boolean
-  sendMessage: (content: string) => Promise<void>
-  abortStream: () => void
-}
-```
-
-### 服务端状态（tRPC + React Query）
-
-- 自动缓存 + 失效策略
-- Optimistic Updates（乐观更新）
-- 后台重新验证（stale-while-revalidate）
-
----
-
-## 6. 错误处理
-
-### 错误分类
-
-| 类型 | HTTP 状态码 | 处理方式 |
-|------|-----------|---------|
-| 验证错误 | 400 | 返回字段级错误信息 |
-| 认证错误 | 401 | 跳转登录页 |
-| 授权错误 | 403 | 显示权限不足提示 |
-| 资源不存在 | 404 | 显示 404 页面 |
-| AI 服务错误 | 502 | 重试 + 降级策略 |
-| 服务器错误 | 500 | 上报 Sentry + 用户友好提示 |
-
-### AI 降级策略
-
-```
-主模型调用失败
-    │
-    ├── 重试（最多 2 次，指数退避）
-    │
-    ├── 切换备用模型（如 GPT-4o → Claude）
-    │
-    └── 返回预设回答 + 提示稍后重试
-```
+*设计是约束的产物——越少的选择，越一致的体验。遇到设计决策时，先查这份文档，再考虑新增规则。*

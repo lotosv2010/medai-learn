@@ -1,224 +1,199 @@
-# 架构设计文档（ARCHITECTURE）
+# ARCHITECTURE · 系统架构文档
 
-> 定义系统整体架构、数据流、部署方案与技术决策。
+**版本**：v0.1.0 · **状态**：草稿 · **更新**：2025-01-01
+
+> 本文档描述 MedAI Learn 的整体架构设计、模块关系和关键数据流。
+> 架构是活的——每次重大决策记录在 `docs/decisions/` 中。
 
 ---
 
 ## 1. 架构总览
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                      Client Layer                       │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │           Next.js 15 (App Router)                │   │
-│  │  ┌─────────┐ ┌──────────┐ ┌──────────────────┐  │   │
-│  │  │ RSC Page│ │Client Comp│ │  Streaming SSR   │  │   │
-│  │  └────┬────┘ └─────┬────┘ └────────┬─────────┘  │   │
-│  └───────┼────────────┼───────────────┼─────────────┘   │
-└──────────┼────────────┼───────────────┼─────────────────┘
-           │            │               │
-           ▼            ▼               ▼
-┌─────────────────────────────────────────────────────────┐
-│                      API Layer                          │
-│  ┌──────────────────┐  ┌────────────────────────────┐   │
-│  │    tRPC Router    │  │     Hono HTTP Server       │   │
-│  │  (type-safe RPC)  │  │  (REST + Webhook + Auth)   │   │
-│  └────────┬─────────┘  └─────────────┬──────────────┘   │
-└───────────┼──────────────────────────┼──────────────────┘
-            │                          │
-            ▼                          ▼
-┌─────────────────────────────────────────────────────────┐
-│                    Service Layer                        │
-│  ┌──────────────┐ ┌──────────────┐ ┌────────────────┐  │
-│  │  Drug Service │ │  AI Service  │ │ User Service   │  │
-│  │  (CRUD+Search)│ │  (RAG+Chat)  │ │ (Auth+Profile) │  │
-│  └──────┬───────┘ └──────┬───────┘ └───────┬────────┘  │
-└─────────┼────────────────┼─────────────────┼────────────┘
-          │                │                 │
-          ▼                ▼                 ▼
-┌─────────────────────────────────────────────────────────┐
-│                    Data Layer                           │
-│  ┌──────────────┐ ┌──────────────┐ ┌────────────────┐  │
-│  │  PostgreSQL   │ │    Redis     │ │  pgvector      │  │
-│  │  (主数据存储)  │ │  (缓存+会话) │ │ (向量检索)     │  │
-│  └──────────────┘ └──────────────┘ └────────────────┘  │
-└─────────────────────────────────────────────────────────┘
-          │                │
-          ▼                ▼
-┌─────────────────────────────────────────────────────────┐
-│                  External Services                      │
-│  ┌──────────┐ ┌───────────┐ ┌──────────────────────┐   │
-│  │  OpenAI  │ │  Anthropic │ │  通义千问 (DashScope) │   │
-│  └──────────┘ └───────────┘ └──────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                        Client Layer                         │
+│              Browser（Next.js 15 / React 19）               │
+│   页面渲染 · 对话 UI · 流式显示 · 状态管理 · 路由           │
+└────────────────────────┬────────────────────────────────────┘
+                         │ HTTP / SSE / tRPC
+┌────────────────────────▼────────────────────────────────────┐
+│                       API Layer (BFF)                        │
+│                    apps/api (Hono + tRPC)                    │
+│  认证中间件 · 限流 · 路由聚合 · 格式转换 · 错误处理          │
+└──────────────┬──────────────────────┬───────────────────────┘
+               │ 内部 HTTP            │ Drizzle ORM
+┌──────────────▼──────────┐  ┌────────▼──────────────────────┐
+│     AI Engine Layer     │  │       Data Layer              │
+│  apps/ai-engine         │  │  PostgreSQL 16 + pgvector     │
+│  LLM 路由 · RAG 流水线  │  │  Redis（缓存 + 限流 + Session）│
+│  Agent 推理 · Prompt    │  │                               │
+└──────────────┬──────────┘  └───────────────────────────────┘
+               │ HTTPS
+┌──────────────▼──────────────────────────────────────────────┐
+│                    External AI Services                      │
+│   Anthropic Claude   ·   OpenAI   ·   Alibaba DashScope     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 设计原则
+
+- **单向数据流**：Client → API → AI Engine → External，避免横向耦合
+- **AI 能力隔离**：ai-engine 独立部署，可单独扩缩，api 通过 HTTP 调用
+- **类型安全贯穿**：从数据库 schema（Drizzle）到前端页面（tRPC），无 any
+- **渐进式复杂度**：先走通最简路径，再逐步引入 Redis / pgvector 等
+
+---
+
+## 2. Monorepo 模块职责
+
+### 2.1 应用层（apps/）
+
+| 模块 | 端口 | 职责 | 边界 |
+|------|------|------|------|
+| `apps/web` | 3000 | 用户界面，SSR + 流式渲染 | 不直接访问数据库；通过 tRPC 与 api 通信 |
+| `apps/api` | 3001 | BFF 网关，认证，业务逻辑 | 不做 AI 推理；调用 ai-engine |
+| `apps/ai-engine` | 3002 | AI 能力封装，RAG，Agent | 不做认证；信任来自 api 的请求 |
+
+**为什么拆成三个服务而不是一个 Next.js 全栈？**
+→ 见 [ADR-0001](decisions/0001-monorepo-tooling.md)
+
+### 2.2 共享包层（packages/）
+
+| 包 | 职责 | 被哪些模块使用 |
+|----|------|--------------|
+| `packages/shared` | TypeScript 类型定义、工具函数、常量 | 全部 apps 和 packages |
+| `packages/ui` | 基础 UI 组件库（无业务逻辑） | apps/web |
+| `packages/ai-sdk` | AI 模型统一接口（隐藏多模型细节） | apps/ai-engine |
+
+---
+
+## 3. 关键数据流
+
+### 3.1 AI 对话流（核心流程）
+
+```
+用户输入消息
+  │
+  ▼
+[apps/web] ChatInput 组件
+  │  fetch POST /api/ai/chat （带 Authorization Header）
+  ▼
+[apps/api] /api/ai/chat 路由
+  ├─ 1. JWT 验证（从 Header 提取 userId）
+  ├─ 2. 限流检查（Redis：20次/min/user）
+  ├─ 3. 存储用户消息到 DB（messages 表）
+  │
+  │  fetch POST http://ai-engine:3002/chat （内网，无需认证）
+  ▼
+[apps/ai-engine] /chat 路由
+  ├─ 1. 问题向量化（text-embedding-3-small）
+  ├─ 2. pgvector 向量检索（Top-K=10）
+  ├─ 3. 全文检索（PostgreSQL FTS，Top-K=10）
+  ├─ 4. RRF 融合 + 重排序（Top-5）
+  ├─ 5. 构建 Prompt（System + Context + History + User）
+  │
+  │  SSE stream from Anthropic Claude API
+  ▼
+[Claude API] 流式 token 输出
+  │
+  ▼
+[apps/ai-engine] 透传 SSE 流给 api
+  ▼
+[apps/api] 透传 SSE 流给前端 + 异步存储 AI 消息到 DB
+  ▼
+[apps/web] StreamingMessage 组件
+  └─ useStreamingText hook 实时追加 token 到 DOM
+```
+
+### 3.2 用户认证流
+
+```
+[web] LoginForm 提交
+  │  tRPC mutation: auth.login
+  ▼
+[api] auth.login handler
+  ├─ 1. 查询用户（email）
+  ├─ 2. bcrypt 校验密码
+  ├─ 3. 生成 JWT access_token（1h）+ refresh_token（7d）
+  ├─ 4. refresh_token 存 Redis（key: refresh:{userId}:{tokenId}）
+  └─ 5. 返回 access_token，refresh_token 通过 HttpOnly Cookie 设置
+  ▼
+[web] 存储 access_token 到内存（不存 localStorage！）
+     通过 React Context 传递给需要认证的组件
+```
+
+### 3.3 RAG 知识库建立（离线流程）
+
+```
+[脚本] scripts/ingest-drugs.ts
+  │
+  ├─ 1. 读取 /data/drug-docs/ 目录的 PDF/TXT 文件
+  ├─ 2. 解析文本（pdf-parse）
+  ├─ 3. 按章节分块（drugs-specific chunking 策略）
+  ├─ 4. 批量向量化（text-embedding-3-small，50 chunks/batch）
+  ├─ 5. 批量写入 drug_chunks 表（含 vector 列）
+  └─ 6. 更新 drug_documents.indexed_at
 ```
 
 ---
 
-## 2. 分层职责
-
-### Client Layer（apps/web）
-
-| 层级 | 职责 | 技术 |
-|------|------|------|
-| RSC Page | 数据获取 + SEO + 初始渲染 | React Server Components |
-| Client Component | 交互 + 状态 + 实时更新 | React 19 + Hooks |
-| Streaming SSR | AI 对话流式渲染 | ReadableStream + Suspense |
-
-### API Layer（apps/api）
-
-| 组件 | 职责 | 路由前缀 |
-|------|------|---------|
-| tRPC Router | 类型安全 RPC 调用 | `/trpc/*` |
-| Hono Server | REST API + Webhook + Auth | `/api/*` |
-
-### Service Layer
-
-| 服务 | 职责 | 依赖 |
-|------|------|------|
-| DrugService | 药品 CRUD + 搜索 + 相互作用 | PostgreSQL + pgvector |
-| AIService | RAG 检索 + LLM 调用 + Streaming | ai-sdk + Redis |
-| UserService | 认证 + 授权 + 档案管理 | PostgreSQL + Redis |
-
-### Data Layer
-
-| 存储 | 用途 | 数据类型 |
-|------|------|---------|
-| PostgreSQL | 主数据存储 | 用户、药品、提醒、对话 |
-| pgvector | 向量检索 | 药品说明书 Embedding |
-| Redis | 缓存 + 会话 + 队列 | Session、热点数据、任务队列 |
-
----
-
-## 3. 核心数据流
-
-### 3.1 AI 对话流程（RAG）
+## 4. 状态管理架构
 
 ```
-用户输入问题
-    │
-    ▼
-┌─────────────┐
-│ Query 预处理 │ ← 意图识别 + 关键词提取
-└──────┬──────┘
-       │
-       ▼
-┌─────────────────┐
-│ 向量检索 pgvector │ ← Embedding 搜索相关药品文档
-└──────┬──────────┘
-       │ Top-K 文档片段
-       ▼
-┌─────────────────┐
-│  Context 组装    │ ← 拼接系统 Prompt + 检索结果 + 用户档案
-└──────┬──────────┘
-       │
-       ▼
-┌─────────────────┐
-│  LLM Streaming  │ ← 调用 AI 模型，流式返回
-└──────┬──────────┘
-       │ SSE / ReadableStream
-       ▼
-┌─────────────────┐
-│  前端流式渲染    │ ← 逐字显示 + 引用标注
-└─────────────────┘
-```
+Server State（服务端数据）:   React Query / tRPC
+  ├─ 对话列表、消息记录、用户信息
+  └─ 自动缓存、后台刷新、乐观更新
 
-### 3.2 认证流程
+Client State（UI 交互状态）:  Zustand
+  ├─ 当前对话 ID
+  ├─ 流式输出缓冲区
+  ├─ UI 开关（侧边栏展开、主题）
+  └─ 认证状态（access_token 内存存储）
 
-```
-用户登录请求
-    │
-    ▼
-┌──────────────┐
-│  验证凭据     │ ← 邮箱/密码 或 OAuth Token
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│  签发 JWT     │ ← Access Token (15min) + Refresh Token (7d)
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│  存储 Session │ ← Redis 存储 Refresh Token
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│  返回客户端   │ ← HttpOnly Cookie + CSRF Token
-└──────────────┘
+Form State（表单）:           React Hook Form
+  └─ 登录/注册/设置表单
 ```
 
 ---
 
-## 4. Monorepo 依赖关系
+## 5. 部署架构（目标）
 
 ```
-apps/web ──────┬──→ packages/ui
-               ├──→ packages/shared
-               └──→ packages/ai-sdk
+开发环境:
+  localhost:3000  → Next.js dev server
+  localhost:3001  → api（ts-node --watch）
+  localhost:3002  → ai-engine（ts-node --watch）
+  localhost:5432  → PostgreSQL（Docker）
+  localhost:6379  → Redis（Docker）
 
-apps/api ──────┬──→ packages/shared
-               └──→ packages/ai-sdk
-
-apps/ai-engine ┬──→ packages/shared
-               └──→ packages/ai-sdk
-```
-
-**规则**：
-- `apps/*` 可以依赖 `packages/*`
-- `packages/*` 之间禁止循环依赖
-- `packages/shared` 是最底层，不依赖其他包
-
----
-
-## 5. 部署架构
-
-### 开发环境
-
-```
-Local Machine
-├── Next.js Dev Server (port 3000)
-├── Hono Dev Server (port 3001)
-├── AI Engine Dev Server (port 3002)
-├── PostgreSQL (Docker, port 5432)
-└── Redis (Docker, port 6379)
-```
-
-### 生产环境（Vercel + 外部服务）
-
-```
-Vercel
-├── apps/web → Vercel Edge Network (CDN + SSR)
-├── apps/api → Vercel Serverless Functions
-└── apps/ai-engine → Vercel Serverless Functions
-
-External
-├── Neon / Supabase → PostgreSQL + pgvector
-├── Upstash → Redis (Serverless)
-└── OpenAI / Anthropic → LLM API
+生产环境（Phase 4 目标）:
+  Vercel         → apps/web（Edge + SSR）
+  Railway/Render → apps/api（Node.js）
+  Railway/Render → apps/ai-engine（Node.js，GPU 暂不需要）
+  Supabase       → PostgreSQL + pgvector
+  Upstash        → Redis
 ```
 
 ---
 
-## 6. 安全架构
+## 6. 扩展点设计
 
-| 层级 | 措施 |
-|------|------|
-| 传输层 | HTTPS 强制 + HSTS |
-| 认证层 | JWT + Refresh Token + CSRF |
-| 授权层 | RBAC（基于角色的访问控制） |
-| 数据层 | 输入验证（Zod） + SQL 参数化 |
-| API 层 | Rate Limiting + API Key 轮转 |
-| 客户端 | CSP + XSS 防护 + HttpOnly Cookie |
+以下位置预留了扩展接口，随学习深入逐步实现：
+
+| 扩展点 | 当前实现 | 未来扩展 |
+|--------|---------|---------|
+| AI 模型 | Claude（硬编码） | packages/ai-sdk 策略模式，运行时切换 |
+| 向量数据库 | pgvector | 接口抽象，可替换 Pinecone/Chroma |
+| 分块策略 | 固定规则 | 可插拔策略，A/B 测试不同策略效果 |
+| 认证方式 | 邮箱密码 | NextAuth adapter，加 OAuth 提供商 |
+| 缓存层 | 无缓存 | Redis 语义缓存（相似问题缓存答案） |
 
 ---
 
-## 7. 监控与可观测性
+## 7. 架构演进记录
 
-| 维度 | 工具 | 指标 |
-|------|------|------|
-| 错误追踪 | Sentry | 异常堆栈 + 用户反馈 |
-| 性能监控 | Vercel Analytics | Core Web Vitals |
-| 日志 | 结构化日志（JSON） | 请求链路 + 错误详情 |
-| AI 指标 | 自建 Dashboard | Token 用量 + 延迟 + 成本 |
+| 时间 | 变更 | 原因 | ADR |
+|------|------|------|-----|
+| 2025-01 | 初始架构设计 | 项目启动 | — |
+
+*每次重大架构变更，在 docs/decisions/ 新增 ADR，并在此表格中引用。*

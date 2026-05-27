@@ -52,6 +52,24 @@ pnpm build
 
 ---
 
+## 文档体系索引
+
+> 开始一个新功能前，按需查阅对应文档。
+
+| 文档 | 用途 | 何时查阅 |
+|------|------|---------|
+| [`docs/PRD.md`](docs/PRD.md) | 产品需求、用户故事、验收标准 | 实现新功能前确认 AC |
+| [`docs/SPEC.md`](docs/SPEC.md) | 接口规范、数据模型、非功能约束 | 设计接口或数据结构时 |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 系统架构、数据流、模块职责 | 理解模块关系、设计新模块时 |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | UI 设计规范、组件规范、色彩系统 | 开发 UI 组件时 |
+| [`docs/tasks/CURRENT.md`](docs/tasks/CURRENT.md) | 当前迭代任务、AC、学习进度 | **每天开发前必看** |
+| [`docs/decisions/`](docs/decisions/README.md) | 架构决策记录（ADR） | 遇到「为什么这样设计」的疑问时 |
+| [`docs/learning/progress.json`](docs/learning/progress.json) | 知识点掌握进度 | `/checklist` 命令自动读取 |
+
+**文档优先级**：当文档之间有冲突时，以 `SPEC.md > PRD.md > ARCHITECTURE.md` 为准，并在 `decisions/` 中记录变更原因。
+
+---
+
 ## 技术栈 & 学习目标对照
 
 | 模块 | 技术选型 | 核心学习目标 |
@@ -155,8 +173,6 @@ NEXTAUTH_URL=http://localhost:3000
 
 <!-- LEARNING_FOCUS_START -->
 当前阶段：Phase 1 - 基础搭建
-重点知识：Monorepo + pnpm workspace + TypeScript 严格模式配置
-已完成：0 个知识点
-本周目标：完成 packages/shared 的类型定义层 + 认证系统
-上次学习：2026-05-26T06:34:38.690Z
+重点知识：Monorepo + TypeScript 类型系统
+本周目标：完成 packages/shared 的类型定义层
 <!-- LEARNING_FOCUS_END -->
