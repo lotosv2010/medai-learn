@@ -21,6 +21,7 @@
 - [new 操作符原理](javascript/prototype-oop/new-operator.md) — 4 步执行流程 + 手写实现 + 返回值特殊行为 + ECMA 规范
 - [Object.create 深度解析](javascript/prototype-oop/object-create.md) — 显式控制原型链 + 手写实现 + 寄生组合式继承核心 + Object.create(null) 用途
 - [Class 语法糖深度解析](javascript/prototype-oop/class-syntax.md) — 本质是原型链语法糖 + extends/super 机制 + 与 ES5 构造函数对比 + 私有字段
+- [instanceof 原理](javascript/prototype-oop/instanceof.md) — 原型链遍历查找 + 手写实现 + Symbol.hasInstance + 跨 iframe 问题
 ---
 
 ## TypeScript 深度
