@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 23,
-  "lastSession": "2026-05-28T03:45:38.037Z",
+  "totalSessionCount": 24,
+  "lastSession": "2026-05-28T04:00:00.000Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -22,7 +22,8 @@
             "原型链机制",
             "继承的6种方式",
             "new操作符原理",
-            "Object.create"
+            "Object.create",
+            "Class 语法糖"
           ]
         },
         {
@@ -72,6 +73,7 @@
       "原型链 & 继承": "掌握",
       "new 操作符原理": "理解",
       "Object.create": "理解",
+      "Class 语法糖": "理解",
       "闭包 & 作用域链": "理解",
       "Generator & Iterator": "未开始",
       "内存管理 & GC": "未开始",
