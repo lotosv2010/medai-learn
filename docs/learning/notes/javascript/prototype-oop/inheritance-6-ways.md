@@ -255,3 +255,19 @@ console.log(b.getName());       // 'test'
 console.log(b instanceof A);    // true
 console.log(B.staticMethod());  // 'static'
 ```
+
+<details>
+<summary>💡 点击查看参考答案</summary>
+
+```js
+function inherit(Child, Parent) {
+  // 继承原型方法
+  Child.prototype = Object.create(Parent.prototype);
+  // 修复 constructor 指向
+  Child.prototype.constructor = Child;
+  // 继承静态属性
+  Object.setPrototypeOf(Child, Parent);
+}
+```
+
+</details>
