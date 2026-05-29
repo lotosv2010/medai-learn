@@ -28,6 +28,7 @@
 - [Promise 原理与手写实现](javascript/async/promise-handwrite.md) — 状态机 + 微任务调度 + Resolution Procedure + 手写 Promise/A+ 核心
 - [Promise 组合子：all / race / allSettled / any](javascript/async/promise-combinators.md) — 并发控制策略 + 手写实现 + 并发限制器
 - [async/await 底层原理](javascript/async/async-await.md) — Generator + 自动执行器 + Babel 编译 + 错误处理模式
+- [Generator & Iterator 协议](javascript/async/generator-iterator.md) — Iterator/Iterable 协议 + yield 双向传值 + yield* 委托 + 惰性求值
 ---
 
 ## TypeScript 深度

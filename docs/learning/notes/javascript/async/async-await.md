@@ -643,4 +643,4 @@ function asyncToGenerator<T>(
 > 本文是「异步编程」系列的第 3 篇，关联笔记：
 > - 上一篇：[[promise-combinators]] — Promise 组合子：all / race / allSettled / any
 > - 前置：[[promise-handwrite]] — Promise 原理与手写实现
-> - 待学习：Generator & Iterator 协议（Generator 的完整特性：yield*、return、throw、Symbol.iterator）
+> - 已学习：[[generator-iterator]] — Generator & Iterator 协议

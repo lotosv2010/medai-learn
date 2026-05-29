@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 30,
-  "lastSession": "2026-05-29T03:10:00.000Z",
+  "totalSessionCount": 31,
+  "lastSession": "2026-05-29T03:30:00.000Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -31,7 +31,8 @@
           "异步编程": [
             "Promise 原理与手写",
             "Promise.all/race/allSettled/any",
-            "async/await 底层原理"
+            "async/await 底层原理",
+            "Generator & Iterator"
           ]
         },
         {
@@ -81,7 +82,7 @@
       "Class 语法糖": "理解",
       "instanceof 原理": "理解",
       "闭包 & 作用域链": "理解",
-      "Generator & Iterator": "未开始",
+      "Generator & Iterator": "理解",
       "内存管理 & GC": "未开始",
       "WeakRef & FinalizationRegistry": "未开始"
     },
