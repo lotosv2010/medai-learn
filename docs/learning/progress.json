@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 27,
-  "lastSession": "2026-05-28T10:30:00.000Z",
+  "totalSessionCount": 28,
+  "lastSession": "2026-05-29T02:00:00.000Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -29,7 +29,8 @@
         },
         {
           "异步编程": [
-            "Promise 原理与手写"
+            "Promise 原理与手写",
+            "Promise.all/race/allSettled/any"
           ]
         },
         {
@@ -144,7 +145,7 @@
       "树的遍历 DFS/BFS": "了解",
       "动态规划基础": "未开始",
       "手写 LRU Cache": "未开始",
-      "手写 Promise.all": "未开始",
+      "手写 Promise.all": "理解",
       "节流 & 防抖": "了解",
       "深克隆实现": "了解",
       "EventEmitter 实现": "未开始"
