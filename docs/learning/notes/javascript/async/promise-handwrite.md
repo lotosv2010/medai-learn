@@ -426,6 +426,6 @@ function promiseAll<T>(promises: (T | Promise<T>)[]): Promise<T[]> {
 ---
 
 > ⚠️ 本文是「异步编程」系列的第 1 篇，还有以下内容待学习：
-> - [ ] async/await 底层原理（Generator + 自动执行器）
+> - [x] async/await 底层原理（Generator + 自动执行器） → [[async-await]]
 > - [ ] Generator & Iterator 协议
 > - [x] 手写 Promise.allSettled / Promise.any → [[promise-combinators]]

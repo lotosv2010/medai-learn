@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 28,
-  "lastSession": "2026-05-29T02:00:00.000Z",
+  "totalSessionCount": 30,
+  "lastSession": "2026-05-29T03:10:00.000Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -30,7 +30,8 @@
         {
           "异步编程": [
             "Promise 原理与手写",
-            "Promise.all/race/allSettled/any"
+            "Promise.all/race/allSettled/any",
+            "async/await 底层原理"
           ]
         },
         {
@@ -73,7 +74,7 @@
       "词法环境": "理解",
       "变量提升 & TDZ": "掌握",
       "Promise 手写实现": "理解",
-      "async/await 底层原理": "未开始",
+      "async/await 底层原理": "理解",
       "原型链 & 继承": "掌握",
       "new 操作符原理": "理解",
       "Object.create": "理解",

@@ -592,5 +592,5 @@ function promiseRetry<T>(fn: () => Promise<T>, retries: number): Promise<T> {
 
 > 本文是「异步编程」系列的第 2 篇，关联笔记：
 > - 上一篇：[[promise-handwrite]] — Promise 原理与手写实现
-> - 待学习：async/await 底层原理（Generator + 自动执行器）
+> - 已学习：[[async-await]] — async/await 底层原理（Generator + 自动执行器）
 > - 待学习：Generator & Iterator 协议
