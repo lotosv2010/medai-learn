@@ -22,6 +22,10 @@
 - [Object.create 深度解析](javascript/prototype-oop/object-create.md) — 显式控制原型链 + 手写实现 + 寄生组合式继承核心 + Object.create(null) 用途
 - [Class 语法糖深度解析](javascript/prototype-oop/class-syntax.md) — 本质是原型链语法糖 + extends/super 机制 + 与 ES5 构造函数对比 + 私有字段
 - [instanceof 原理](javascript/prototype-oop/instanceof.md) — 原型链遍历查找 + 手写实现 + Symbol.hasInstance + 跨 iframe 问题
+
+### 异步编程
+
+- [Promise 原理与手写实现](javascript/async/promise-handwrite.md) — 状态机 + 微任务调度 + Resolution Procedure + 手写 Promise/A+ 核心
 ---
 
 ## TypeScript 深度

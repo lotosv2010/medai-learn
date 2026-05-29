@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 26,
-  "lastSession": "2026-05-28T08:30:00.000Z",
+  "totalSessionCount": 27,
+  "lastSession": "2026-05-28T10:30:00.000Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -28,7 +28,9 @@
           ]
         },
         {
-          "异步编程": []
+          "异步编程": [
+            "Promise 原理与手写"
+          ]
         },
         {
           "内存与性能": []
@@ -69,7 +71,7 @@
       "执行上下文与调用栈": "理解",
       "词法环境": "理解",
       "变量提升 & TDZ": "掌握",
-      "Promise 手写实现": "未开始",
+      "Promise 手写实现": "理解",
       "async/await 底层原理": "未开始",
       "原型链 & 继承": "掌握",
       "new 操作符原理": "理解",
