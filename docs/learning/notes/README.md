@@ -29,6 +29,7 @@
 - [Promise 组合子：all / race / allSettled / any](javascript/async/promise-combinators.md) — 并发控制策略 + 手写实现 + 并发限制器
 - [async/await 底层原理](javascript/async/async-await.md) — Generator + 自动执行器 + Babel 编译 + 错误处理模式
 - [Generator & Iterator 协议](javascript/async/generator-iterator.md) — Iterator/Iterable 协议 + yield 双向传值 + yield* 委托 + 惰性求值
+- [并发控制（Concurrency Control）](javascript/async/concurrency-control.md) — Semaphore + 令牌桶 + 断路器 + 指数退避 + p-limit 源码
 ---
 
 ## TypeScript 深度

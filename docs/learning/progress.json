@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 31,
-  "lastSession": "2026-05-29T03:30:00.000Z",
+  "totalSessionCount": 34,
+  "lastSession": "2026-06-01T07:16:41.639Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -32,7 +32,8 @@
             "Promise 原理与手写",
             "Promise.all/race/allSettled/any",
             "async/await 底层原理",
-            "Generator & Iterator"
+            "Generator & Iterator",
+            "并发控制（Semaphore/令牌桶/断路器/指数退避）"
           ]
         },
         {
@@ -83,6 +84,7 @@
       "instanceof 原理": "理解",
       "闭包 & 作用域链": "理解",
       "Generator & Iterator": "理解",
+      "并发控制（Semaphore/令牌桶/断路器）": "理解",
       "内存管理 & GC": "未开始",
       "WeakRef & FinalizationRegistry": "未开始"
     },
