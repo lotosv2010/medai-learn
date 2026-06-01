@@ -173,8 +173,8 @@ NEXTAUTH_URL=http://localhost:3000
 
 <!-- LEARNING_FOCUS_START -->
 当前阶段：Phase 1 - 基础搭建
-重点知识：JavaScript 异步编程深度（AbortController + 流式处理）
-已完成：10 个知识点
+重点知识：TypeScript 类型体操（条件/映射类型 + infer）
+已完成：9 个知识点
 本周目标：完成 packages/shared 的类型定义层 + 认证系统
-上次学习：2026-06-01T10:00:00.000Z
+上次学习：2026-06-01T10:30:00.000Z
 <!-- LEARNING_FOCUS_END -->

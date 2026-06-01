@@ -35,7 +35,8 @@
 
 ## TypeScript 深度
 
-（待开始）
+### 类型体操
+- [条件类型 & 映射类型](typescript/type-gymnastics/conditional-mapped-types.md) — 分布式条件类型 + infer + 键重映射 + 手写工具类型
 
 ---
 
