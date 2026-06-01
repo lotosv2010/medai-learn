@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 36,
-  "lastSession": "2026-06-01T10:30:00.000Z",
+  "totalSessionCount": 38,
+  "lastSession": "2026-06-01T09:19:44.829Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -51,6 +51,9 @@
             "分布式条件类型",
             "infer 关键字",
             "键重映射（as 子句）"
+          ],
+          "泛型体系": [
+            "泛型约束（Generic Constraints）"
           ]
         }
       ]
@@ -102,7 +105,7 @@
     },
     "typescript": {
       "类型体操（条件/映射类型）": "理解",
-      "泛型约束设计": "了解",
+      "泛型约束设计": "理解",
       "工具类型原理（Partial/Required/Pick）": "了解",
       "协变与逆变": "未开始",
       "装饰器": "未开始",

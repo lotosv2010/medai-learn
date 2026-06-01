@@ -38,6 +38,9 @@
 ### 类型体操
 - [条件类型 & 映射类型](typescript/type-gymnastics/conditional-mapped-types.md) — 分布式条件类型 + infer + 键重映射 + 手写工具类型
 
+### 泛型体系
+- [泛型约束（Generic Constraints）](typescript/generics/constraints.md) — extends 约束 + keyof 约束 + 递归约束 + 手写 Pick/Omit
+
 ---
 
 ## React 深度
