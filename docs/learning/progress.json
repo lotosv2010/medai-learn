@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 34,
-  "lastSession": "2026-06-01T07:16:41.639Z",
+  "totalSessionCount": 35,
+  "lastSession": "2026-06-01T10:00:00.000Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -33,7 +33,8 @@
             "Promise.all/race/allSettled/any",
             "async/await 底层原理",
             "Generator & Iterator",
-            "并发控制（Semaphore/令牌桶/断路器/指数退避）"
+            "并发控制（Semaphore/令牌桶/断路器/指数退避）",
+            "AbortController 与异步取消"
           ]
         },
         {
@@ -85,6 +86,7 @@
       "闭包 & 作用域链": "理解",
       "Generator & Iterator": "理解",
       "并发控制（Semaphore/令牌桶/断路器）": "理解",
+      "AbortController": "理解",
       "内存管理 & GC": "未开始",
       "WeakRef & FinalizationRegistry": "未开始"
     },
