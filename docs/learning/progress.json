@@ -3,7 +3,7 @@
   "currentWeek": 1,
   "startDate": "2025-01-01",
   "totalSessionCount": 51,
-  "lastSession": "2026-06-02T10:30:00.000Z",
+  "lastSession": "2026-06-02T11:00:00.000Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -60,6 +60,9 @@
           ],
           "类型守卫": [
             "类型守卫与类型收窄（Type Guards & Narrowing）"
+          ],
+          "变体": [
+            "协变与逆变（Covariance & Contravariance）"
           ]
         }
       ]
@@ -114,7 +117,7 @@
       "泛型约束设计": "理解",
       "工具类型原理（Partial/Required/Pick）": "理解",
       "类型守卫与类型收窄": "理解",
-      "协变与逆变": "未开始",
+      "协变与逆变": "理解",
       "装饰器": "未开始",
       "infer 关键字": "未开始"
     },

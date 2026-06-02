@@ -47,6 +47,9 @@
 ### 类型守卫
 - [类型守卫（Type Guards / Type Narrowing）](typescript/type-guards/type-guards.md) — typeof/instanceof/in + 自定义守卫 + 断言函数 + 可辨识联合 + 控制流分析
 
+### 变体
+- [协变与逆变（Covariance & Contravariance）](typescript/variance/covariance-contravariance.md) — 函数参数逆变 + 返回协变 + readonly 协变 + strictFunctionTypes
+
 ---
 
 ## React 深度
