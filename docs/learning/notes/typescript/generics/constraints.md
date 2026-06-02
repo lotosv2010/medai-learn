@@ -286,25 +286,30 @@ async function request<T extends RequestConfig>(
 
 1. 第一个参数是数组 `T[]`
 2. 第二个参数是 T 的某个属性名 `K extends keyof T`
-3. 返回值类型是 `Record<T[K], T[]>`（按属性值分组）
+3. 返回值类型是 `Record<string, T[]>`（按属性值分组）
 
 写出函数签名和实现，并解释为什么需要泛型约束。
 
+<details>
+<summary><strong>参考答案（点击展开）</strong></summary>
+
 ```ts
-// 你的答案：
-function groupBy<T, K extends keyof T>(list: T[], key: K): Record<T[K] & string, T[]> {
+function groupBy<T, K extends keyof T>(list: T[], key: K): Record<string, T[]> {
   return list.reduce((acc, item) => {
     const groupKey = String(item[key]);
     (acc[groupKey] ??= []).push(item);
     return acc;
-  }, {} as Record<string, T[]>) as any;
+  }, {} as Record<string, T[]>);
 }
-
-// 为什么需要约束？
-// K extends keyof T 保证了 key 一定是 T 的属性，
-// 这样 item[key] 才能正确推导类型，而不是 any。
-// 没有约束的话，K 可以是任意 string，item[key] 就是类型不安全的。
 ```
+
+**关键思路**：
+
+- `K extends keyof T` 约束保证 `key` 一定是 T 的合法属性名，`item[key]` 才能安全访问
+- 没有约束的话 K 可以是任意 string，`item[key]` 会报错或推导为 any
+- 返回值用 `Record<string, T[]>` 而不是 `Record<T[K], T[]>`，是因为 `T[K]` 不一定满足 `keyof any` 约束，用 `String()` 转换后统一为 string 键
+
+</details>
 
 > ⚠️ 本文是「TypeScript 泛型体系」系列的第 1 篇，还有以下内容待学习：
 > - [ ] 泛型推导与 infer

@@ -41,6 +41,9 @@
 ### 泛型体系
 - [泛型约束（Generic Constraints）](typescript/generics/constraints.md) — extends 约束 + keyof 约束 + 递归约束 + 手写 Pick/Omit
 
+### 工具类型
+- [工具类型实现原理（Utility Types）](typescript/utility-types/utility-types-implementation.md) — Partial/Required/Pick/Omit/ReturnType 手写实现 + 底层机制
+
 ---
 
 ## React 深度
