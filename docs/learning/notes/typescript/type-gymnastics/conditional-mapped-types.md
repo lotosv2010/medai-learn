@@ -426,3 +426,5 @@ type Result = DeepPick<Nested, 'a.b.c' | 'f'>;
 > - [ ] 模板字面量类型（Template Literal Types）
 > - [ ] 递归类型与类型计算
 > - [ ] 类型体操实战：type-challenges 精选
+
+> 🔗 **关联**：类型收窄（Type Narrowing）是条件类型在运行时的「镜像」——条件类型在编译时做类型 if-else，类型守卫在运行时做类型 if-else 并触发控制流分析。详见 [[type-guards]]

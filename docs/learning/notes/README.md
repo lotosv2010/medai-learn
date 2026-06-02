@@ -44,6 +44,9 @@
 ### 工具类型
 - [工具类型实现原理（Utility Types）](typescript/utility-types/utility-types-implementation.md) — Partial/Required/Pick/Omit/ReturnType 手写实现 + 底层机制
 
+### 类型守卫
+- [类型守卫（Type Guards / Type Narrowing）](typescript/type-guards/type-guards.md) — typeof/instanceof/in + 自定义守卫 + 断言函数 + 可辨识联合 + 控制流分析
+
 ---
 
 ## React 深度
