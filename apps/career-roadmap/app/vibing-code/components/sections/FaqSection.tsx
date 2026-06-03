@@ -59,6 +59,11 @@ export function FaqSection({ active }: { active: boolean }) {
           <strong style={{ color: 'var(--blue)' }}>MCP 按需开关：</strong>MCP 是主要开销 — 每个 server 注册的工具描述随每次请求发送，少一个 server 省 10–20 个工具体积。推荐<strong>默认全关，用时再开</strong>：<code>claude mcp disable chrome-devtools</code> / <code>claude mcp enable chrome-devtools</code>
         </div>
 
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+          <ImageLightbox src="/images/a21.png" alt="MCP 按需开关示例 1" style={{ width: '100%', borderRadius: 8, border: '1px solid var(--border)' }} />
+          <ImageLightbox src="/images/a24.png" alt="MCP 按需开关示例 2" style={{ width: '100%', borderRadius: 8, border: '1px solid var(--border)' }} />
+        </div>
+
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
           {[
             { scene: '前端调试', tool: 'chrome-devtools' },
