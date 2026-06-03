@@ -587,6 +587,37 @@ claude -p "审查以下代码的安全风险" < src/api/upload.ts`} />
             </tbody>
           </table>
         </div>
+        <div className="table-wrap" style={{ marginBottom: 16 }}>
+          <table>
+            <thead>
+              <tr><th>#</th><th>系统与扩展</th><th>说明</th></tr>
+            </thead>
+            <tbody>
+              {[
+                ['25', '/plugin', '管理插件（安装/卸载/查看已装插件）'],
+                ['26', '/mcp', '管理 MCP 服务器连接状态'],
+                ['27', '/skills', '列出当前可用 Skill（含自定义 + 已安装）'],
+                ['28', '/hooks', '查看已注册的 Hook 配置'],
+                ['29', '/config', '打开交互式设置界面（别名 /settings）'],
+                ['30', '/context [all]', '可视化上下文窗口消耗（比状态栏更详细）'],
+                ['31', '/effort [level]', '设置推理强度：low / medium / high / xhigh / max'],
+                ['32', '/branch [name]', '在当前节点创建对话分支（别名 /fork）'],
+                ['33', '/memory', '编辑 CLAUDE.md 记忆文件'],
+                ['34', '/permissions', '管理工具权限白名单（别名 /allowed-tools）'],
+                ['35', '/usage', '查看费用和 Token 用量（别名 /cost /stats）'],
+                ['36', '/doctor', '诊断安装问题，检查环境是否正常'],
+                ['37', '/login / /logout', '账号登录/登出，切换订阅计划'],
+                ['38', '/export', '导出当前对话为纯文本文件'],
+              ].map(([n, tip, desc]) => (
+                <tr key={n as string}>
+                  <td style={{ fontFamily: 'var(--mono)', color: 'var(--text3)', width: 28 }}>{n}</td>
+                  <td style={{ fontWeight: 500 }}>{tip}</td>
+                  <td>{desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Accordion>
       </SectionGroup>
     </section>

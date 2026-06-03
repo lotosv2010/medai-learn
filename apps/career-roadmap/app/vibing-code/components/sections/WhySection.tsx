@@ -143,6 +143,7 @@ export function WhySection({ active }: { active: boolean }) {
                 ['Figma MCP', '直接读取设计稿', 'claude mcp add figma'],
                 ['数据库 MCP', '直接查表结构/数据', 'claude mcp add <db-mcp>'],
                 ['Sentry MCP', '生产错误上下文直接喂给 Claude', 'claude mcp add sentry'],
+                ['Chrome DevTools MCP', '浏览器性能分析 + 网络请求 + Console 日志', 'claude mcp add chrome-devtools'],
                 ['Git Worktree', '多任务并行隔离', '内置于 git，Claude Code 原生支持'],
               ].map(([tool, use, way]) => (
                 <tr key={tool as string}>
