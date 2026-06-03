@@ -1,6 +1,7 @@
 'use client'
 
 import { Accordion } from '../shared/Accordion'
+import { ImageLightbox } from '../shared/ImageLightbox'
 import { SectionGroup } from '../shared/SectionGroup'
 
 export function FaqSection({ active }: { active: boolean }) {
@@ -15,7 +16,7 @@ export function FaqSection({ active }: { active: boolean }) {
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <img
+          <ImageLightbox
             src="/images/q1.png"
             alt="问题截图：API Error 400 tool description too long"
             style={{ maxWidth: '100%', borderRadius: 8, border: '1px solid var(--border)' }}
@@ -113,7 +114,7 @@ export function FaqSection({ active }: { active: boolean }) {
               {item.images.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10, marginBottom: 4 }}>
                   {item.images.map((src) => (
-                    <img key={src} src={src} alt={`${item.cmd} 示例截图`} style={{ width: '100%', borderRadius: 8, border: '1px solid var(--border)' }} />
+                    <ImageLightbox key={src} src={src} alt={`${item.cmd} 示例截图`} style={{ width: '100%', borderRadius: 8, border: '1px solid var(--border)' }} />
                   ))}
                 </div>
               )}

@@ -2,6 +2,7 @@
 
 import { Accordion } from '../shared/Accordion'
 import { CodeBlock } from '../shared/CodeBlock'
+import { ImageLightbox } from '../shared/ImageLightbox'
 import { CompareBlock } from '../shared/CompareBlock'
 import { ExtendedThinkingCards } from '../shared/ExtendedThinkingCards'
 import { SectionGroup } from '../shared/SectionGroup'
@@ -280,6 +281,7 @@ export function Pillar1Section({ active }: { active: boolean }) {
 ├── history.jsonl                    ← 第1层：全局交互索引（轻量）
 ├── sessions/{pid}.json              ← 第2层：进程级会话注册表
 └── projects/{project}/{uuid}.jsonl  ← 第3层：完整会话内容（重量）`} />
+        <ImageLightbox src="/images/a3.png" alt="会话记录三层存储结构示例" style={{ width: '100%', borderRadius: 8, border: '1px solid var(--border)', margin: '12px 0' }} />
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--purple)', margin: '12px 0 6px' }}>第 1 层：history.jsonl — 全局输入历史</div>
         <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 8 }}>
           仅记录用户每次输入的元数据（文本、时间戳、项目路径、sessionId），不含 AI 回复。
@@ -344,6 +346,10 @@ export function Pillar1Section({ active }: { active: boolean }) {
           索引：history.jsonl 提供全局轻量索引
         </div>
       </Accordion>
+
+      <div style={{ marginTop: 12, padding: '12px 16px', background: 'var(--teal-bg)', borderRadius: 8, borderLeft: '3px solid var(--teal)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
+          <strong style={{ color: 'var(--teal)' }}>源码学习：</strong>想深入了解 Claude Code 的内部实现机制，可参考 <a href="https://github.com/liuup/claude-code-analysis" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>claude-code-analysis</a>，包含目录结构解析、核心模块源码分析与架构梳理。
+        </div>
 
       <h3 className="section-title">CLAUDE.md 完整模板</h3>
       <Accordion title="展开查看：可直接复制使用的 CLAUDE.md 模板" accent="var(--teal)">
