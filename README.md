@@ -47,7 +47,8 @@ medai-learn/
 ├── apps/
 │   ├── web/                    # Next.js 15（React 深度 + 性能优化）
 │   ├── api/                    # Hono + tRPC（Node.js 全栈）
-│   └── ai-engine/             # AI 核心（RAG / Agent / Streaming）
+│   ├── ai-engine/             # AI 核心（RAG / Agent / Streaming）
+│   └── career-roadmap/        # 职业成长演示页（Vibing Code 分享）
 ├── packages/
 │   ├── ui/                     # 基础组件库
 │   ├── shared/                 # 共享类型（TypeScript 深度）

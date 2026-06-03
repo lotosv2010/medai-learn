@@ -168,6 +168,183 @@ export function Pillar1Section({ active }: { active: boolean }) {
         </table>
       </div>
 
+      <h3 className="section-title">全局 ~/.claude/ 目录结构</h3>
+      <Accordion title="展开查看：~/.claude/ 完整目录结构（6 层架构）" accent="var(--purple)">
+        <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 12 }}>
+          <code>~/.claude/</code> 是 Claude Code 的<strong>全局根目录</strong>，整体分为 6 层：
+          全局配置 → 项目隔离 → 会话管理 → 扩展系统 → 运行时数据 → 监控追踪。
+        </div>
+
+        <CodeBlock lang="tree" code={`~/.claude/
+│
+│ ━━━ 全局配置层 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+│
+├── CLAUDE.md                   # 个人全局指令（跨项目生效）
+│                                 如：「始终用中文回复」「输出简洁」
+├── settings.json               # 核心配置：权限、Hooks、插件、环境变量
+├── settings.local.json         # 个人覆盖（调试开关等，不入 git）
+│
+│ ━━━ 项目隔离层 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+│
+├── projects/                   # ⭐ 按项目路径隔离（核心机制）
+│   │
+│   │   目录名 = 绝对路径转义
+│   │   /Users/robin/appA → -Users-robin-appA
+│   │   切换项目 = 切换上下文，记忆互不干扰
+│   │
+│   ├── -Users-robin-projectA/
+│   │   ├── CLAUDE.md           #     项目级指令（读取优先级最高）
+│   │   ├── memory/             #     自动记忆（跨会话持久化）
+│   │   │   ├── MEMORY.md       #       记忆索引（自动维护）
+│   │   │   ├── user_*.md       #       用户画像
+│   │   │   ├── feedback_*.md   #       行为纠正
+│   │   │   ├── project_*.md    #       项目上下文
+│   │   │   └── reference_*.md  #       外部资源指针
+│   │   ├── settings.json       #     项目级个人覆盖
+│   │   └── *.jsonl             #     该项目的会话记录
+│   │
+│   └── -Users-robin-projectB/
+│       └── ...
+│
+│ ━━━ 会话管理层 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+│
+├── sessions/                   # 完整会话数据（每会话一个目录）
+│   └── {session-id}/           #     对话上下文 + 状态
+├── session-env/                # 会话环境快照
+│   └── {session-id}/           #     环境变量 + shell 状态（用于恢复）
+├── session-data/               # 会话临时数据
+│   ├── *.session.tmp           #     临时文件
+│   └── compaction-log.txt      #     上下文压缩日志
+│
+│ ━━━ 扩展系统层 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+│
+├── skills/                     # 技能系统
+│   ├── learned/                #     Claude 自动学习到的技能
+│   └── {skill-name}/           #     安装的技能（符号链接）
+├── plugins/                    # 插件系统
+│   ├── installed_plugins.json  #     已安装插件列表
+│   ├── known_marketplaces.json #     已知插件市场
+│   ├── marketplaces/           #     市场数据
+│   ├── cache/                  #     插件缓存
+│   ├── data/                   #     运行时数据
+│   └── blocklist.json          #     插件黑名单
+├── output-styles/              # 输出样式模板（.md）
+│   └── engineer-professional.md
+├── commands/                   # 自定义斜杠命令
+├── agents/                     # 自定义 Agent 定义
+├── plans/                      # Plan Mode 生成的实现计划
+│
+│ ━━━ 运行时数据层 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+│
+├── file-history/               # 文件编辑历史（按会话 ID 组织）
+│                                 支持撤销和变更追踪
+├── shell-snapshots/            # Zsh 环境快照（~217KB）
+│                                 恢复别名、函数、PATH 等
+├── backups/                    # .claude.json 自动备份（带时间戳）
+├── cache/                      # 通用临时缓存
+├── paste-cache/                # 粘贴内容缓存
+├── downloads/                  # Claude Code 下载文件
+├── tasks/                      # TaskCreate 任务持久化（JSON）
+├── todos/                      # 旧版待办系统（按 Agent 会话）
+│
+│ ━━━ 监控追踪层 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+│
+├── metrics/                    # 费用指标
+│   └── costs.jsonl             #     按会话记录的 API 调用成本
+├── cost-tracker.log            # 费用追踪日志
+├── bash-commands.log           # Bash 命令执行日志
+├── history.jsonl               # 全局命令历史
+├── telemetry/                  # 遥测数据（可禁用）
+├── statsig/                    # 功能开关（Statsig 灰度）
+├── ccline/                     # 状态栏组件
+│   ├── ccline                  #     可执行文件
+│   ├── config.toml             #     状态栏配置
+│   ├── models.toml             #     模型配置
+│   └── themes/                 #     主题文件
+├── ide/                        # IDE 集成（VS Code / JetBrains）
+└── debug/                      # 调试日志`} />
+        <div style={{ marginTop: 12, padding: '12px 16px', background: 'var(--purple-bg, rgba(139,92,246,0.08))', borderRadius: 8, borderLeft: '3px solid var(--purple)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
+          <strong style={{ color: 'var(--purple)' }}>核心设计思路：</strong>按项目隔离 + 会话状态持久化 + 可扩展的技能/插件体系。<br />
+          <code>projects/</code> 是最关键的机制——用<strong>项目绝对路径</strong>作为隔离维度，不同项目的记忆、配置、会话记录<strong>完全独立</strong>。<br />
+          <code>memory/</code> 下的 4 类记忆（user / feedback / project / reference）会在每次对话启动时自动加载，实现"跨会话记忆"。
+        </div>
+      </Accordion>
+
+      <Accordion title="深入：会话记录的三层存储机制" accent="var(--purple)">
+        <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 12 }}>
+          Claude Code 的会话存储采用 <strong>Append-Only JSONL</strong> 格式，每次交互追加一行 JSON，不修改已有记录。
+          整体分为三层，从轻量索引到完整内容逐层深入。
+        </div>
+        <CodeBlock lang="tree" code={`~/.claude/
+│
+├── history.jsonl                    ← 第1层：全局交互索引（轻量）
+├── sessions/{pid}.json              ← 第2层：进程级会话注册表
+└── projects/{project}/{uuid}.jsonl  ← 第3层：完整会话内容（重量）`} />
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--purple)', margin: '12px 0 6px' }}>第 1 层：history.jsonl — 全局输入历史</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 8 }}>
+          仅记录用户每次输入的元数据（文本、时间戳、项目路径、sessionId），不含 AI 回复。
+          纯追加，提供全局输入历史搜索和会话定位索引。
+        </div>
+        <CodeBlock lang="json" code={`{
+  "display": "帮我看看这个项目有什么可以优化的",
+  "timestamp": 1772417112719,
+  "project": "/Users/robin/Downloads/code/AI/my-react-app",
+  "sessionId": "17dd4096-5380-4bd6-b3ea-0b619b4004cc"
+}`} />
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--blue)', margin: '12px 0 6px' }}>第 2 层：sessions/{`{pid}`}.json — 进程注册表</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 8 }}>
+          以 PID 为文件名，记录活跃进程的心跳状态（idle / busy），用于崩溃恢复和会话检测。
+        </div>
+        <CodeBlock lang="json" code={`{
+  "pid": 84334,
+  "sessionId": "842bb59a-d02e-4232-b11b-cead1a72279c",
+  "cwd": "/Users/robin/Downloads/medai-learn",
+  "status": "busy",
+  "version": "2.1.144",
+  "kind": "interactive"
+}`} />
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--teal)', margin: '12px 0 6px' }}>第 3 层：projects/{`{project}`}/{`{uuid}`}.jsonl — 完整会话记录</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 8 }}>
+          核心存储。每个会话一个文件，文件名 = 会话 UUID。每条记录通过 <code>parentUuid</code> 形成<strong>单向链表</strong>。
+        </div>
+        <div className="table-wrap" style={{ marginBottom: 12 }}>
+          <table>
+            <thead><tr><th>记录类型</th><th>作用</th></tr></thead>
+            <tbody>
+              {[
+                ['assistant', 'AI 的回复消息'],
+                ['user', '用户输入消息'],
+                ['attachment', 'Hook 注入的上下文附件'],
+                ['ai-title', '自动生成的会话标题'],
+                ['file-history-snapshot', '文件编辑快照（支持撤销）'],
+                ['last-prompt', '最近 prompt 的缓存'],
+                ['system/turn_duration', '每轮对话耗时统计'],
+                ['system/away_summary', '用户离开后的会话摘要（压缩产物）'],
+                ['system/local_command', '本地命令执行记录'],
+              ].map(([type, desc]) => (
+                <tr key={type as string}>
+                  <td><code style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--teal)' }}>{type}</code></td>
+                  <td style={{ fontSize: 12 }}>{desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--amber)', margin: '12px 0 6px' }}>上下文压缩（Compaction）</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 12 }}>
+          当对话接近上下文窗口限制时，触发 Context Compaction：生成 <code>system/away_summary</code> 将历史压缩为摘要，
+          但<strong>原始 JSONL 记录不删除</strong>。<code>session-data/</code> 中的 <code>.session.tmp</code> 存储压缩后的会话摘要。
+        </div>
+        <div style={{ padding: '12px 16px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.8 }}>
+          写入模式：Append-Only，不修改已有记录<br />
+          粒度：每条消息一个 JSON 行（非增量 diff）<br />
+          关联：通过 parentUuid 链表关联<br />
+          隔离：按项目目录 + 会话 UUID 隔离<br />
+          压缩：触发摘要但不删除原始记录<br />
+          索引：history.jsonl 提供全局轻量索引
+        </div>
+      </Accordion>
+
       <h3 className="section-title">CLAUDE.md 完整模板</h3>
       <Accordion title="展开查看：可直接复制使用的 CLAUDE.md 模板" accent="var(--teal)">
         <CodeBlock lang="markdown" code={`# 项目上下文

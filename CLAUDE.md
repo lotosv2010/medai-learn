@@ -15,7 +15,8 @@ medai-learn/                    ← Monorepo 根（Turborepo + pnpm）
 ├── apps/
 │   ├── web/                    ← Next.js 15 前端（React 深度 + 性能优化）
 │   ├── api/                    ← Hono + Node.js 后端（全栈能力）
-│   └── ai-engine/             ← AI 核心模块（LLM / RAG / Agent）
+│   ├── ai-engine/             ← AI 核心模块（LLM / RAG / Agent）
+│   └── career-roadmap/        ← 职业成长演示页（Vibing Code 分享 / Next.js 15）
 ├── packages/
 │   ├── ui/                     ← 组件库（架构能力 + 工程化）
 │   ├── shared/                 ← 共享类型 / 工具（TypeScript 深度）
@@ -77,6 +78,7 @@ pnpm build
 | `apps/web` | Next.js 15 App Router + React 19 | Fiber 架构 / RSC / SSR / Hooks 原理 |
 | `apps/api` | Hono + tRPC + Drizzle | Node.js 事件循环 / 数据库事务 |
 | `apps/ai-engine` | Vercel AI SDK + LangChain | RAG / Agent / Streaming / Prompt |
+| `apps/career-roadmap` | Next.js 15 App Router + CSS Variables | 演示页架构 / 组件拆分 / 响应式设计 |
 | `packages/ui` | Shadcn + Tailwind + Radix | 组件库架构 / Design System |
 | `packages/shared` | TypeScript 5.x | 类型体操 / 泛型约束 / 工具类型 |
 | `packages/ai-sdk` | OpenAI / Claude / 通义 | 多模型抽象 / 接口设计 |
@@ -176,5 +178,5 @@ NEXTAUTH_URL=http://localhost:3000
 重点知识：Monorepo + pnpm workspace + TypeScript 严格模式配置
 已完成：8 个知识点
 本周目标：完成 packages/shared 的类型定义层 + 认证系统
-上次学习：2026-06-03T08:23:50.824Z
+上次学习：2026-06-03T08:26:23.734Z
 <!-- LEARNING_FOCUS_END -->

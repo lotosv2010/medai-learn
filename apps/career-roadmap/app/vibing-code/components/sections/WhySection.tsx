@@ -56,6 +56,8 @@ export function WhySection({ active }: { active: boolean }) {
         </div>
       </div>
 
+      {false && (
+      <>
       <h3 className="section-title">ROI 数据参考</h3>
       <div className="card-grid-3">
         {[
@@ -70,6 +72,8 @@ export function WhySection({ active }: { active: boolean }) {
           </div>
         ))}
       </div>
+      </>
+      )}
 
       <div className="callout callout-amber" style={{ margin: '20px 0 16px' }}>
         <strong>问题：</strong>这些数字不会自动达成。打开 Claude Code 就开干，和打开 IDE 就开写一样——缺少方法论，效率反而更低。Vibing Code 的核心是<strong>三个支柱</strong>，缺一不可：
