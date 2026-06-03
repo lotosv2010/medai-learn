@@ -85,6 +85,59 @@ export function Pillar1Section({ active }: { active: boolean }) {
 └── tests/
     # unit/ | integration/ | e2e/ | fixtures/
     # Vibing Code 铁律：Claude 必须能通过跑测试来自我验证`} />
+        <div style={{ marginTop: 12, padding: '12px 16px', background: 'var(--blue-bg)', borderRadius: 8, borderLeft: '3px solid var(--blue)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
+          <strong style={{ color: 'var(--blue)' }}>多工具切换 Tip：</strong>同时使用 Claude Code、Codex、Gemini CLI 等多个助手时，可以维护一份 <code>AGENTS.md</code>，有两种接入方式：<br />
+          <strong>方式一（推荐）：</strong>在 CLAUDE.md 末尾用 <code>@AGENTS.md</code> 引用，各工具保持各自入口，内容按需裁剪，灵活且可维护。<br />
+          <strong>方式二：</strong>将 <code>CLAUDE.md</code> 软链接到 <code>AGENTS.md</code>（<code>ln -s AGENTS.md CLAUDE.md</code>），所有工具读同一份文件，零维护成本，但需要内容对所有工具都通用——Windows 环境下软链接有额外权限要求，注意兼容性。
+        </div>
+      </Accordion>
+
+      <h3 className="section-title">真实项目结构：鼎新 chat/</h3>
+      <Accordion title="展开查看：鼎新项目 chat/ 目录结构（生产级参考）" accent="var(--coral)">
+        <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 12 }}>
+          以下是鼎新项目的真实 Claude Code 配置结构，精简至只保留对 AI 有意义的文件。
+        </div>
+        <CodeBlock lang="tree" code={`chat/
+│
+├── CLAUDE.md               # Claude 每次对话必读（项目级）；精简！
+├── README.md               # 项目概述，Claude 会读取
+├── .claudeignore           # 不让 Claude 读取的文件/目录
+│
+├── .claude/
+│   ├── settings.json       # 权限规则、Hooks 注册；团队共享，纳入 git
+│   │
+│   ├── skills/             # Skill = Slash Command，文件名即命令名
+│   │   ├── feat.md         # 功能开发全流程（/feat T1:用户上传）
+│   │   └── cr.md           # Code Review 检查清单（/cr @src/api/upload.ts）
+│   │
+│   ├── rules/              # 细粒度规则文件，CLAUDE.md 中用 @import 引入
+│   │   ├── architecture.md # 架构约束：模块边界、禁止的依赖方向
+│   │   ├── coding.md       # 编码规范：命名、文件结构、禁用 API
+│   │   └── review.md       # Review 标准：性能、安全、可维护性清单
+│   │
+│   ├── hooks/              # Hook 脚本（由 settings.json 注册）
+│   │   ├── post-edit-quality.sh   # 编辑后：自动格式化 + 类型检查
+│   │   └── pre-bash-firewall.sh   # 执行前：危险命令拦截
+│   │
+│   └── agents/             # 专职 Agent 定义
+│       ├── critic-agent.md    # 批判角色：方案确认前挑战假设
+│       └── reviewer-agent.md  # 审查角色：PR 前只读审查
+│
+├── docs/                   # 项目知识库（Claude 的"长期记忆"）
+│   ├── product.md          # 产品背景、用户画像
+│   ├── architecture.md     # 系统架构决策
+│   ├── coding-style.md     # 代码风格详细规范
+│   ├── api-contract.md     # 前后端接口契约
+│   ├── ui-rules.md         # UI 规范、设计 Token
+│   ├── decisions/          # ADR 归档
+│   └── tasks/              # 任务拆解文档归档
+│
+├── tests/
+└── src/`} />
+        <div style={{ marginTop: 12, padding: '12px 16px', background: 'var(--coral-bg, rgba(255,100,80,0.08))', borderRadius: 8, borderLeft: '3px solid var(--coral)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
+          <strong style={{ color: 'var(--coral)' }}>与通用模板的差异：</strong>鼎新项目去掉了 <code>AGENTS.md</code>、<code>settings.local.json</code>、<code>frontend/backend-agent.md</code> 等非必要文件，<br />
+          docs/ 也精简为 6 个核心文档。<strong>越少越好</strong>，只保留 Claude 真正会读的内容。
+        </div>
       </Accordion>
 
       <h3 className="section-title">三层配置体系</h3>
@@ -165,39 +218,109 @@ export function Pillar1Section({ active }: { active: boolean }) {
 - API 契约：@docs/api-contract.md`} />
       </Accordion>
 
-      <h3 className="section-title">真实项目 CLAUDE.md 案例</h3>
-      <Accordion title="展开查看：黄金法则实战 — 每行都问'删掉会怎样'" accent="var(--amber)">
+      <h3 className="section-title">真实项目 CLAUDE.md 案例：鼎新 chat/</h3>
+      <Accordion title="展开查看：鼎新项目 CLAUDE.md（药店 AI 助手 H5）" accent="var(--amber)">
         <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 12 }}>
-          以下是一个真实项目的精简 CLAUDE.md（约 25 行）。每行都是经过黄金法则筛选后的结果。
+          以下是鼎新 chat/ 项目的真实 CLAUDE.md。每行都回答了「删掉会犯什么错」。
         </div>
-        <CodeBlock lang="markdown" code={`# 项目定位
-医疗 AI 助手学习项目，Next.js 15 + Hono + AI SDK。
-# → 删掉：Claude 不知道这是什么项目，会给出通用建议而非针对性方案
+        <CodeBlock lang="markdown" code={`# chat app 上下文
+
+药店 AI 智能助手 H5，基于 Vue 3 + Vant 3，以流式对话为核心交互。
+
+# 通用行为
+
+- 优先编辑文件而非重写整个文件
+- 不要重复读取本次对话中已读过的文件（除非被修改）
+- 输出结果简洁；推理过程和计划必须详尽
 
 # 技术栈
-- 包管理器：pnpm（禁止 npm/yarn）
-# → 删掉：Claude 会用 npm install，破坏 pnpm-lock.yaml
-- 前端：Next.js 15 App Router + React 19
-# → 删掉：Claude 可能用 Pages Router 的写法（getServerSideProps）
-- 后端：Hono + tRPC + Drizzle
-# → 删掉：Claude 可能引入 Express，与现有架构冲突
+
+- 框架：Vue 3 + Vite 2（MPA，此 app 唯一入口）
+- UI：Vant 3（已注册组件见 \`vendors/ui/vant/index.js\`）
+- 状态：Vuex 4（仅 messages，业务状态基本在组件内用 ref/reactive）
+- HTTP：\`apis/request.js\` 封装的 Axios 实例，**禁止直接 import axios**
+- 样式：Less（全局变量自动注入，禁止手动 @import 全局变量文件）
+- Markdown：marked.js（含思考面板、SQL 折叠等自定义扩展）
+- 原生通信：jsBridge（通过 \`useGlobalProperties\` 获取）
+
+# 目录职责
+
+| 目录 | 职责 |
+|------|------|
+| \`apis/\` | 接口定义，\`index.js\` 聚合导出，\`request.js\` HTTP 封装 |
+| \`router/\` | Hash 模式，仅一条路由 \`/\` → \`views/home/index.vue\` |
+| \`store/\` | messages 列表（addMessage / clearMessages），其余状态在组件内管理 |
+| \`startup/\` | 应用初始化，注册 Vant 组件、插件、jsBridge 全局属性 |
+| \`views/home/\` | 核心页面（index.vue + index.less） |
+| \`utils/\` | \`hasToken()\` 检测登录，\`getMallLoginUrl()\` 生成登录跳转地址 |
+| \`hooks/\` | \`useGlobalProperties\` 访问 jsBridge 等全局注入对象 |
+
+# 核心业务逻辑
+
+## 三个视图状态（currentView）
+
+- \`welcome\`：欢迎页，居中输入框 + 技能 Tab + 引导问题
+- \`chat\`：对话视图，消息列表 + 底部输入栏
+- \`empty\`：今日次数用尽
+
+## 关键数据流
+
+1. **初始化**：检测登录 → 拉取预设问题（新手任务）→ 拉取配额 → 恢复上次会话
+2. **发送消息**：验证登录/配额 → \`sendMessage()\` 流式接收 → 打字机效果更新 → 更新配额
+3. **会话恢复**：历史抽屉选择 → \`getRecentConv()\` → 渲染历史消息
+
+## 流式响应
+
+\`sendMessage()\` 在 \`apis/index.js\` 中模拟流式输出（3字/段，30ms 间隔），通过 \`onChunk\` 回调更新 \`assistantMsg.content\`。
+
+## Markdown 扩展
+
+- \`<verification>\` 标签 → 可折叠"分析思考过程"面板
+- \`- 模板：<sql>\` 行 → 可展开 SQL 块
+- 每条回答末尾追加内联 AI 标识徽章（\`.msg-ai-badge\`）
 
 # 命令
-- dev: pnpm dev
-- typecheck: pnpm typecheck
-- test: pnpm test
-# → 删掉：Claude 不知道怎么验证，会跳过类型检查
+
+\`\`\`bash
+# 启动
+npm run dev:chat
+
+# 构建
+npm run build
+\`\`\`
+
+# 代码规范
+
+- 单文件不超过 400 行，超了就拆模块
+- 新增接口函数命名：动词 + 名词，camelCase（如 \`fetchUserInfo\`）
+- 组件样式加 \`scoped\`；全局样式放 \`assets/style/\`
+- 禁止在 app 组件中引用其他 app 的代码，公共逻辑走 \`src/\`
 
 # 禁止事项
-- 禁止引入新 UI 库（已有 shadcn/ui）
-# → 删掉：Claude 做组件时引入 Ant Design，增加 80KB bundle
-- 禁止使用 any 类型
-# → 删掉：Claude 偷懒用 any，类型安全形同虚设
-- 禁止 @ts-ignore
-# → 删掉：Claude 遇到类型错误直接 suppress，问题被隐藏`} />
+
+- 禁止直接 \`import axios\`，统一走 \`apis/request.js\`
+- 禁止在 \`<style>\` 中手动 import 全局 Less 变量
+- 禁止引用其他 app（如 \`@trade/\`、\`@mall/\`）的组件或工具
+- 禁止在 catch 块中吞掉错误，至少 Toast 或 console.error
+
+# 常见陷阱
+
+- \`handleSend\` 作为事件处理器时必须加括号 \`@click="handleSend()"\`，否则会把 MouseEvent 当参数传入
+- Less 嵌套规则须在父选择器 \`{}\` 内，不能在外部使用 \`&\` 引用父类
+- \`typingStatus\` 切换间隔为 8s，文案共 12 条，顺序不要打乱
+
+# 知识库文档
+
+| 文档 | 内容 |
+|------|------|
+| [\`docs/product.md\`](docs/product.md) | 产品背景、功能概览、视图状态 |
+| [\`docs/architecture.md\`](docs/architecture.md) | 目录职责、数据流、依赖说明 |
+| [\`docs/api-contract.md\`](docs/api-contract.md) | 接口列表、认证、错误码、流式处理 |
+| [\`docs/ui-rules.md\`](docs/ui-rules.md) | 主题色、气泡样式、动画、布局约束 |
+| [\`docs/coding-style.md\`](docs/coding-style.md) | 命名规范、禁止事项、常见陷阱 |`} />
         <div style={{ marginTop: 12, padding: '12px 16px', background: 'var(--amber-bg)', borderRadius: 8, borderLeft: '3px solid var(--amber)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
-          <strong style={{ color: 'var(--amber)' }}>关键洞察：</strong>这个 CLAUDE.md 只有 25 行，但每一行都对应一个 Claude 会犯的具体错误。<br />
-          不是"越多越好"，而是"每行都有存在的理由"。超过 50 行？说明你在用它代替文档。
+          <strong style={{ color: 'var(--amber)' }}>关键洞察：</strong>鼎新这份 CLAUDE.md 覆盖了技术栈、目录职责、业务逻辑、禁止事项和常见陷阱。<br />
+          每一条都对应一个 Claude 在没有上下文时会犯的具体错误。知识库文档用 @引用，不内联，保持精简。
         </div>
       </Accordion>
       </SectionGroup>
@@ -361,30 +484,30 @@ fi
 exit 0`} />
       </Accordion>
 
-      <h3 className="section-title">Hook 实战：Before / After</h3>
-      <Accordion title="展开查看：一个真实场景 — 没有 Hook vs 有 Hook" accent="var(--coral)">
-        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--coral)' }}>场景：Claude 编辑了一个 TypeScript 文件</div>
+      <h3 className="section-title">Hook 实战：Before / After（鼎新项目）</h3>
+      <Accordion title="展开查看：鼎新真实场景 — 没有 Hook vs 有 Hook" accent="var(--coral)">
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--coral)' }}>场景：Claude 编辑了一个 Vue 文件</div>
         <div className="card-grid" style={{ marginBottom: 16 }}>
           <div style={{ padding: '14px 16px', border: '1px solid var(--border)', borderLeft: '3px solid var(--coral)', borderRadius: 8, background: 'var(--bg3)' }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--coral)', marginBottom: 8 }}>❌ 没有 Hook</div>
             <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.8 }}>
-              1. Claude 写完代码，继续下一步<br />
-              2. 代码风格不一致（缩进、引号、分号）<br />
-              3. 有一个隐含的类型错误没发现<br />
-              4. 30 分钟后跑 typecheck 才发现<br />
-              5. 回溯定位到 5 个文件之前的问题<br />
-              <span style={{ color: 'var(--coral)', fontWeight: 600 }}>代价：30 分钟 debug</span>
+              1. Claude 修改了 views/home/index.vue<br />
+              2. 直接用了 import axios — 违反禁止事项<br />
+              3. Less 嵌套写在了父选择器外，样式错乱<br />
+              4. 手动跑 ESLint 才发现两处违规<br />
+              5. 回溯已有 3 条消息，定位耗时<br />
+              <span style={{ color: 'var(--coral)', fontWeight: 600 }}>代价：20 分钟 debug</span>
             </div>
           </div>
           <div style={{ padding: '14px 16px', border: '1px solid var(--border)', borderLeft: '3px solid var(--teal)', borderRadius: 8, background: 'var(--bg3)' }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--teal)', marginBottom: 8 }}>✅ 有 PostToolUse Hook</div>
             <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.8 }}>
-              1. Claude 写完代码<br />
-              2. Hook 自动触发 prettier 格式化 ✓<br />
-              3. Hook 自动跑 typecheck<br />
-              4. 类型错误通过 stderr 反馈给 Claude<br />
-              5. Claude 立即修复，继续下一步<br />
-              <span style={{ color: 'var(--teal)', fontWeight: 600 }}>代价：0 分钟，自动修复</span>
+              1. Claude 修改了 views/home/index.vue<br />
+              2. Hook 自动触发 ESLint --fix ✓<br />
+              3. axios 直接引用被规则拦截，stderr 报错<br />
+              4. Claude 立即改用 apis/request.js<br />
+              5. Less 嵌套警告同步修复，继续下一步<br />
+              <span style={{ color: 'var(--teal)', fontWeight: 600 }}>代价：0 分钟，自动纠错</span>
             </div>
           </div>
         </div>
@@ -397,42 +520,127 @@ exit 0`} />
 
       <SectionGroup title="Skills 与文件管理" accent="var(--amber)">
       <h3 className="section-title">Skills（Slash Command）模板</h3>
-      <Accordion title="展开查看：/feat 和 /cr 的完整模板" accent="var(--teal)">
-        <CodeBlock lang="markdown" code={`---
-# .claude/skills/feat/SKILL.md
-description: 功能开发全流程：Research → Plan → 确认 → Implement → Verify
-argument-hint: <任务描述或 FEAT-xxx 编号>
----
+      <Accordion title="展开查看：/feat 完整 Skill（端到端需求交付）" accent="var(--teal)">
+        <CodeBlock lang="yaml" code={`---
+name: feat
+description: |
+  端到端需求交付流程，覆盖全生命周期：需求分析 → ADR 方案设计 → 任务拆解 →
+  逐任务实现 → 测试用例 → Code Review → 交付确认。
+triggers:
+  - 新需求 / 新功能 / 实现需求 / 需求交付
+  - 分析需求 / 拆分任务 / 写PRD / 写ARD
+  - Code Review / CR / 代码审查
+  - 写测试用例
+invocable: true
+arguments:
+  - name: requirement
+    hint: "<需求描述>"
+    required: true
+capabilities: [read, write, search, execute]
+extensions:
+  claude:
+    allowed-tools: "Read Write Edit Glob Grep Bash Agent"
+---`} />
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--teal)', margin: '12px 0 6px' }}>流程全景</div>
+        <CodeBlock lang="plain" code={`P1:需求理解 → P2:ADR方案设计 → P3:任务拆解 → P4:逐任务实现 → P5:测试用例 → P6:Code Review → P7:交付确认
+  5W1H         备选方案+推荐       INVEST+可追溯ID    遵循rules/*       金字塔+六维      六维评分+四级严重度   变更清单+验证状态
+  In/Out       写入decisions/     写入CURRENT.md      每任务更新状态    AC覆盖矩阵      Critical归零方可合并   文档传导`} />
+        <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, margin: '8px 0 12px', padding: '10px 14px', background: 'var(--bg2)', borderRadius: 8 }}>
+          <strong>设计原则：</strong>SKILL.md 只写框架型判断；完整模板和评分细则放入 <code>references/</code>，按需读取。<br />
+          阶段可独立触发：先检查上下文是否有前序产出，有则复用，无则直接执行。
+        </div>
 
-执行以下功能开发流程，任务：$ARGUMENTS
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--blue)', margin: '12px 0 6px' }}>P1：需求理解</div>
+        <CodeBlock lang="markdown" code={`目标：5W1H + In/Out Scope + 假设登记册
+读取顺序：docs/PRD.md → SPEC.md → ARCHITECTURE.md → DESIGN.md → tasks/CURRENT.md → decisions/ → .claude/rules/
 
-**阶段一 Research（只读，不修改任何文件）**
-阅读相关文件，了解现有实现模式，识别可复用的代码。
+产出：
+- 需求概述（一句话）+ PRD 章节归属
+- In Scope / Out of Scope 功能边界表格
+- 涉及应用/模块/队列/数据表/契约清单
+- 假设与风险登记册（编号 + 影响 + 优先级）
+- 关键约束（如 SDK 无 Node API、不绕过 GatewayModule）
+- 追问清单（≤3 条，有疑问时）
 
-**阶段二 Plan**
-输出实现计划：修改文件清单 + 实现步骤 + 验收标准。
-等待我确认计划后再进入下一阶段。
+质量门：In/Out Scope 明确，高优先级风险已标记，无疑问时直接进入 P2`} />
 
-**阶段三 Implement**
-按确认后的计划实现，每步完成后运行 pnpm typecheck。
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--teal)', margin: '12px 0 6px' }}>P2：方案设计（ADR）</div>
+        <CodeBlock lang="markdown" code={`目标：产出架构决策记录，作为实现契约
 
-**阶段四 Verify**
-运行 pnpm test，全部通过后输出变更摘要。
-如有 UI 改动，截图说明与设计稿的差异。`} />
-        <CodeBlock lang="markdown" code={`---
-# .claude/skills/cr/SKILL.md
-description: Code Review：输出 Critical / Warning / Suggestion 三级问题报告
-argument-hint: <@文件路径 或 改动描述>
----
+文档类型决策树：
+├─ 涉及 UI/用户交互 → PRD（references/prd-template.md）
+├─ 涉及新接口/数据模型/队列 → ARD（references/ard-template.md）
+├─ 涉及架构决策 → ADR（docs/decisions/）
+└─ 轻量变更 → 直接更新 docs/SPEC.md，不建独立文档
 
-以 @.claude/agents/reviewer-agent.md 的角色，审查：$ARGUMENTS
+执行：1~3 个备选方案 → 推荐方案 → 写入 ADR + 更新索引 → 输出摘要请求 Review
 
-按以下维度检查，只读不修改，输出三级报告：
-🔴 Critical（必须修复才能合并）
-🟡 Warning（强烈建议修复）
-🔵 Suggestion（可选优化）
+质量门：≥1 备选方案被评估，推荐方案符合架构红线，ADR 已写入
+⛔ 卡点：须等用户确认 ADR 后才进入 P3`} />
 
-检查维度：安全漏洞、类型缺口、未处理的错误路径、性能风险、可维护性。`} />
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--purple)', margin: '12px 0 6px' }}>P3：任务拆解</div>
+        <CodeBlock lang="markdown" code={`目标：INVEST 原则 + 垂直切片 + 可追溯 ID 链
+
+可追溯 ID 体系：
+REQ-001 → ADR-NNNN → TX.Y.Z（CURRENT.md 任务）→ TC-U01（测试用例）→ CR-C01（CR 问题）
+
+格式：[ ] TX.Y.Z {标题} — {估时}d + 输入/输出/Given-When-Then AC/依赖
+粒度：≤1 人日（AI 约 1~2 轮对话），底层先于上层
+
+质量门：每个 Story 可独立交付，每个 Task 有 Given/When/Then AC，依赖显式标注
+⛔ 卡点：须等用户确认任务拆解后才进入 P4`} />
+
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--amber)', margin: '12px 0 6px' }}>P4：逐任务实现</div>
+        <CodeBlock lang="markdown" code={`每任务流程：
+1. 切换状态 [ ] → [~]，更新 CURRENT.md
+2. 先读后写：理解现有实现模式
+3. 编码 + 测试（测试放 <package>/tests/，禁止散落 src/）
+4. 本地验证：pnpm typecheck && pnpm lint && pnpm test
+5. 自检：对照 .claude/rules/review.md Checklist
+6. Demo + 文档传导（用户可感知需求必做）
+7. 收尾 [~] → [x] + 日期，更新"当前焦点"
+
+质量门：typecheck/lint/test 全通过，文档已传导
+⚠️ 禁止自动 git commit/push`} />
+
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--blue)', margin: '12px 0 6px' }}>P5：测试用例设计</div>
+        <CodeBlock lang="markdown" code={`测试金字塔：E2E 10% / 集成 30% / 单元 60%
+
+六维用例设计：
+- Happy Path：正常输入 → 期望输出
+- 边界值：空值/零值/最大最小值
+- 异常输入：非法类型/超长/恶意 payload
+- 并发/竞态：幂等性/重复提交
+- 权限/安全：未授权 401 / 越权 403
+- 性能边界：大数据量/高频调用/超时
+
+产出：AC 覆盖矩阵 + 单元/集成/E2E 测试（测试文件在 tests/）
+质量门：AC 覆盖 100%，Happy Path + 边界 + 异常三维已覆盖`} />
+
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--coral)', margin: '12px 0 6px' }}>P6：Code Review（六维评分）</div>
+        <CodeBlock lang="markdown" code={`评分维度（权重）：
+- 正确性 25 | 可读性 20 | 可维护性 20 | 安全性 15 | 性能 10 | 测试覆盖 10
+
+严重度：
+🔴 Critical（阻塞合并）→ Bug/安全漏洞/数据损坏/架构红线违反
+🟠 Major（强烈建议）→ 影响可维护性/性能/扩展性
+🟡 Minor（建议）→ 代码质量可后续改进
+🔵 Nitpick（可选）→ 风格/习惯问题
+
+速查 🔴：any/空 catch/apps 间 import/硬编码密钥/SQL 注入
+速查 🟠：队列名硬编码/N+1/手写类型代替 z.infer<>/测试文件在 src/
+
+评级：≥90 ✅ / 75-89 🟡 / 60-74 🟠 / <60 🔴
+质量门：Critical = 0，总分 ≥ 75，每扣分项附 Before/After
+⛔ 卡点：有 Critical 时须修复后重审`} />
+
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--teal)', margin: '12px 0 6px' }}>P7：交付确认</div>
+        <CodeBlock lang="markdown" code={`交付摘要包含：
+- 可追溯链路：REQ → ADR → Tasks → TCs → CRs（全部 Closed）
+- 变更清单：新增/修改文件 + SPEC/ARCHITECTURE/DESIGN 更新状态
+- Demo + docs：场景路径 + 触发方式 + 使用说明落点
+- 文档传导：PRD/SPEC/ARCHITECTURE/DESIGN/ADR/CURRENT/GETTING_STARTED/README/CLAUDE
+- 验证状态：typecheck / lint / test / SDK 体积预算 | CR：总分 / Critical / Major / 评级`} />
       </Accordion>
 
       <h3 className="section-title">.claudeignore 参考</h3>
