@@ -174,7 +174,7 @@ NEXTAUTH_URL=http://localhost:3000
 <!-- LEARNING_FOCUS_START -->
 当前阶段：Phase 1 - 基础搭建
 重点知识：Monorepo + pnpm workspace + TypeScript 严格模式配置
-已完成：10 个知识点
+已完成：8 个知识点
 本周目标：完成 packages/shared 的类型定义层 + 认证系统
-上次学习：2026-06-02
+上次学习：2026-06-03T03:04:20.366Z
 <!-- LEARNING_FOCUS_END -->

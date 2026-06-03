@@ -154,6 +154,10 @@ html, body {
   display: block;
 }
 
+.section-hero.active {
+  display: flex;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
