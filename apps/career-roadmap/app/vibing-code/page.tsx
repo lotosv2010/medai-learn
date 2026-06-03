@@ -13,12 +13,12 @@ import { TakeawaysSection } from './components/sections/TakeawaysSection'
 type SectionId = 'hero' | 'why' | 'pillar1' | 'pillar2' | 'pillar3' | 'team' | 'faq' | 'takeaways'
 
 const navItems: { id: SectionId; label: string }[] = [
-  { id: 'hero', label: '封面' },
+  { id: 'hero', label: '开始' },
   { id: 'why', label: '超级新人' },
-  { id: 'pillar1', label: '支柱一：配置即记忆' },
-  { id: 'pillar2', label: '支柱二：流程即纪律' },
-  { id: 'pillar3', label: '支柱三：验证即信任' },
-  { id: 'team', label: '团队推广路线' },
+  { id: 'pillar1', label: '配置' },
+  { id: 'pillar2', label: '流程' },
+  { id: 'pillar3', label: '检查' },
+  { id: 'team', label: '团队落地' },
   { id: 'takeaways', label: '总结与收获' },
   { id: 'faq', label: '常见问题' },
 ]
@@ -50,8 +50,8 @@ export default function VibingCodePage() {
     <div className="app">
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
-          <div className="logo-tag">SHARING · 2026.06.06</div>
-          <h1>Vibing Code<br />最佳实践</h1>
+          <div className="logo-tag">SHARING · 2026.06</div>
+          <h1>Vibing Code<br />实践分享</h1>
         </div>
         <nav className="nav">
           <div className="nav-group">

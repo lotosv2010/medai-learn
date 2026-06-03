@@ -7,7 +7,7 @@ import { ChecklistBlock } from '../shared/ChecklistBlock'
 export function TeamSection({ active }: { active: boolean }) {
   return (
     <section className={`section ${active ? 'active' : ''}`}>
-      <h1 className="page-title">团队推广路线</h1>
+      <h1 className="page-title">团队落地</h1>
       <p className="page-sub">从个人习惯到团队规范，不是一步到位的</p>
 
       <div className="callout callout-teal">
@@ -36,10 +36,10 @@ settings.json 只在自己机器上
       <h3 className="section-title">分阶段上手路线</h3>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
         {[
-          { phase: 'Week 1-2', badge: '地基', items: ['配置好 CLAUDE.md（50 行以内）', '新任务开新 Session（建立肌肉记忆）', '验证三连：typecheck → test → lint'], goal: '目标：养成 Verification First 的习惯', color: 'var(--blue)', bg: 'var(--blue-bg)', borderColor: 'var(--blue)' },
-          { phase: 'Week 3-4', badge: '结构化', items: ['Plan Mode + ADR 流程', '任务拆解文档（FEAT-xxx.md）', 'Critic Agent 在方案后单点介入'], goal: '目标：复杂任务不再"直接开干"', color: 'var(--teal)', bg: 'var(--teal-bg)', borderColor: 'var(--teal)' },
-          { phase: 'Month 2', badge: '自动化', items: ['Hooks（formatter + 安全门）', '沉淀第一批 Skills（/feat /cr）', '团队共享 .claude/settings.json'], goal: '目标：重复错误被系统拦截，不靠记忆', color: 'var(--amber)', bg: 'var(--amber-bg)', borderColor: 'var(--amber)' },
-          { phase: 'Month 3+', badge: '规模化', items: ['Reviewer Agent + Worktree 并行', 'Extended Thinking 按场景选档位', 'CI 集成 claude -p 无头模式'], goal: '目标：专注判断和方向，把执行交给系统', color: 'var(--text3)', bg: 'var(--bg2)', borderColor: 'var(--text3)' },
+          { phase: '阶段一', badge: '地基', items: ['配置好 CLAUDE.md（50 行以内）', '新任务开新 Session（建立肌肉记忆）', '验证三连：typecheck → test → lint'], goal: '目标：养成 Verification First 的习惯', color: 'var(--blue)', bg: 'var(--blue-bg)', borderColor: 'var(--blue)' },
+          { phase: '阶段二', badge: '结构化', items: ['Plan Mode + ADR 流程', '任务拆解文档（FEAT-xxx.md）', 'Critic Agent 在方案后单点介入'], goal: '目标：复杂任务不再"直接开干"', color: 'var(--teal)', bg: 'var(--teal-bg)', borderColor: 'var(--teal)' },
+          { phase: '阶段三', badge: '自动化', items: ['Hooks（formatter + 安全门）', '沉淀第一批 Skills（/feat /cr）', '团队共享 .claude/settings.json'], goal: '目标：重复错误被系统拦截，不靠记忆', color: 'var(--amber)', bg: 'var(--amber-bg)', borderColor: 'var(--amber)' },
+          { phase: '阶段四', badge: '规模化', items: ['Reviewer Agent + Worktree 并行', 'Extended Thinking 按场景选档位', 'CI 集成 claude -p 无头模式'], goal: '目标：专注判断和方向，把执行交给系统', color: 'var(--text3)', bg: 'var(--bg2)', borderColor: 'var(--text3)' },
         ].map((s) => (
           <div key={s.phase} style={{ padding: '18px', border: '1px solid var(--border)', borderTop: `3px solid ${s.borderColor}`, borderRadius: 10, background: s.bg }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -71,7 +71,7 @@ settings.json 只在自己机器上
       <Accordion title="展开查看：三种典型阻力及应对" accent="var(--coral)">
         <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>
           <strong>阻力：</strong>&quot;配置这么麻烦，直接写代码更快。&quot;<br />
-          <strong>应对：</strong>&quot;前 3 个项目花 10 分钟写 CLAUDE.md，第 4 个项目 AI 开口就在状态，不用再解释一遍'我们用 pnpm、用 shadcn、不许引入新库'。&quot;<br /><br />
+          <strong>应对：</strong>&quot;前 3 个项目花 10 分钟写 CLAUDE.md，第 4 个项目 AI 开口就在状态，不用再解释一遍'我们用 pnpm、用 antd、不许引入新库'。&quot;<br /><br />
           <strong>阻力：</strong>&quot;AI 写的代码质量不行。&quot;<br />
           <strong>应对：</strong>&quot;质量不是靠 AI 自觉，是靠你的验收标准。Prompt 里不给标准 = 开盲盒。&quot;<br /><br />
           <strong>阻力：</strong>&quot;走流程太浪费时间。&quot;<br />

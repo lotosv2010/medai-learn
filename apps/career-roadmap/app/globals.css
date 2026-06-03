@@ -146,7 +146,7 @@ html, body {
 .section {
   display: none;
   padding: 40px 48px;
-  max-width: 880px;
+  max-width: 980px;
   animation: fadeIn 0.2s ease;
 }
 
@@ -630,6 +630,18 @@ tr:hover td {
 .callout-amber {
   background: var(--amber-bg);
   border-color: var(--amber);
+  color: var(--text2);
+}
+
+.callout-blue {
+  background: var(--blue-bg);
+  border-color: var(--blue);
+  color: var(--text2);
+}
+
+.callout-coral {
+  background: var(--coral-bg);
+  border-color: var(--coral);
   color: var(--text2);
 }
 

@@ -8,7 +8,7 @@ import { SectionGroup } from '../shared/SectionGroup'
 export function Pillar3Section({ active }: { active: boolean }) {
   return (
     <section className={`section ${active ? 'active' : ''}`}>
-      <h1 className="page-title">支柱三：验证即信任</h1>
+      <h1 className="page-title">检查</h1>
       <p className="page-sub">没有验证，Vibing 效率全还给 debug</p>
 
       <div className="callout callout-teal">
@@ -20,7 +20,7 @@ export function Pillar3Section({ active }: { active: boolean }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
         {[
           { label: 'Level 5：AI Code Review', desc: '/cr 触发 reviewer-agent，PR 前必跑', color: 'var(--purple)', bg: 'var(--purple-bg)', border: 'var(--purple)' },
-          { label: 'Level 4：视觉验证', desc: '截图对比设计稿，UI 改动必须过这关', color: 'var(--amber)', bg: 'var(--amber-bg)', border: 'var(--amber)' },
+          { label: 'Level 4：视觉验证', desc: '截图 + Figma MCP 结构化比对 + Chrome DevTools 自动截图，三层验证', color: 'var(--amber)', bg: 'var(--amber-bg)', border: 'var(--amber)' },
           { label: 'Level 3：E2E 测试', desc: 'pnpm e2e — 关键用户路径，改动涉及流程必跑', color: 'var(--teal)', bg: 'var(--teal-bg)', border: 'var(--teal)' },
           { label: 'Level 2：单元/集成测试', desc: 'pnpm test — 核心逻辑护城河，新功能必须覆盖', color: 'var(--blue)', bg: 'var(--blue-bg)', border: 'var(--blue)' },
           { label: 'Level 1：类型检查', desc: 'pnpm typecheck — 零成本，每次修改必跑，0 容忍', color: 'var(--coral)', bg: 'var(--coral-bg)', border: 'var(--coral)' },
@@ -34,6 +34,63 @@ export function Pillar3Section({ active }: { active: boolean }) {
           </div>
         ))}
       </div>
+
+      <h3 className="section-title">Level 4 视觉验证详解</h3>
+      <Accordion title="展开查看：截图 + Figma MCP + Chrome DevTools 三层验证" accent="var(--amber)">
+        <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 16 }}>
+          视觉验证不能只靠「肉眼扫一眼」。三层手段各有分工：截图看整体效果，Figma MCP 查结构参数，Chrome DevTools 自动化截取。
+        </div>
+
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--amber)', margin: '12px 0 6px' }}>手段一：截图对比（基础，人工比对）</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 12 }}>
+          最直接的方式 — 截图实现效果，与设计稿并排对比。适合快速验证布局、颜色、间距是否大致正确。
+        </div>
+        <CodeBlock lang="markdown" code={`Prompt 示例：
+请截图当前页面，与 @docs/ui-rules.md 中的设计规范对比，
+列出视觉差异（颜色、间距、字号、圆角）。`} />
+
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--blue)', margin: '16px 0 6px' }}>手段二：Figma MCP 结构化验证（精准，参数级比对）</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 12 }}>
+          Figma MCP 不做像素对比，但能把设计稿的 tokens（颜色、间距、字号、圆角）提取为结构化数据，与代码中的实际值逐项比对。<strong>适合验证「参数是否忠实还原」而非「视觉是否好看」。</strong>
+        </div>
+        <CodeBlock lang="markdown" code={`# 典型工作流：
+1. Figma MCP 读取设计稿 → 提取 tokens（spacing / color / typography / radius）
+2. 代码中 grep 对应的 CSS 变量或 Tailwind class
+3. 逐项对比，输出差异报告
+
+Prompt 示例：
+用 Figma MCP 读取 [设计稿链接] 的 design tokens，
+然后检查 @src/components/AvatarUploader.tsx 中的样式值，
+列出所有不一致的间距、颜色、字号。`} />
+        <div style={{ padding: '10px 14px', background: 'var(--blue-bg)', borderRadius: 8, borderLeft: '3px solid var(--blue)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, margin: '8px 0 12px' }}>
+          <strong style={{ color: 'var(--blue)' }}>社区工具参考：</strong><code>figma-refine</code>（3 层截图验证）、<code>figma-ui-mcp</code>（读取设计为结构化数据）、<code>work-with-design-systems</code>（WCAG 检查 + 组件评分）。官方 Figma MCP 侧重设计上下文桥接，像素对比仍需人工。
+        </div>
+
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--teal)', margin: '16px 0 6px' }}>手段三：Chrome DevTools MCP 自动截图（自动化，可集成 CI）</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 12 }}>
+          用 Chrome DevTools MCP 的 <code>take_screenshot</code> 自动截取实现效果，省去手动截图。结合 <code>navigate_page</code> 可在多个断点自动截取，适合响应式验证。
+        </div>
+        <CodeBlock lang="markdown" code={`Prompt 示例：
+用 Chrome DevTools MCP 打开 http://localhost:3000/profile，
+分别在 1440px 和 375px 宽度下截图，
+对比 @docs/ui-rules.md 中的响应式断点规范。`} />
+        <div style={{ padding: '10px 14px', background: 'var(--teal-bg)', borderRadius: 8, borderLeft: '3px solid var(--teal)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, margin: '8px 0' }}>
+          <strong style={{ color: 'var(--teal)' }}>与 Lighthouse 配合：</strong>Chrome DevTools MCP 还支持 <code>lighthouse_audit</code>，一次跑完可访问性 + SEO + 最佳实践，截图 + 审计一步到位。
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 16 }}>
+          {[
+            { title: '截图对比', desc: '看整体效果\n人工并排比对\n快速粗筛', color: 'var(--amber)', bg: 'var(--amber-bg)' },
+            { title: 'Figma MCP', desc: '查结构参数\ntokens 级精比对\n验证还原度', color: 'var(--blue)', bg: 'var(--blue-bg)' },
+            { title: 'DevTools MCP', desc: '自动截取\n多断点响应式\n可集成 CI', color: 'var(--teal)', bg: 'var(--teal-bg)' },
+          ].map((s) => (
+            <div key={s.title} style={{ padding: '12px 14px', borderRadius: 8, background: s.bg, borderLeft: `3px solid ${s.color}` }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: s.color, marginBottom: 4 }}>{s.title}</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{s.desc}</div>
+            </div>
+          ))}
+        </div>
+      </Accordion>
 
       <h3 className="section-title">Test-Driven Vibing（推荐）</h3>
       <div className="card" style={{ marginBottom: 16 }}>

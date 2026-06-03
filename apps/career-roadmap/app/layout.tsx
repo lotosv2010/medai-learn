@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'AI 工程师职业路线图 · 前端10年老兵的系统学习手册',
-  description: '基于 10 年前端经验 + 医疗电商背景 + 当前 AI 就业市场的综合分析',
+  title: 'Vibing Code 实践分享',
+  description: 'Vibing Code 是一套 AI 协作工程实践——通过配置、流程、检查三个支柱，让 AI 从「随机生成」变成「可控生产力」。',
 }
 
 export default function RootLayout({

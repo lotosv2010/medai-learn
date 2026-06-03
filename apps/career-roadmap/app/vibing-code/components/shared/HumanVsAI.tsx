@@ -46,7 +46,6 @@ export function HumanVsAI() {
       </div>
       <div style={{ padding: '12px 16px', borderLeft: '3px solid var(--blue)', borderRadius: '0 8px 8px 0', background: 'var(--blue-bg)', fontSize: 13, lineHeight: 1.6, color: 'var(--text)' }}>
         <strong style={{ color: 'var(--blue)' }}>AI 不懂但你懂的：</strong> 业务上下文 · 历史包袱 · 工程权衡 · 团队文化 · 产品直觉 · <strong>风险嗅觉</strong>
-        <br /><span style={{ color: 'var(--text3)', fontSize: 12 }}>这些才是 10 年经验的真实价值，也是 AI 唯一的盲区。</span>
       </div>
     </div>
   )

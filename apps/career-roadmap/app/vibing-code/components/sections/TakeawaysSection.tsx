@@ -11,31 +11,22 @@ export function TakeawaysSection({ active }: { active: boolean }) {
       <h3 className="section-title">持续改进循环</h3>
       <WeeklyFourQuestions />
 
-      <div style={{ marginTop: 40, padding: '40px 32px', background: 'var(--bg2)', borderRadius: 10, border: '1px solid var(--border)', textAlign: 'center' }}>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)', letterSpacing: 3, marginBottom: 20 }}>TAKEAWAYS</div>
-        <h2 style={{ fontSize: 'clamp(36px, 5vw, 56px)', fontFamily: 'var(--serif)', color: 'var(--text)', lineHeight: 0.9, letterSpacing: 2, fontWeight: 700, margin: '0 0 24px' }}>
-          THREE<br /><span style={{ color: 'var(--teal)' }}>THINGS</span>
-        </h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 540, margin: '0 auto', textAlign: 'left' }}>
+      <h3 className="section-title" style={{ marginTop: 40 }}>Vibing Code 的本质</h3>
+      <div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {[
-            { num: '01', color: 'var(--blue)', title: '验证三连 + 一任务一 Session', desc: '这两个习惯，是今天能带走的最高价值' },
-            { num: '02', color: 'var(--teal)', title: 'CLAUDE.md 黄金法则', desc: '删掉这行 Claude 会犯什么错？说得出留，说不出删' },
-            { num: '03', color: 'var(--amber)', title: '你的判断力才是护城河', desc: 'AI 负责生成，工程师负责判断。10 年经验不是负担，是杠杆' },
-          ].map((t) => (
-            <div key={t.num} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-              <span style={{ fontSize: 28, color: t.color, flexShrink: 0, lineHeight: 1.2, fontFamily: 'var(--serif)', fontWeight: 700 }}>{t.num}</span>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 600 }}>{t.title}</div>
-                <div style={{ fontSize: 13, color: 'var(--text2)' }}>{t.desc}</div>
-              </div>
+            { layer: '表层', result: '更准确的代码 + 更少的 token', color: 'var(--blue)' },
+            { layer: '中层', result: '减少 AI 协作中的不确定性', color: 'var(--teal)' },
+            { layer: '深层', result: '让工程师的时间从「生成」转移到「判断」', color: 'var(--amber)' },
+          ].map((item) => (
+            <div key={item.layer} style={{ display: 'flex', gap: 18, alignItems: 'flex-start', padding: '16px 20px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--bg3)' }}>
+              <div style={{ fontSize: 40, fontFamily: 'var(--serif)', fontWeight: 700, color: item.color, lineHeight: 1, flexShrink: 0 }}>{item.layer}</div>
+              <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.7 }}>{item.result}</div>
             </div>
           ))}
         </div>
-        <div style={{ marginTop: 28, fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text3)' }}>
-          感谢参与 ·{" "}
-          <a href="https://docs.anthropic.com/en/docs/claude-code/best-practices" target="_blank" style={{ color: 'var(--teal)', textDecoration: 'none' }}>
-            docs.anthropic.com/claude-code ↗
-          </a>
+        <div style={{ marginTop: 12, padding: '12px 16px', borderLeft: '3px solid var(--blue)', borderRadius: '0 8px 8px 0', background: 'var(--blue-bg)', fontSize: 13, color: 'var(--text)' }}>
+          <strong style={{ color: 'var(--blue)' }}>本质：</strong>所有配置和文档的目的，不是为了省 token——而是为了降低 AI 协作的不确定性。三个支柱都在解决同一个问题：AI 的输出不可预测。
         </div>
       </div>
     </section>

@@ -9,14 +9,28 @@ export function HeroSection({ active }: { active: boolean }) {
       <h1 style={{ fontSize: 'clamp(72px, 11vw, 130px)', fontFamily: 'var(--serif)', color: 'var(--text)', lineHeight: 0.9, letterSpacing: 2, fontWeight: 700, margin: 0 }}>
         VIBING<br /><span style={{ color: 'var(--teal)' }}>CODE</span>
       </h1>
-      <div style={{ fontSize: 'clamp(26px, 3.8vw, 46px)', color: 'var(--text2)', marginTop: 6, letterSpacing: 4, fontFamily: 'var(--serif)' }}>最佳实践</div>
+      <div style={{ fontSize: 'clamp(26px, 3.8vw, 46px)', color: 'var(--text2)', marginTop: 6, letterSpacing: 4, fontFamily: 'var(--serif)' }}>实践分享</div>
       <div style={{ marginTop: 28, maxWidth: 460 }}>
         <div style={{ fontSize: 17, color: 'var(--text2)', fontWeight: 300, lineHeight: 1.7 }}>
-          AI 负责生成，工程师负责判断<br />
-          <span style={{ color: 'var(--text3)', fontSize: 14 }}>你的 10 年经验，才是真正的护城河</span>
+          AI 负责生成，工程师负责判断
         </div>
       </div>
-      <div style={{ marginTop: 40, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <div style={{ marginTop: 32, maxWidth: '100%', fontSize: 14, color: 'var(--text3)', lineHeight: 1.8 }}>
+        Vibing Code 是一套 AI 协作工程实践——通过<strong style={{ color: 'var(--text2)' }}>配置、流程、检查</strong>三个支柱，让 AI 从「随机生成」变成「可控生产力」。
+      </div>
+      <div style={{ marginTop: 20, display: 'flex', gap: 12 }}>
+        {[
+          { label: '配置', icon: '⚙', color: 'var(--blue)', bg: 'var(--blue-bg)' },
+          { label: '流程', icon: '↻', color: 'var(--teal)', bg: 'var(--teal-bg)' },
+          { label: '检查', icon: '✓', color: 'var(--purple)', bg: 'var(--purple-bg)' },
+        ].map((p) => (
+          <div key={p.label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 8, border: `1px solid ${p.color}`, background: p.bg, fontSize: 13, color: p.color, fontWeight: 500 }}>
+            <span style={{ fontSize: 15 }}>{p.icon}</span>
+            {p.label}
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 28, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ display: 'inline-block', padding: '5px 12px', borderRadius: 100, border: '1px solid var(--blue)', color: 'var(--blue)', background: 'var(--blue-bg)', fontSize: 12, fontFamily: 'var(--mono)' }}>Claude Code CLI</span>
         <span style={{ display: 'inline-block', padding: '5px 12px', borderRadius: 100, border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 12, fontFamily: 'var(--mono)' }}>VS Code</span>
         <span style={{ display: 'inline-block', padding: '5px 12px', borderRadius: 100, border: '1px solid var(--border)', color: 'var(--text2)', fontSize: 12, fontFamily: 'var(--mono)' }}>MCP Tools</span>

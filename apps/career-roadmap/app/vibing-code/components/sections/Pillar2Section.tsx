@@ -9,7 +9,7 @@ import { SectionGroup } from '../shared/SectionGroup'
 export function Pillar2Section({ active }: { active: boolean }) {
   return (
     <section className={`section ${active ? 'active' : ''}`}>
-      <h1 className="page-title">支柱二：流程即纪律</h1>
+      <h1 className="page-title">流程</h1>
       <p className="page-sub">没有流程，你是唯一的 feedback loop，AI 跑多远你才发现</p>
 
       <div className="callout callout-teal">
@@ -33,10 +33,13 @@ export function Pillar2Section({ active }: { active: boolean }) {
         ))}
       </div>
 
+      <div style={{ marginTop: 12, padding: '12px 16px', background: 'var(--blue-bg)', borderRadius: 8, borderLeft: '3px solid var(--blue)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
+        <strong style={{ color: 'var(--blue)' }}>Tip：</strong>四阶段流程回答了「什么时候做什么」，但每个阶段里你都需要跟 AI 对话 — 写得好，AI 一次到位；写得差，返工三轮。所以下一步我们先看：怎么写 Prompt。
+      </div>
+
       <h3 className="section-title">Prompt 三要素公式（CAC）</h3>
       <div className="callout callout-amber">
-        <strong>公式：Context（上下文）+ Action（动作）+ Criterion（验收标准）</strong><br />
-        10 年工程师的优势：你知道什么上下文是关键的，AI 不知道。
+        <strong>公式：Context（上下文）+ Action（动作）+ Criterion（验收标准）</strong>
       </div>
       <CACThreeCards />
 
@@ -68,43 +71,43 @@ export function Pillar2Section({ active }: { active: boolean }) {
       <h3 className="section-title">从模糊需求到精确 Prompt</h3>
       <Accordion title="展开查看：三步递进 — 每一步 Claude 输出的差异" accent="var(--amber)">
         <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 12 }}>
-          需求：&quot;给用户资料页加头像上传&quot;。看看三步 Prompt 带来的输出差异。
+          需求：&quot;帮我实现对话气泡&quot;。看看三步 Prompt 带来的输出差异。
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ padding: '14px 16px', border: '1px solid var(--coral)', borderRadius: 8, background: 'var(--coral-bg)' }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--coral)', marginBottom: 8 }}>第 1 步：只有 Action（模糊需求）</div>
-            <CodeBlock lang="markdown" code={`帮我给用户资料页加头像上传功能`} />
+            <CodeBlock lang="markdown" code={`帮我实现对话气泡`} />
             <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 8 }}>
-              <strong>Claude 输出：</strong>引入了 Material UI 的 Dropzone 组件 + axios 上传。<br />
-              <span style={{ color: 'var(--coral)' }}>问题：项目用 shadcn/ui，Claude 不知道；引入了 2 个新依赖。</span>
+              <strong>Claude 输出：</strong>用 div + 内联样式写了个气泡，引用了 react-chatbot-kit 第三方库。<br />
+              <span style={{ color: 'var(--coral)' }}>问题：项目用 antd 不知道；引入了新依赖；没考虑消息方向（左/右）、时间戳、长文本换行。</span>
             </div>
           </div>
           <div style={{ padding: '14px 16px', border: '1px solid var(--amber)', borderRadius: 8, background: 'var(--amber-bg)' }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--amber)', marginBottom: 8 }}>第 2 步：补 Context</div>
-            <CodeBlock lang="markdown" code={`参考 @src/components/FileInput.tsx 的现有上传组件模式，
-项目用 shadcn/ui + React Hook Form，没有 Framer Motion。
+            <CodeBlock lang="markdown" code={`参考 @src/components/Card.tsx 的现有布局模式，
+项目用 antd，没有 Framer Motion。
 
-帮我给用户资料页加头像上传功能`} />
+帮我实现对话气泡`} />
             <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 8 }}>
-              <strong>Claude 输出：</strong>用对了 shadcn/ui，参考了 FileInput 的模式。<br />
-              <span style={{ color: 'var(--amber)' }}>问题：没有键盘可访问性、没有进度条、没有文件大小限制 — 验收标准缺失。</span>
+              <strong>Claude 输出：</strong>用对了 antd Card 的样式模式。<br />
+              <span style={{ color: 'var(--amber)' }}>问题：没有区分发送/接收方向、没有时间戳格式、没有长文本和图片消息的适配 — 验收标准缺失。</span>
             </div>
           </div>
           <div style={{ padding: '14px 16px', border: '1px solid var(--teal)', borderRadius: 8, background: 'var(--teal-bg)' }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--teal)', marginBottom: 8 }}>第 3 步：加 Criterion（完整 CAC）</div>
             <CodeBlock lang="markdown" code={`【Context】
-参考 @src/components/FileInput.tsx，项目用 shadcn/ui + React Hook Form。
+参考 @src/components/Card.tsx，项目用 antd。
 
 【Action】
-创建 AvatarUploader 组件，支持拖拽 + 点击，上传前裁剪预览。
+创建 ChatBubble 组件，区分发送/接收方向，支持文本和图片消息。
 
 【Criterion】
 - 只用已有依赖，不引入新包
-- 键盘可操作（Tab + Enter/Space）
-- 文件超 5MB 有明确错误提示
+- 长文本自动换行，图片消息有最大宽度限制
+- 时间戳格式化显示，支持相对时间
 - 完成后 pnpm typecheck && pnpm test 零错误`} />
             <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 8 }}>
-              <strong>Claude 输出：</strong>完整交付，有键盘支持、有错误提示、有测试覆盖。<br />
+              <strong>Claude 输出：</strong>完整交付，支持双向气泡、文本/图片、时间戳、长文本换行。<br />
               <span style={{ color: 'var(--teal)' }}>✓ 这就是 CAC 公式的威力 — 你的判断力 + AI 的执行力。</span>
             </div>
           </div>
@@ -124,14 +127,14 @@ export function Pillar2Section({ active }: { active: boolean }) {
 // 结果：AI 自由发挥，引入新依赖`}
         good={`【Context】
 参考 @src/components/FileInput.tsx 的现有上传组件模式，
-项目用 shadcn/ui + React Hook Form，没有 Framer Motion。
+项目用 antd + React Hook Form，没有 Framer Motion。
 
 【Action】
 创建支持拖拽 + 点击的 AvatarUploader 组件，
 上传前支持图片裁剪预览，有实时进度条。
 
 【Criterion】
-- 只用已有 shadcn/ui，不引入新依赖
+- 只用已有 antd，不引入新依赖
 - 键盘可操作（Tab + Enter/Space）
 - 完成后运行 pnpm typecheck && pnpm test`}
       />
@@ -309,7 +312,7 @@ T1 → T2 → T3（顺序执行）；T4 可与 T2/T3 并行
 - 实时上传进度条
 
 【Criterion — 完成的定义】
-- 只使用已有的 shadcn/ui 组件，不引入新依赖
+- 只使用已有的 antd 组件，不引入新依赖
 - 键盘可访问（Tab 聚焦 + Enter/Space 触发）
 - 所有交互元素有 data-testid 属性
 - 文件超限时展示具体原因
@@ -412,10 +415,18 @@ pnpm lint        # 代码规范（最后跑，不影响功能但影响 CR）`} /
         </div>
       </div>
 
+      <div style={{ marginTop: 12, padding: '12px 16px', background: 'var(--teal-bg)', borderRadius: 8, borderLeft: '3px solid var(--teal)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
+        <strong style={{ color: 'var(--teal)' }}>Tip：</strong>上面 Step 1→7 的完整流程，在「配置」章节的 /feat Skill 中已经被编排成了一个可执行的命令 — 输入 <code>/feat 用户头像上传</code>，Claude 就会自动走完需求分析 → ADR → 拆解 → 实现 → 测试 → Review → 交付的全链路。流程是骨，Skill 是魂。
+      </div>
+
       </SectionGroup>
 
       <SectionGroup title="上下文管理" accent="var(--blue)">
       <h3 className="section-title">上下文管理</h3>
+
+      <div className="callout callout-blue">
+        <strong>为什么流程之后讲上下文？</strong>CAC 公式决定了你「怎么写 Prompt」，四阶段流程决定了你「什么时候做什么」— 但这两件事都建立在一个前提之上：<strong>Claude 能记住你说过的话</strong>。上下文一旦劣化，再好的 Prompt 也会被忽略，再严谨的流程也会走偏。所以上下文管理不是进阶技巧，是流程能跑通的地基。
+      </div>
       <Accordion title="展开查看：Context Window 消耗来源 + 劣化信号 + 应对策略" accent="var(--blue)">
         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>消耗来源（从大到小）：</div>
         <CodeBlock lang="plain" code={`完整文件读取 > 命令输出 > 对话历史 > CLAUDE.md > 单条消息`} />
@@ -504,7 +515,7 @@ claude -p "审查以下代码的安全风险" < src/api/upload.ts`} />
         <div className="table-wrap" style={{ marginBottom: 16 }}>
           <table>
             <thead>
-              <tr><th>#</th><th>技巧</th><th>说明</th></tr>
+              <tr><th>#</th><th>基础</th><th>说明</th></tr>
             </thead>
             <tbody>
               {[
@@ -535,6 +546,9 @@ claude -p "审查以下代码的安全风险" < src/api/upload.ts`} />
                 ['8', '离开前先压缩', '去开会/吃饭前 /compact，回来 Claude 仍在状态'],
                 ['9', '管道传递数据', 'cat error.log | claude "分析原因，不修改文件"'],
                 ['10', '截图直接粘贴', 'UI 问题最快的上下文传递方式，Ctrl+V 粘贴图片'],
+                ['11', '/resume 恢复对话', '选择历史 Session 继续，上下文自动恢复；中断的工作不用从头来'],
+                ['12', '/rewind 撤回改动', '回退 Claude 最近的文件修改，比 git checkout 更快更精准'],
+                ['13', '/recap 会话摘要', '生成当前 Session 的单行总结，适合交接或记录进度'],
               ].map(([n, tip, desc]) => (
                 <tr key={n as string}>
                   <td style={{ fontFamily: 'var(--mono)', color: 'var(--text3)', width: 28 }}>{n}</td>
@@ -552,14 +566,17 @@ claude -p "审查以下代码的安全风险" < src/api/upload.ts`} />
             </thead>
             <tbody>
               {[
-                ['11', 'Plan Mode 先探索', 'Shift+Tab 两次进入；Ctrl+G 直接编辑生成的计划'],
-                ['12', '新任务盯着前几步', '确认方向正确再离开；早发现偏差成本低'],
-                ['13', 'Auto Mode 减少打断', 'settings.json 开启，分类器自动处理低风险操作'],
-                ['14', 'Git Worktree 并行', 'git worktree add ../feat-xyz，独立分支独立 Agent'],
-                ['15', '/permissions 白名单', '安全命令加白名单（如 pnpm lint），免确认提速'],
-                ['16', 'Critic/Reviewer 节点介入', '只在 ADR 后和 PR 前，开独立 Session'],
-                ['17', '/fast 速度模式', '简单任务用 /fast，速度 2.5x，质量不变'],
-                ['18', 'claude -p 无头模式', 'claude -p "prompt" 脚本化调用，适合 CI / 批量'],
+                ['14', 'Plan Mode 先探索', 'Shift+Tab 两次进入；Ctrl+G 直接编辑生成的计划'],
+                ['15', '新任务盯着前几步', '确认方向正确再离开；早发现偏差成本低'],
+                ['16', 'Auto Mode 减少打断', 'settings.json 开启，分类器自动处理低风险操作'],
+                ['17', 'Git Worktree 并行', 'git worktree add ../feat-xyz，独立分支独立 Agent'],
+                ['18', '/permissions 白名单', '安全命令加白名单（如 pnpm lint），免确认提速'],
+                ['19', 'Critic/Reviewer 节点介入', '只在 ADR 后和 PR 前，开独立 Session'],
+                ['20', '/fast 速度模式', '简单任务用 /fast，速度 2.5x，质量不变'],
+                ['21', 'claude -p 无头模式', 'claude -p "prompt" 脚本化调用，适合 CI / 批量'],
+                ['22', '/insights 用量洞察', '查看 token 消耗、会话时长、高频操作，生成报告到 .claude/usage-data/report.html'],
+                ['23', '/model 切换模型', '中途切换 Opus/Sonnet/Haiku，复杂推理用 Opus，简单改动用 /fast'],
+                ['24', '/init 生成 CLAUDE.md', '新项目一键扫描生成项目配置，再手动精简到 50 行以内'],
               ].map(([n, tip, desc]) => (
                 <tr key={n as string}>
                   <td style={{ fontFamily: 'var(--mono)', color: 'var(--text3)', width: 28 }}>{n}</td>

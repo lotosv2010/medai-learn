@@ -28,26 +28,28 @@ export function WhySection({ active }: { active: boolean }) {
       <h3 className="section-title">ROI 感知：一个真实场景</h3>
       <div style={{ marginBottom: 16, padding: '14px 18px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10 }}>
         <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 10 }}>
-          <strong>需求：</strong>给用户资料页加头像上传，支持裁剪预览，本周五上线。
+          <strong>需求：</strong>鼎新药店 AI 经营助手 —— 通过 OpenClaw（小龙虾）API 接入 Web 端，实现 SSE 流式对话输出，让药店老板实时看到 AI 的经营建议逐字生成。
         </div>
         <div className="card-grid">
           <div style={{ padding: '14px 16px', border: '1px solid var(--border)', borderLeft: '3px solid var(--coral)', borderRadius: 8, background: 'var(--bg3)' }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--coral)', marginBottom: 8 }}>传统方式</div>
             <ul style={{ paddingLeft: 14, color: 'var(--text2)', fontSize: 13, lineHeight: 1.8 }}>
-              <li>查文档、写样板代码</li>
-              <li>手写测试用例</li>
-              <li>反复调试边界情况</li>
-              <li>重复性劳动 70%+</li>
+              <li>手写 SSE 连接管理（EventSource / fetch stream）</li>
+              <li>逐行解析 data: 前缀、处理 JSON 片段</li>
+              <li>断线重连、超时、错误边界全套逻辑</li>
+              <li>流式 Markdown 渲染 + 打字机光标效果</li>
+              <li>多轮对话上下文拼接与状态管理</li>
             </ul>
             <div style={{ marginTop: 10, fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--coral)' }}>⏱ 预估 3–4 天</div>
           </div>
           <div style={{ padding: '14px 16px', border: '1px solid var(--border)', borderLeft: '3px solid var(--teal)', borderRadius: 8, background: 'var(--bg3)' }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--teal)', marginBottom: 8 }}>Vibing Code</div>
             <ul style={{ paddingLeft: 14, color: 'var(--text2)', fontSize: 13, lineHeight: 1.8 }}>
-              <li>你定方案 + 验收标准</li>
-              <li>AI 生成代码 + 测试</li>
-              <li>Hook 自动格式化/检查</li>
-              <li>Reviewer Agent 把关</li>
+              <li>你定接口协议 + 验收标准</li>
+              <li>AI 生成 SSE 客户端 + 流式渲染组件</li>
+              <li>AI 生成断线重连 + 错误处理</li>
+              <li>Hook 自动跑 typecheck + 测试</li>
+              <li>你只需 Review 核心逻辑 + 业务验收</li>
             </ul>
             <div style={{ marginTop: 10, fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--teal)' }}>⏱ 预估 1–1.5 天</div>
           </div>
@@ -69,12 +71,15 @@ export function WhySection({ active }: { active: boolean }) {
         ))}
       </div>
 
+      <div className="callout callout-amber" style={{ margin: '20px 0 16px' }}>
+        <strong>问题：</strong>这些数字不会自动达成。打开 Claude Code 就开干，和打开 IDE 就开写一样——缺少方法论，效率反而更低。Vibing Code 的核心是<strong>三个支柱</strong>，缺一不可：
+      </div>
       <h3 className="section-title">三个支柱框架</h3>
       <div className="card-grid-3">
         {[
-          { num: '一', title: '配置即记忆', desc: 'CLAUDE.md + Hooks\n让 AI 每次都了解你的项目', color: 'var(--blue)', bg: 'var(--blue-bg)' },
-          { num: '二', title: '流程即纪律', desc: 'Research → Plan → Execute\n防止 AI 跑偏的结构化约束', color: 'var(--teal)', bg: 'var(--teal-bg)' },
-          { num: '三', title: '验证即信任', desc: 'typecheck + test + review\n给 AI 自我验证的能力', color: 'var(--purple)', bg: 'var(--purple-bg)' },
+          { num: '一', title: '配置', desc: 'CLAUDE.md + Hooks\n让 AI 每次都了解你的项目', color: 'var(--blue)', bg: 'var(--blue-bg)' },
+          { num: '二', title: '流程', desc: 'Research → Plan → Execute\n防止 AI 跑偏的结构化约束', color: 'var(--teal)', bg: 'var(--teal-bg)' },
+          { num: '三', title: '检查', desc: 'typecheck + test + review\n给 AI 自我验证的能力', color: 'var(--purple)', bg: 'var(--purple-bg)' },
         ].map((p) => (
           <div key={p.num} style={{ padding: '18px', border: `1px solid ${p.color}`, borderRadius: 10, background: p.bg }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: p.color, marginBottom: 6 }}>支柱 {p.num}</div>
