@@ -249,6 +249,31 @@ export function Pillar2Section({ active }: { active: boolean }) {
 - 不考虑个人喜好
 - 不提没有实际风险依据的建议
 - 不在工程师拍板后继续争论`} />
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, marginTop: 16 }}>Critic Agent vs Reviewer Agent：职责边界</div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr><th></th><th style={{ color: 'var(--coral)' }}>Critic Agent（Step 2.5）</th><th style={{ color: 'var(--purple)' }}>Reviewer Agent（Step 6）</th></tr>
+            </thead>
+            <tbody>
+              {[
+                ['介入时机', 'ADR 写完后，任务拆解前', '代码实现完成后，PR 前'],
+                ['审查对象', '方案设计 / 技术决策', '实际代码变更'],
+                ['核心问题', '「这个方案会出什么问题？」', '「这段代码有没有 bug / 风险？」'],
+                ['输出形式', '假设挑战 + 替代方案', '三级问题报告（Critical/Warning/Suggestion）'],
+                ['是否改代码', '❌ 不改，只质疑', '❌ 只读审查，不修改'],
+                ['Session', '新 Session 隔离（外部视角）', '新 Session 隔离（外部视角）'],
+                ['介入次数', '一次，拍板后不再争论', '每次 PR 前执行'],
+              ].map(([dim, critic, reviewer]) => (
+                <tr key={dim as string}>
+                  <td style={{ fontWeight: 600, fontSize: 12 }}>{dim}</td>
+                  <td style={{ fontSize: 12 }}>{critic}</td>
+                  <td style={{ fontSize: 12 }}>{reviewer}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Accordion>
 
       <Accordion title="Step 3：任务拆解（原子任务，不超过 200 行改动）" accent="var(--purple)">
@@ -335,6 +360,12 @@ T1 → T2 → T3（顺序执行）；T4 可与 T2/T3 并行
 写最少的代码让上面所有测试通过。
 不多写一行，不提前优化，先让红灯变绿灯。
 完成后运行 pnpm test，全部通过才算完成。`} />
+        <div style={{ marginTop: 12, padding: '12px 14px', background: 'var(--amber-bg)', borderRadius: 8, borderLeft: '3px solid var(--amber)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.8 }}>
+          <strong style={{ color: 'var(--amber)' }}>⚠️ AI 语境下的关键风险：「测试迎合实现」</strong><br />
+          AI 生成测试时容易写出「能通过但无意义」的测试 — 测试断言直接镜像实现逻辑，没有独立的业务验证价值。<br />
+          <strong>人工验收两件事：</strong>① 测试描述是否能独立读懂（不看实现也能理解测试意图）；② 故意传入错误输入，测试是否真的会失败。<br />
+          如果测试无论传什么都通过，说明断言写错了 — 这种测试比没有测试更危险，给了虚假的安全感。
+        </div>
       </Accordion>
 
       <Accordion title="Step 5：测试验证（验证三连）" accent="var(--amber)">
@@ -352,6 +383,9 @@ pnpm lint        # 代码规范（最后跑，不影响功能但影响 CR）`} /
 4. 如有 UI 改动，截图并说明与 @docs/ui-rules.md 设计规范的差异
 
 任何一步失败，修复后再继续，不要跳过。`} />
+        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text3)', lineHeight: 1.6 }}>
+          完整的验证体系（E2E、视觉验证、AI Code Review）详见「<strong>检查</strong>」章节的五层金字塔。
+        </div>
       </Accordion>
 
       <Accordion title="Step 6：Code Review（Reviewer Agent）" accent="var(--purple)">
@@ -413,6 +447,12 @@ pnpm lint        # 代码规范（最后跑，不影响功能但影响 CR）`} /
           <span style={{ color: 'var(--text3)', fontFamily: 'var(--mono)', marginRight: 8 }}>快速原型验证</span>先 Vibe 后 Spec<br />
           <span style={{ color: 'var(--teal)', fontFamily: 'var(--mono)', marginRight: 8 }}>复杂跨模块功能</span>走完整四阶段，不能跳
         </div>
+      </div>
+      <div style={{ marginTop: 10, padding: '12px 14px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text2)', lineHeight: 1.9 }}>
+        <strong>快速判断标准：</strong><br />
+        <span style={{ color: 'var(--teal)' }}>✅ 可跳过 Plan</span>：改动文件 &lt; 3 个 / 不涉及新接口或数据模型 / 只改样式或文案<br />
+        <span style={{ color: 'var(--amber)' }}>⚠️ 快速原型注意</span>：团队场景下「先 Vibe」的原型代码不能直接进主干，完成后必须补 Spec 再做正式实现，避免原型直接进生产<br />
+        <span style={{ color: 'var(--coral)' }}>🔴 必须走完整流程</span>：涉及新依赖 / 修改核心数据流 / 影响已有接口契约
       </div>
 
       <div style={{ marginTop: 12, padding: '12px 16px', background: 'var(--teal-bg)', borderRadius: 8, borderLeft: '3px solid var(--teal)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>

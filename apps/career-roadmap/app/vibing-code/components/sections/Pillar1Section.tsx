@@ -141,32 +141,59 @@ export function Pillar1Section({ active }: { active: boolean }) {
         </div>
       </Accordion>
 
-      <h3 className="section-title">三层配置体系</h3>
-      <div className="table-wrap" style={{ marginBottom: 20 }}>
-        <table>
-          <thead>
-            <tr>
-              <th>层级</th>
-              <th>位置</th>
-              <th>用途</th>
-              <th>纳入 Git</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[
-              ['个人全局', '~/.claude/CLAUDE.md', '跨项目个人习惯（输出语言、沟通风格）', '❌'],
-              ['项目共享', '.claude/settings.json', '团队约束、Hooks 注册', '✅'],
-              ['项目本地', '.claude/settings.local.json', '个人覆盖（调试开关等）', '❌'],
-            ].map(([level, path, use, git]) => (
-              <tr key={level as string}>
-                <td><span style={{ fontWeight: 500, color: 'var(--text)' }}>{level}</span></td>
-                <td><code style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{path}</code></td>
-                <td>{use}</td>
-                <td>{git}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <h3 className="section-title">两套独立配置体系</h3>
+      <div className="callout callout-blue" style={{ marginBottom: 16 }}>
+        <strong>关键区分：</strong>CLAUDE.md 是<strong>指令体系</strong>（告诉 AI 怎么做），settings.json 是<strong>权限体系</strong>（控制 AI 能做什么）。两者相互独立，分开管理。
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--teal)', marginBottom: 8, fontFamily: 'var(--mono)' }}>指令体系：CLAUDE.md</div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>层级</th><th>位置</th><th>纳入 Git</th></tr>
+              </thead>
+              <tbody>
+                {[
+                  ['个人全局', '~/.claude/CLAUDE.md', '❌'],
+                  ['项目根目录', 'CLAUDE.md', '✅'],
+                  ['子目录', 'src/CLAUDE.md', '✅'],
+                ].map(([level, path, git]) => (
+                  <tr key={level as string}>
+                    <td style={{ fontWeight: 500 }}>{level}</td>
+                    <td><code style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{path}</code></td>
+                    <td>{git}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6, lineHeight: 1.6 }}>用途：项目背景、技术栈、禁止事项、编码规范</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--purple)', marginBottom: 8, fontFamily: 'var(--mono)' }}>权限体系：settings.json</div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>层级</th><th>位置</th><th>纳入 Git</th></tr>
+              </thead>
+              <tbody>
+                {[
+                  ['个人全局', '~/.claude/settings.json', '❌'],
+                  ['项目共享', '.claude/settings.json', '✅'],
+                  ['项目本地', '.claude/settings.local.json', '❌'],
+                ].map(([level, path, git]) => (
+                  <tr key={level as string}>
+                    <td style={{ fontWeight: 500 }}>{level}</td>
+                    <td><code style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{path}</code></td>
+                    <td>{git}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6, lineHeight: 1.6 }}>用途：工具权限白名单、Hooks 注册、环境变量</div>
+        </div>
       </div>
 
       <h3 className="section-title">全局 ~/.claude/ 目录结构</h3>

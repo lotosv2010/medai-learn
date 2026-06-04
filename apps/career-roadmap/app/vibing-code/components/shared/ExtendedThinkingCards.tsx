@@ -9,6 +9,9 @@ export function ExtendedThinkingCards() {
   ]
   return (
     <div>
+      <div style={{ marginBottom: 10, padding: '8px 12px', background: 'var(--bg2)', borderRadius: 6, borderLeft: '3px solid var(--text3)', fontSize: 11, color: 'var(--text3)', lineHeight: 1.6 }}>
+        * 这是 prompt 约定词语，不是官方 API 参数。实际由 <code style={{ fontFamily: 'var(--mono)' }}>thinking.budget_tokens</code> 控制，词语越强 Claude 分配越多推理预算。
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
         {tiers.map((t) => (
           <div key={t.name} style={{ padding: '16px', border: '1px solid var(--border)', borderTop: `3px solid ${t.borderColor}`, borderRadius: 10, background: 'var(--bg3)' }}>
