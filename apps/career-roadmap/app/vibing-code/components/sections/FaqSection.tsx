@@ -1,11 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import { Accordion } from '../shared/Accordion'
 import { ImageLightbox } from '../shared/ImageLightbox'
 import { SectionGroup } from '../shared/SectionGroup'
 import { TrapGrid3x3 } from '../shared/TrapGrid3x3'
 
 export function FaqSection({ active }: { active: boolean }) {
+  const [showAnswer, setShowAnswer] = useState(false)
   return (
     <section className={`section ${active ? 'active' : ''}`}>
       <h1 className="page-title">常见问题</h1>
@@ -422,44 +424,77 @@ export function FaqSection({ active }: { active: boolean }) {
 
       <Accordion title="问题七：Vibing Code 会被模型迭代吸收吗？" accent="var(--teal)">
         <div>
+          {/* 思考区 - 始终显示 */}
           <div className="callout callout-amber" style={{ marginBottom: 16 }}>
-            <strong>结论：</strong>操作层的经验会被吸收，判断层的经验不会。
+            <strong>思考：</strong>随着模型能力增强，Vibing Code 的方法论会被淘汰吗？哪些会过时，哪些不会？
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-            {[
-              {
-                label: '会被模型吸收',
-                color: 'var(--teal)',
-                items: [
-                  'CLAUDE.md 写法、Hook 脚本、Prompt 模板 — 最佳实践会进入训练数据，未来开箱即用',
-                  '工具调用、上下文管理、错误恢复 — Agent 框架层会越来越自动化',
-                  '通用编码规范 — 模型本身就在持续学习社区共识',
-                ],
-              },
-              {
-                label: '不会被吸收',
-                color: 'var(--coral)',
-                items: [
-                  '业务上下文 — 模型不知道你的项目是药店还是电商，永远需要你输入',
-                  '团队约定 — 禁止用哪个库、迁移文件放哪里，是组织知识而非通用知识',
-                  '工程权衡 — 这个改动现在能跑，3 年后维护成本是多少，只有你知道',
-                  '判断力 — 什么该做、什么不该做，AI 无法替代你做决策',
-                ],
-              },
-            ].map((group) => (
-              <div key={group.label} style={{ padding: '14px 18px', border: '1px solid var(--border)', borderLeft: `3px solid ${group.color}`, borderRadius: 8, background: 'var(--bg3)' }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: group.color, marginBottom: 10 }}>{group.label}</div>
-                <ul style={{ paddingLeft: 16, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {group.items.map((item) => (
-                    <li key={item} style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>{item}</li>
-                  ))}
-                </ul>
+
+          {/* 小眼睛按钮 */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+            <button
+              onClick={() => setShowAnswer(!showAnswer)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 16px',
+                background: showAnswer ? 'var(--teal-bg)' : 'var(--bg2)',
+                border: `1px solid ${showAnswer ? 'var(--teal)' : 'var(--border)'}`,
+                borderRadius: 8,
+                cursor: 'pointer',
+                fontSize: 13,
+                color: showAnswer ? 'var(--teal)' : 'var(--text2)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <span style={{ fontSize: 16 }}>{showAnswer ? '👁️' : '👁️‍🗨️'}</span>
+              {showAnswer ? '隐藏答案' : '点击查看答案'}
+            </button>
+          </div>
+
+          {/* 答案区 - 点击显示 */}
+          {showAnswer && (
+            <div style={{ animation: 'fadeIn 0.3s ease' }}>
+              <div className="callout callout-amber" style={{ marginBottom: 16 }}>
+                <strong>结论：</strong>操作层的经验会被吸收，判断层的经验不会。
               </div>
-            ))}
-          </div>
-          <div style={{ padding: '12px 16px', borderLeft: '3px solid var(--purple)', borderRadius: '0 8px 8px 0', background: 'var(--purple-bg)', fontSize: 13, color: 'var(--text)' }}>
-            <strong style={{ color: 'var(--purple)' }}>长期价值：</strong>Vibing Code 的核心不是具体技巧，而是培养「如何向 AI 传递上下文和约束」的思维模式。CLAUDE.md 里「禁止引入新 UI 库」背后的业务决策，模型永远不会自己知道——除非你告诉它。<strong>这个思维模式不会过时。</strong>
-          </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                {[
+                  {
+                    label: '会被模型吸收',
+                    color: 'var(--teal)',
+                    items: [
+                      'CLAUDE.md 写法、Hook 脚本、Prompt 模板 — 最佳实践会进入训练数据，未来开箱即用',
+                      '工具调用、上下文管理、错误恢复 — Agent 框架层会越来越自动化',
+                      '通用编码规范 — 模型本身就在持续学习社区共识',
+                    ],
+                  },
+                  {
+                    label: '不会被吸收',
+                    color: 'var(--coral)',
+                    items: [
+                      '业务上下文 — 模型不知道你的项目是药店还是电商，永远需要你输入',
+                      '团队约定 — 禁止用哪个库、迁移文件放哪里，是组织知识而非通用知识',
+                      '工程权衡 — 这个改动现在能跑，3 年后维护成本是多少，只有你知道',
+                      '判断力 — 什么该做、什么不该做，AI 无法替代你做决策',
+                    ],
+                  },
+                ].map((group) => (
+                  <div key={group.label} style={{ padding: '14px 18px', border: '1px solid var(--border)', borderLeft: `3px solid ${group.color}`, borderRadius: 8, background: 'var(--bg3)' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: group.color, marginBottom: 10 }}>{group.label}</div>
+                    <ul style={{ paddingLeft: 16, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {group.items.map((item) => (
+                        <li key={item} style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: '12px 16px', borderLeft: '3px solid var(--purple)', borderRadius: '0 8px 8px 0', background: 'var(--purple-bg)', fontSize: 13, color: 'var(--text)' }}>
+                <strong style={{ color: 'var(--purple)' }}>长期价值：</strong>Vibing Code 的核心不是具体技巧，而是培养「如何向 AI 传递上下文和约束」的思维模式。CLAUDE.md 里「禁止引入新 UI 库」背后的业务决策，模型永远不会自己知道——除非你告诉它。<strong>这个思维模式不会过时。</strong>
+              </div>
+            </div>
+          )}
         </div>
       </Accordion>
     </section>
