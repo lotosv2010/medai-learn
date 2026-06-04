@@ -5,6 +5,7 @@ import { PollBlock } from '../shared/PollBlock'
 import { SkillBars } from '../shared/SkillBars'
 import { HumanVsAI } from '../shared/HumanVsAI'
 import { SectionGroup } from '../shared/SectionGroup'
+import { ImageLightbox } from '../shared/ImageLightbox'
 
 export function WhySection({ active }: { active: boolean }) {
   return (
@@ -81,8 +82,8 @@ export function WhySection({ active }: { active: boolean }) {
       <h3 className="section-title">三个支柱框架</h3>
       <div className="card-grid-3">
         {[
-          { num: '一', title: '配置', desc: 'CLAUDE.md + Hooks\n让 AI 每次都了解你的项目', color: 'var(--blue)', bg: 'var(--blue-bg)' },
-          { num: '二', title: '流程', desc: 'Research → Plan → Execute\n防止 AI 跑偏的结构化约束', color: 'var(--teal)', bg: 'var(--teal-bg)' },
+          { num: '一', title: '配置', desc: 'CLAUDE.md + Hooks + Skills\n让 AI 每次都了解你的项目', color: 'var(--blue)', bg: 'var(--blue-bg)' },
+          { num: '二', title: '流程', desc: 'Research → Plan → Execute → Review\n防止 AI 跑偏的结构化约束', color: 'var(--teal)', bg: 'var(--teal-bg)' },
           { num: '三', title: '检查', desc: 'typecheck + test + review\n给 AI 自我验证的能力', color: 'var(--purple)', bg: 'var(--purple-bg)' },
         ].map((p) => (
           <div key={p.num} style={{ padding: '18px', border: `1px solid ${p.color}`, borderRadius: 10, background: p.bg }}>
@@ -92,20 +93,6 @@ export function WhySection({ active }: { active: boolean }) {
           </div>
         ))}
       </div>
-
-      <h3 className="section-title">工程师的护城河</h3>
-      <Accordion title="展开查看：AI 不懂的，但你懂的" accent="var(--amber)">
-        <ul style={{ paddingLeft: 18, color: 'var(--text2)', fontSize: 13, lineHeight: 2 }}>
-          <li><strong>业务上下文</strong> — 这个功能为什么存在，用户是谁，背后的商业逻辑</li>
-          <li><strong>历史包袱</strong> — 这段代码为什么这么奇怪（有原因的，删了会出事）</li>
-          <li><strong>工程权衡</strong> — 现在这样做，3 年后维护成本是多少</li>
-          <li><strong>团队文化</strong> — 哪些规范是死规矩，哪些可以商量</li>
-          <li><strong>产品直觉</strong> — 用户真正需要的是什么，不是他们说的那个</li>
-          <li><strong>风险嗅觉</strong> — 哪个改动看起来简单但其实危险</li>
-        </ul>
-      </Accordion>
-
-      
 
       <h3 className="section-title">工具栈一览</h3>
       <Accordion title="展开查看：必装 + 推荐工具" accent="var(--blue)">
@@ -119,12 +106,12 @@ export function WhySection({ active }: { active: boolean }) {
             </thead>
             <tbody>
               {[
-                ['VS Code', '主 IDE', '配合 Claude Code 扩展使用'],
-                ['Claude Code CLI', '核心 agent 引擎', 'npm i -g @anthropic-ai/claude-code'],
-                ['Claude Code VSCode 扩展', 'IDE 深度集成', '内联操作、diff 视图，与 CLI 互补'],
-                ['GitHub CLI (gh)', 'PR / Issue 自动化', '没有它 Claude 只能走 GitHub API，容易触发限速'],
-              ].map(([tool, use, note]) => (
-                <tr key={tool as string}>
+                { tool: 'VS Code', use: '主 IDE', note: '配合 Claude Code 扩展使用', installed: true },
+                { tool: 'Claude Code CLI', use: '核心 agent 引擎', note: 'npm i -g @anthropic-ai/claude-code', installed: true },
+                { tool: 'Claude Code VSCode 扩展', use: 'IDE 深度集成', note: '内联操作、diff 视图，与 CLI 互补', installed: false },
+                { tool: 'GitHub CLI (gh)', use: 'PR / Issue 自动化', note: '没有它 Claude 只能走 GitHub API，容易触发限速', installed: true },
+              ].map(({ tool, use, note, installed }) => (
+                <tr key={tool} style={installed ? { background: 'var(--teal-bg)' } : undefined}>
                   <td style={{ fontWeight: 500 }}>{tool}</td>
                   <td>{use}</td>
                   <td style={{ fontSize: 12, color: 'var(--text3)' }}>{note}</td>
@@ -141,15 +128,15 @@ export function WhySection({ active }: { active: boolean }) {
             </thead>
             <tbody>
               {[
-                ['Playwright MCP', 'UI 自动测试 + 截图验证', 'claude mcp add playwright'],
-                ['Figma MCP', '直接读取设计稿', 'claude mcp add figma'],
-                ['数据库 MCP', '直接查表结构/数据', 'claude mcp add <db-mcp>'],
-                ['Sentry MCP', '生产错误上下文直接喂给 Claude', 'claude mcp add sentry'],
-                ['Chrome DevTools MCP', '浏览器性能分析 + 网络请求 + Console 日志', 'claude mcp add chrome-devtools'],
-                ['Git Worktree', '多任务并行隔离', '内置于 git，Claude Code 原生支持'],
-                ['cc-switch', '多账号 / 多 API Key 快速切换', 'npm i -g cc-switch（可选）'],
-              ].map(([tool, use, way]) => (
-                <tr key={tool as string}>
+                { tool: 'Playwright MCP', use: 'UI 自动测试 + 截图验证', way: 'claude mcp add playwright', installed: true },
+                { tool: 'Figma MCP', use: '直接读取设计稿', way: 'claude mcp add figma', installed: true },
+                { tool: '数据库 MCP', use: '直接查表结构/数据', way: 'claude mcp add <db-mcp>', installed: false },
+                { tool: 'Sentry MCP', use: '生产错误上下文直接喂给 Claude', way: 'claude mcp add sentry', installed: false },
+                { tool: 'Chrome DevTools MCP', use: '浏览器性能分析 + 网络请求 + Console 日志', way: 'claude mcp add chrome-devtools', installed: true },
+                { tool: 'Git Worktree', use: '多任务并行隔离', way: '内置于 git，Claude Code 原生支持', installed: false },
+                { tool: 'cc-switch', use: '多账号 / 多 API Key 快速切换', way: 'npm i -g cc-switch（可选）', installed: true },
+              ].map(({ tool, use, way, installed }) => (
+                <tr key={tool} style={installed ? { background: 'var(--teal-bg)' } : undefined}>
                   <td style={{ fontWeight: 500 }}>{tool}</td>
                   <td>{use}</td>
                   <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text3)' }}>{way}</td>
@@ -158,6 +145,24 @@ export function WhySection({ active }: { active: boolean }) {
             </tbody>
           </table>
         </div>
+
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text)' }}>cc-switch 示例</div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8 }}>
+          快速切换不同 API Key / 账号，多环境开发必备
+        </div>
+        <ImageLightbox src="/images/a6.png" alt="cc-switch 多账号切换示例" style={{ width: '100%', borderRadius: 8, border: '1px solid var(--border)' }} />
+      </Accordion>
+
+      <h3 className="section-title">工程师的护城河</h3>
+      <Accordion title="展开查看：AI 不懂的，但你懂的" accent="var(--amber)">
+        <ul style={{ paddingLeft: 18, color: 'var(--text2)', fontSize: 13, lineHeight: 2 }}>
+          <li><strong>业务上下文</strong> — 这个功能为什么存在，用户是谁，背后的商业逻辑</li>
+          <li><strong>历史包袱</strong> — 这段代码为什么这么奇怪（有原因的，删了会出事）</li>
+          <li><strong>工程权衡</strong> — 现在这样做，3 年后维护成本是多少</li>
+          <li><strong>团队文化</strong> — 哪些规范是死规矩，哪些可以商量</li>
+          <li><strong>产品直觉</strong> — 用户真正需要的是什么，不是他们说的那个</li>
+          <li><strong>风险嗅觉</strong> — 哪个改动看起来简单但其实危险</li>
+        </ul>
       </Accordion>
     </section>
   )
