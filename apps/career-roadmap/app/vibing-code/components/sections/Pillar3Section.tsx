@@ -2,7 +2,7 @@
 
 import { Accordion } from '../shared/Accordion'
 import { CodeBlock } from '../shared/CodeBlock'
-import { TrapGrid3x3 } from '../shared/TrapGrid3x3'
+
 import { SectionGroup } from '../shared/SectionGroup'
 
 export function Pillar3Section({ active }: { active: boolean }) {
@@ -149,7 +149,7 @@ Prompt 示例：
 
       <h3 className="section-title">定期安全扫描 Prompt</h3>
       <Accordion title="展开查看：每个 Sprint 至少运行一次的安全审查 Prompt" accent="var(--coral)">
-        <CodeBlock lang="markdown" code={`# 每个 Sprint 至少一次，由 CI 或手动触发
+        <CodeBlock lang="markdown" code={`# 每个 Sprint(迭代) 至少一次，由 CI 或手动触发
 
 请审查 @src/api/ 目录，重点检查：
 1. 用户输入校验（XSS、SQL 注入、路径遍历、MIME 类型伪造）
@@ -211,8 +211,6 @@ $ pnpm lint        ✓ 零警告`} />
         </div>
       </Accordion>
 
-      <h3 className="section-title">常见陷阱</h3>
-      <TrapGrid3x3 />
     </section>
   )
 }

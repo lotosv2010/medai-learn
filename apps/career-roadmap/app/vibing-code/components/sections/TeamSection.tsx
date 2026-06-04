@@ -67,6 +67,146 @@ settings.json 只在自己机器上
         '每个 Sprint 至少一次 AI Code Review 实践',
       ]} />
 
+      <h3 className="section-title">团队配置统一指南</h3>
+      <Accordion title="展开查看：配置分层体系 + 统一五件套 + 模板" accent="var(--teal)">
+        <div className="callout callout-coral" style={{ marginBottom: 16 }}>
+          <strong>痛点：</strong>每人本地配置不同、行为不一致 — 张三的 Claude 用 npm，李四用 pnpm；王五开了 5 个 MCP，赵六一个没开。代码风格、工具链、提交规范全靠口头约定。
+        </div>
+
+        <h4 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>配置分层体系</h4>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+          {[
+            {
+              layer: '全局层',
+              path: '~/.claude/settings.json',
+              scope: '当前用户所有项目',
+              content: '个人偏好：主题、快捷键、常用权限',
+              git: false,
+              color: 'var(--text3)',
+            },
+            {
+              layer: '项目层',
+              path: '.claude/settings.json',
+              scope: '当前项目所有成员',
+              content: '团队规范：MCP 配置、hooks、权限白名单',
+              git: true,
+              color: 'var(--teal)',
+            },
+            {
+              layer: '子目录层',
+              path: 'apps/web/.claude/settings.json',
+              scope: '子项目独立配置',
+              content: '局部工具和权限，避免加载无关 MCP',
+              git: true,
+              color: 'var(--blue)',
+            },
+          ].map((item) => (
+            <div key={item.layer} style={{ padding: '14px 16px', border: '1px solid var(--border)', borderLeft: `3px solid ${item.color}`, borderRadius: 8, background: 'var(--bg3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{item.layer}</span>
+                {item.git && (
+                  <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: 'var(--teal-bg)', color: 'var(--teal)', border: '1px solid var(--teal)' }}>入 Git</span>
+                )}
+              </div>
+              <code style={{ fontFamily: 'var(--mono)', fontSize: 11, color: item.color, display: 'block', marginBottom: 6 }}>{item.path}</code>
+              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
+                <strong>作用域：</strong>{item.scope} ｜ <strong>内容：</strong>{item.content}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <h4 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>团队统一五件套</h4>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+          {[
+            {
+              num: '01',
+              title: 'CLAUDE.md 版本化',
+              desc: '项目根目录入 Git，全员共享同一份"AI 操作手册"。包含：架构约定、代码规范、常用命令、Git 提交格式、当前迭代重点。新人 <code>git clone</code> 后 Claude 自动对齐。',
+              color: 'var(--teal)',
+            },
+            {
+              num: '02',
+              title: 'settings.json 入 Git',
+              desc: '<code>.claude/settings.json</code> 统一管理 MCP、权限、hooks。PR Review 时检查配置变更，确保团队行为一致。子目录可覆盖（如 <code>apps/web/.claude/settings.json</code>），实现局部定制。',
+              color: 'var(--blue)',
+            },
+            {
+              num: '03',
+              title: 'Shared Hooks',
+              desc: '在 settings.json 中定义 hooks，自动执行团队规范：<br />• <code>postToolCall</code>: 编辑文件后自动类型检查<br />• <code>pre-push</code>: 跑 lint + test<br />• <code>notification</code>: 长任务完成时通知',
+              color: 'var(--purple)',
+            },
+            {
+              num: '04',
+              title: '团队 Skills',
+              desc: '将重复工作流沉淀为自定义命令，存放在 <code>.claude/skills/</code> 目录并入 Git。团队共享同一套命令集，降低沟通成本：<br />• <code>/feat</code> — 标准化功能开发流程（Plan → 实现 → 验证 → 提交）<br />• <code>/cr</code> — Code Review 检查清单<br />• <code>/deploy</code> — 部署前检查 + 发布<br /><br />创建方式：用 <code>/skill-creator</code> 命令交互式生成，或手动在 <code>.claude/skills/</code> 下写 Markdown 文件。',
+              color: 'var(--amber)'
+            },
+            {
+              num: '05',
+              title: 'MCP & 权限策略',
+              desc: '<strong>MCP 管理：</strong>默认关闭所有 server，按需开启。在 settings.json 中只配团队必须的 MCP，个人偏好放全局配置。<br /><br /><strong>权限白名单：</strong>用 <code>permissions.allow</code> 放行常用安全命令（pnpm、git status），<code>permissions.deny</code> 拦截危险操作（force push、rm -rf）。避免每人每次都要手动确认。',
+              color: 'var(--coral)'
+            },
+          ].map((item) => (
+            <div key={item.num} style={{ padding: '14px 16px', border: '1px solid var(--border)', borderLeft: `3px solid ${item.color}`, borderRadius: 8, background: 'var(--bg3)' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: item.color }}>{item.num}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{item.title}</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.8 }} dangerouslySetInnerHTML={{ __html: item.desc }} />
+            </div>
+          ))}
+        </div>
+
+        <h4 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>推荐的 .claude/settings.json 模板</h4>
+        <div style={{ background: 'var(--bg3)', borderRadius: 8, border: '1px solid var(--border)', padding: '14px 16px', fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.8, overflowX: 'auto', marginBottom: 16 }}>
+          <pre style={{ margin: 0 }}>{`{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)"
+    ],
+    "deny": [
+      "Bash(git push --force *)",
+      "Bash(rm -rf *)"
+    ]
+  },
+  "mcpServers": {
+    "postgres": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-postgres"] }
+  },
+  "hooks": {
+    "postToolCall": [{
+      "matcher": "Edit",
+      "hooks": ["pnpm typecheck --noEmit"]
+    }]
+  }
+}
+
+# ~/.claude/settings.json（全局层，个人偏好）
+{
+  "permissions": {
+    "allow": ["Bash(open *)"]
+  },
+  "mcpServers": {
+    "figma": { "command": "npx", "args": ["-y", "figma-mcp"] }
+  }
+}
+`}</pre>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {['CLAUDE.md → 操作手册', 'settings.json → 行为规则', 'hooks → 自动执行', 'skills → 团队命令', '入 Git → 全员同步'].map((tag) => (
+            <span key={tag} style={{ padding: '4px 10px', background: 'var(--teal-bg)', border: '1px solid var(--teal-border, var(--border))', borderRadius: 6, fontSize: 11, color: 'var(--teal)', fontFamily: 'var(--mono)' }}>
+              {tag}
+            </span>
+          ))}
+        </div>
+      </Accordion>
+
       <h3 className="section-title">常见阻力与应对话术</h3>
       <Accordion title="展开查看：三种典型阻力及应对" accent="var(--coral)">
         <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>

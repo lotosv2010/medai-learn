@@ -3,6 +3,7 @@
 import { Accordion } from '../shared/Accordion'
 import { ImageLightbox } from '../shared/ImageLightbox'
 import { SectionGroup } from '../shared/SectionGroup'
+import { TrapGrid3x3 } from '../shared/TrapGrid3x3'
 
 export function FaqSection({ active }: { active: boolean }) {
   return (
@@ -80,30 +81,30 @@ export function FaqSection({ active }: { active: boolean }) {
 
       <Accordion title="问题二：大项目 / Monorepo 里 Claude Code 很慢怎么办？" accent="var(--amber)">
         <div className="callout callout-coral" style={{ marginBottom: 16 }}>
-          <strong>痛点：</strong>工具调用多、文件搜索慢、上下文膨胀快 — Monorepo 下一个 <code>find</code> 命令扫几千文件，等半天还没出结果。
+          <strong>痛点：</strong>Monorepo 下一次 <code>find</code> 扫描上万文件，等半天没结果；聊几轮上下文就满了，响应越来越慢。
         </div>
 
-        <h3 className="section-title">性能瓶颈分析</h3>
+        <h3 className="section-title">为什么会慢？三个瓶颈</h3>
         <div className="card-grid">
           <div style={{ padding: '14px 16px', border: '1px solid var(--border)', borderLeft: '3px solid var(--coral)', borderRadius: 8, background: 'var(--bg3)' }}>
             <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--coral)', marginBottom: 4 }}>瓶颈 1</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>文件搜索范围过大</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>搜索范围太大</div>
             <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.8 }}>
-              默认 <code>find</code> / <code>glob</code> 扫描整个仓库。Monorepo 动辄上万文件，每次工具调用都全量扫描。
+              你问"认证模块在哪"，Claude 默认在<strong>整个仓库</strong>搜。Monorepo 可能有 <code>apps/</code>、<code>packages/</code>、<code>tools/</code> 加起来几万个文件，每次搜索都全量扫描。
             </div>
           </div>
           <div style={{ padding: '14px 16px', border: '1px solid var(--border)', borderLeft: '3px solid var(--amber)', borderRadius: 8, background: 'var(--bg3)' }}>
             <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--amber)', marginBottom: 4 }}>瓶颈 2</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>上下文窗口膨胀</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>上下文被"垃圾"挤满</div>
             <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.8 }}>
-              大文件、多工具描述、长对话历史同时挤占上下文，响应变慢、费用飙升。
+              大文件内容、MCP 工具描述、长对话历史<strong>同时</strong>挤占上下文窗口。好比一张桌子堆满了不相关的资料，真正要用的东西反而放不下了。
             </div>
           </div>
           <div style={{ padding: '14px 16px', border: '1px solid var(--border)', borderLeft: '3px solid var(--teal)', borderRadius: 8, background: 'var(--bg3)' }}>
             <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--teal)', marginBottom: 4 }}>瓶颈 3</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>MCP 工具描述冗余</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>MCP 工具"搭便车"</div>
             <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.8 }}>
-              每个 MCP server 注册 10–20 个工具，描述随每次请求发送。4 个 server = 60+ 工具定义常驻上下文。
+              你启用了 4 个 MCP server，每个注册 10–20 个工具。<strong>每次对话</strong>这些工具描述都会随请求发送，即使你根本没用它们，白白占了上下文空间。
             </div>
           </div>
         </div>
@@ -112,8 +113,8 @@ export function FaqSection({ active }: { active: boolean }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
           {[
             {
-              title: 'Explore Agent 快速定位',
-              desc: '当你需要在大仓库里"找东西"时，让 Claude 自动派出 Explore 子 Agent。它只读相关文件片段，不把整个仓库塞进主上下文。支持 <code>quick</code> / <code>medium</code> / <code>very thorough</code> 三档搜索宽度。<br /><br /><strong>触发方式：</strong>直接用自然语言描述需求，Claude 会自动判断是否需要派出 Explore Agent：<br />• <code>"RAG 相关的代码在哪"</code> → quick 档，定位文件<br />• <code>"认证系统的完整流程"</code> → medium 档，跨文件追踪<br />• <code>"所有用到向量检索的地方"</code> → very thorough 档，全仓库扫描',
+              title: '用 Explore Agent 代替手动搜索',
+              desc: '让 Claude 派出 Explore 子 Agent 帮你找代码。它<strong>只读相关文件片段</strong>，不把整个仓库塞进上下文。直接用自然语言描述需求即可，Claude 会自动判断是否派出：<br /><br />• <code>"RAG 相关的代码在哪"</code> → 快速定位文件<br />• <code>"认证中间件从哪被引用的"</code> → 追踪调用链<br />• <code>"所有用到向量检索的地方"</code> → 全仓库扫描',
               tag: '效果最大',
               color: 'var(--teal)',
             },
@@ -152,46 +153,8 @@ export function FaqSection({ active }: { active: boolean }) {
           ))}
         </div>
 
-        <h3 className="section-title" style={{ marginTop: 20 }}>Explore Agent 使用详解</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-          {[
-            {
-              scene: '找文件 / 定位模块',
-              prompt: '"RAG 相关的代码在哪个目录"',
-              breadth: 'quick',
-              behavior: 'Agent 快速扫描目录结构和文件名，返回匹配的文件列表。适合不知道代码在哪的场景。',
-              color: 'var(--teal)',
-            },
-            {
-              scene: '追踪调用链',
-              prompt: '"认证中间件从哪被引用的"',
-              breadth: 'medium',
-              behavior: 'Agent 读取相关文件片段，追踪 import/export 关系，返回调用链路。适合理解模块间依赖。',
-              color: 'var(--blue)',
-            },
-            {
-              scene: '全仓库搜索模式',
-              prompt: '"所有用到向量检索的地方"',
-              breadth: 'very thorough',
-              behavior: 'Agent 跨越多个命名约定和目录，搜索所有可能的引用。适合排查遗漏或审计功能覆盖。',
-              color: 'var(--purple)',
-            },
-          ].map((item) => (
-            <div key={item.scene} style={{ padding: '14px 16px', border: '1px solid var(--border)', borderLeft: `3px solid ${item.color}`, borderRadius: 8, background: 'var(--bg3)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{item.scene}</span>
-                <code style={{ fontFamily: 'var(--mono)', fontSize: 11, padding: '2px 8px', borderRadius: 4, background: `${item.color}20`, color: item.color }}>{item.breadth}</code>
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 6 }}>
-                <strong>这样说：</strong><code style={{ fontFamily: 'var(--mono)', color: item.color }}>{item.prompt}</code>
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.7 }}>{item.behavior}</div>
-            </div>
-          ))}
-        </div>
-
         <div style={{ padding: '12px 16px', background: 'var(--bg3)', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>Explore Agent vs 直接工具</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>什么时候用 Explore Agent？</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 11, color: 'var(--text2)', lineHeight: 1.7 }}>
             <div>
               <strong style={{ color: 'var(--teal)' }}>用 Explore Agent</strong><br />
@@ -449,115 +412,54 @@ export function FaqSection({ active }: { active: boolean }) {
         </div>
       </Accordion>
 
-      <Accordion title="问题六：如何在团队中统一 Claude Code 的配置？" accent="var(--teal)">
-        <div className="callout callout-coral" style={{ marginBottom: 16 }}>
-          <strong>痛点：</strong>每人本地配置不同、行为不一致 — 张三的 Claude 用 npm，李四用 pnpm；王五开了 5 个 MCP，赵六一个没开。代码风格、工具链、提交规范全靠口头约定。
-        </div>
 
-        <h3 className="section-title">配置分层体系</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-          {[
-            {
-              layer: '全局层',
-              path: '~/.claude/settings.json',
-              scope: '当前用户所有项目',
-              content: '个人偏好：主题、快捷键、常用权限',
-              git: false,
-              color: 'var(--text3)',
-            },
-            {
-              layer: '项目层',
-              path: '.claude/settings.json',
-              scope: '当前项目所有成员',
-              content: '团队规范：MCP 配置、hooks、权限白名单',
-              git: true,
-              color: 'var(--teal)',
-            },
-            {
-              layer: '子目录层',
-              path: 'apps/web/.claude/settings.json',
-              scope: '子项目独立配置',
-              content: '局部工具和权限，避免加载无关 MCP',
-              git: true,
-              color: 'var(--blue)',
-            },
-          ].map((item) => (
-            <div key={item.layer} style={{ padding: '14px 16px', border: '1px solid var(--border)', borderLeft: `3px solid ${item.color}`, borderRadius: 8, background: 'var(--bg3)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{item.layer}</span>
-                {item.git && (
-                  <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: 'var(--teal-bg)', color: 'var(--teal)', border: '1px solid var(--teal)' }}>入 Git</span>
-                )}
+      <Accordion title="问题六：Vibing Code 有哪些常见陷阱？" accent="var(--coral)">
+        <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7, marginBottom: 16 }}>
+          9 个高频问题按严重程度分级。遇到 critical 级别时立即停止当前操作，按建议处理。
+        </div>
+        <TrapGrid3x3 />
+      </Accordion>
+
+      <Accordion title="问题七：Vibing Code 会被模型迭代吸收吗？" accent="var(--teal)">
+        <div>
+          <div className="callout callout-amber" style={{ marginBottom: 16 }}>
+            <strong>结论：</strong>操作层的经验会被吸收，判断层的经验不会。
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+            {[
+              {
+                label: '会被模型吸收',
+                color: 'var(--teal)',
+                items: [
+                  'CLAUDE.md 写法、Hook 脚本、Prompt 模板 — 最佳实践会进入训练数据，未来开箱即用',
+                  '工具调用、上下文管理、错误恢复 — Agent 框架层会越来越自动化',
+                  '通用编码规范 — 模型本身就在持续学习社区共识',
+                ],
+              },
+              {
+                label: '不会被吸收',
+                color: 'var(--coral)',
+                items: [
+                  '业务上下文 — 模型不知道你的项目是药店还是电商，永远需要你输入',
+                  '团队约定 — 禁止用哪个库、迁移文件放哪里，是组织知识而非通用知识',
+                  '工程权衡 — 这个改动现在能跑，3 年后维护成本是多少，只有你知道',
+                  '判断力 — 什么该做、什么不该做，AI 无法替代你做决策',
+                ],
+              },
+            ].map((group) => (
+              <div key={group.label} style={{ padding: '14px 18px', border: '1px solid var(--border)', borderLeft: `3px solid ${group.color}`, borderRadius: 8, background: 'var(--bg3)' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: group.color, marginBottom: 10 }}>{group.label}</div>
+                <ul style={{ paddingLeft: 16, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {group.items.map((item) => (
+                    <li key={item} style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>{item}</li>
+                  ))}
+                </ul>
               </div>
-              <code style={{ fontFamily: 'var(--mono)', fontSize: 11, color: item.color, display: 'block', marginBottom: 6 }}>{item.path}</code>
-              <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
-                <strong>作用域：</strong>{item.scope} ｜ <strong>内容：</strong>{item.content}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <h3 className="section-title">团队统一三件套</h3>
-        <div className="card-grid">
-          <div style={{ padding: '14px 16px', border: '1px solid var(--border)', borderLeft: '3px solid var(--teal)', borderRadius: 8, background: 'var(--bg3)' }}>
-            <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--teal)', marginBottom: 4 }}>01</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>CLAUDE.md 版本化</div>
-            <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.8 }}>
-              项目根目录的 <code>CLAUDE.md</code> 入 Git，全员共享同一份"AI 操作手册"。包含：架构约定、代码规范、常用命令、Git 提交格式、当前迭代重点。新人 <code>git clone</code> 后 Claude 自动对齐。
-            </div>
+            ))}
           </div>
-          <div style={{ padding: '14px 16px', border: '1px solid var(--border)', borderLeft: '3px solid var(--blue)', borderRadius: 8, background: 'var(--bg3)' }}>
-            <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--blue)', marginBottom: 4 }}>02</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>settings.json 入 Git</div>
-            <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.8 }}>
-              <code>.claude/settings.json</code> 统一管理：MCP server 列表、工具权限白名单、hooks 配置。PR Review 时检查配置变更，确保团队行为一致。
-            </div>
+          <div style={{ padding: '12px 16px', borderLeft: '3px solid var(--purple)', borderRadius: '0 8px 8px 0', background: 'var(--purple-bg)', fontSize: 13, color: 'var(--text)' }}>
+            <strong style={{ color: 'var(--purple)' }}>长期价值：</strong>Vibing Code 的核心不是具体技巧，而是培养「如何向 AI 传递上下文和约束」的思维模式。CLAUDE.md 里「禁止引入新 UI 库」背后的业务决策，模型永远不会自己知道——除非你告诉它。<strong>这个思维模式不会过时。</strong>
           </div>
-          <div style={{ padding: '14px 16px', border: '1px solid var(--border)', borderLeft: '3px solid var(--purple)', borderRadius: 8, background: 'var(--bg3)' }}>
-            <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--purple)', marginBottom: 4 }}>03</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>Shared Hooks</div>
-            <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.8 }}>
-              在 <code>settings.json</code> 中定义 hooks，自动执行团队规范：<br />
-              • <code>post-commit</code>: 自动运行类型检查<br />
-              • <code>pre-push</code>: 跑 lint + test<br />
-              • <code>notification</code>: 长任务完成时通知
-            </div>
-          </div>
-        </div>
-
-        <h3 className="section-title" style={{ marginTop: 20 }}>推荐的 .claude/settings.json 模板</h3>
-        <div style={{ background: 'var(--bg3)', borderRadius: 8, border: '1px solid var(--border)', padding: '14px 16px', fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.8, overflowX: 'auto', marginBottom: 16 }}>
-          <pre style={{ margin: 0 }}>{`{
-  "permissions": {
-    "allow": [
-      "Bash(pnpm *)",
-      "Bash(git status)",
-      "Bash(git diff *)",
-      "Bash(git log *)"
-    ],
-    "deny": [
-      "Bash(git push --force *)",
-      "Bash(rm -rf *)"
-    ]
-  },
-  "mcpServers": {
-    "postgres": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-postgres"] }
-  },
-  "hooks": {
-    "postToolCall": [{
-      "matcher": "Edit",
-      "hooks": ["pnpm typecheck --noEmit"]
-    }]
-  }
-}`}</pre>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {['CLAUDE.md → 操作手册', 'settings.json → 行为规则', 'hooks → 自动执行', '入 Git → 全员同步'].map((tag) => (
-            <span key={tag} style={{ padding: '4px 10px', background: 'var(--teal-bg)', border: '1px solid var(--teal-border, var(--border))', borderRadius: 6, fontSize: 11, color: 'var(--teal)', fontFamily: 'var(--mono)' }}>
-              {tag}
-            </span>
-          ))}
         </div>
       </Accordion>
     </section>

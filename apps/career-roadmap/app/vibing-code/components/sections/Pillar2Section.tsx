@@ -4,6 +4,7 @@ import { Accordion } from '../shared/Accordion'
 import { CodeBlock } from '../shared/CodeBlock'
 import { CompareBlock } from '../shared/CompareBlock'
 import { CACThreeCards } from '../shared/CACThreeCards'
+import { ImageLightbox } from '../shared/ImageLightbox'
 import { SectionGroup } from '../shared/SectionGroup'
 
 export function Pillar2Section({ active }: { active: boolean }) {
@@ -507,21 +508,27 @@ pnpm lint        # 代码规范（最后跑，不影响功能但影响 CR）`} /
           </div>
 
           <div style={{ marginBottom: 12 }}>
-            <strong>症状 1（60% context）— 开始忘规则：</strong><br />
+            <strong>症状 1（~60% context）— 开始忘规则：</strong><br />
             我说&quot;禁止引入新依赖&quot;，Claude 引入了 lodash。<br />
             <span style={{ color: 'var(--amber)' }}>→ /compact 后症状消失，可以继续</span>
           </div>
 
           <div style={{ marginBottom: 12 }}>
-            <strong>症状 2（80% context）— 自相矛盾：</strong><br />
+            <strong>症状 2（~80% context）— 自相矛盾：</strong><br />
             前面说&quot;用 Zustand 做状态管理&quot;，后面说&quot;用 Redux&quot;。<br />
             <span style={{ color: 'var(--coral)' }}>→ 必须开新 Session，压缩也救不回来</span>
           </div>
 
           <div style={{ marginBottom: 12 }}>
-            <strong>症状 3（90% context）— 幻觉：</strong><br />
+            <strong>症状 3（~90% context）— 幻觉：</strong><br />
             &quot;如前所述，我们选择了 PostgreSQL&quot; — 前面根本没讨论过数据库。<br />
             <span style={{ color: 'var(--coral)' }}>→ 必须开新 Session，且需要用精确的 @文件 引用初始化上下文</span>
+          </div>
+
+          <div style={{ padding: '10px 14px', background: 'var(--blue-bg)', borderRadius: 8, borderLeft: '3px solid var(--blue)', marginBottom: 12 }}>
+            <strong style={{ color: 'var(--blue)' }}>Auto-Compaction 机制：</strong>Claude Code 在上下文使用达到 <strong>~95%</strong> 时自动触发压缩（用 <code style={{ fontFamily: 'var(--mono)' }}>/context</code> 查看当前用量）。<br />
+            压缩会用摘要替换对话历史，但早期的详细指令可能丢失。可通过 <code style={{ fontFamily: 'var(--mono)' }}>CLAUDE_AUTOCOMPACT_PCT_OVERRIDE</code> 环境变量调整触发阈值。<br />
+            <span style={{ fontSize: 11, color: 'var(--text3)' }}>注意：auto-compaction 是兜底机制，不依赖它 — 劣化症状在 60% 就已出现，等到 95% 才压缩为时已晚。</span>
           </div>
 
           <div style={{ padding: '10px 14px', background: 'var(--teal-bg)', borderRadius: 8, borderLeft: '3px solid var(--teal)' }}>
@@ -606,13 +613,13 @@ claude -p "审查以下代码的安全风险" < src/api/upload.ts`} />
             </thead>
             <tbody>
               {[
-                ['14', 'Plan Mode 先探索', 'Shift+Tab 两次进入；Ctrl+G 直接编辑生成的计划', false],
+                ['14', 'Plan Mode 先探索', 'Shift+Tab 两次进入；Ctrl+G 直接编辑生成的计划', true],
                 ['15', '新任务盯着前几步', '确认方向正确再离开；早发现偏差成本低', false],
                 ['16', 'Auto Mode 减少打断', 'settings.json 开启，分类器自动处理低风险操作', false],
                 ['17', 'Git Worktree 并行', 'git worktree add ../feat-xyz，独立分支独立 Agent', false],
                 ['18', '/permissions 白名单', '安全命令加白名单（如 pnpm lint），免确认提速', false],
                 ['19', 'Critic/Reviewer 节点介入', '只在 ADR 后和 PR 前，开独立 Session', false],
-                ['20', '/fast 速度模式', '简单任务用 /fast，速度 2.5x，质量不变', false],
+                ['20', '/fast 速度模式', '简单任务用 /fast，速度 2.5x，质量不变', true],
                 ['21', 'claude -p 无头模式', 'claude -p "prompt" 脚本化调用，适合 CI / 批量', false],
                 ['22', '/insights 用量洞察', '查看 token 消耗、会话时长、高频操作，生成报告到 .claude/usage-data/report.html', true],
                 ['23', '/model 切换模型', '中途切换 Opus/Sonnet/Haiku，复杂推理用 Opus，简单改动用 /fast', false],
@@ -640,7 +647,7 @@ claude -p "审查以下代码的安全风险" < src/api/upload.ts`} />
                 ['28', '/hooks', '查看已注册的 Hook 配置', true],
                 ['29', '/config', '打开交互式设置界面（别名 /settings）', false],
                 ['30', '/context [all]', '可视化上下文窗口消耗（比状态栏更详细）', true],
-                ['31', '/effort [level]', '设置推理强度：low / medium / high / xhigh / max', false],
+                ['31', '/effort [level]', '设置推理强度：low / medium / high / xhigh / max', true],
                 ['32', '/branch [name]', '在当前节点创建对话分支（别名 /fork）', false],
                 ['33', '/memory', '编辑 CLAUDE.md 记忆文件', false],
                 ['34', '/permissions', '管理工具权限白名单（别名 /allowed-tools）', false],
@@ -659,6 +666,11 @@ claude -p "审查以下代码的安全风险" < src/api/upload.ts`} />
           </table>
         </div>
       </Accordion>
+      <div style={{ marginTop: 12, padding: '12px 16px', background: 'var(--teal-bg)', borderRadius: 8, borderLeft: '3px solid var(--teal)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
+        <strong style={{ color: 'var(--teal)' }}>完整命令列表：</strong>Claude Code 共有 96 个命令（含别名），完整列表见 <a href="https://code.claude.com/docs/zh-CN/commands#%E6%89%80%E6%9C%89%E5%91%BD%E4%BB%A4" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>官方文档 — 所有命令</a>。
+      </div>
+      <h3 className="section-title">/insights 用量洞察示例</h3>
+      <ImageLightbox src="/images/a4.png" alt="/insights 命令输出示例 — Token 消耗、会话时长、高频操作统计" style={{ width: '100%', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 16 }} />
       </SectionGroup>
     </section>
   )
