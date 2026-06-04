@@ -519,16 +519,16 @@ claude -p "审查以下代码的安全风险" < src/api/upload.ts`} />
             </thead>
             <tbody>
               {[
-                ['1', '多问题合并一条消息', '相关问题一次提出，避免多轮问答浪费 context'],
-                ['2', '出错新起消息纠正', '编辑原消息会清空上下文，永远新起一条'],
-                ['3', '临时提问用 /btw', '不影响当前任务上下文，问完 Claude 继续原任务'],
-                ['4', '引用文件用 @路径', '比描述位置精准；引用目录要谨慎（会读全部文件）'],
-                ['5', '新任务开新 Session', '/new 或 Ctrl+N；避免不相关上下文污染'],
-                ['6', '状态栏显示 context 用量', '参考官方 statusline 配置，实时监控'],
-              ].map(([n, tip, desc]) => (
-                <tr key={n as string}>
-                  <td style={{ fontFamily: 'var(--mono)', color: 'var(--text3)', width: 28 }}>{n}</td>
-                  <td style={{ fontWeight: 500 }}>{tip}</td>
+                ['1', '多问题合并一条消息', '相关问题一次提出，避免多轮问答浪费 context', false],
+                ['2', '出错新起消息纠正', '编辑原消息会清空上下文，永远新起一条', false],
+                ['3', '临时提问用 /btw', '不影响当前任务上下文，问完 Claude 继续原任务', true],
+                ['4', '引用文件用 @路径', '比描述位置精准；引用目录要谨慎（会读全部文件）', true],
+                ['5', '新任务开新 Session', '/new 或 Ctrl+N；避免不相关上下文污染', false],
+                ['6', '状态栏显示 context 用量', '参考官方 statusline 配置，实时监控', false],
+              ].map(([n, tip, desc, star]) => (
+                <tr key={n as string} style={star ? { background: 'var(--blue-bg)' } : undefined}>
+                  <td style={{ fontFamily: 'var(--mono)', color: 'var(--blue)', width: 28, fontWeight: 600 }}>{n}</td>
+                  <td style={{ fontWeight: star ? 600 : 500 }}>{tip}</td>
                   <td>{desc}</td>
                 </tr>
               ))}
@@ -542,17 +542,17 @@ claude -p "审查以下代码的安全风险" < src/api/upload.ts`} />
             </thead>
             <tbody>
               {[
-                ['7', '主动压缩 /compact', 'Claude 开始"忘事"时立即压缩，别等到满了'],
-                ['8', '离开前先压缩', '去开会/吃饭前 /compact，回来 Claude 仍在状态'],
-                ['9', '管道传递数据', 'cat error.log | claude "分析原因，不修改文件"'],
-                ['10', '截图直接粘贴', 'UI 问题最快的上下文传递方式，Ctrl+V 粘贴图片'],
-                ['11', '/resume 恢复对话', '选择历史 Session 继续，上下文自动恢复；中断的工作不用从头来'],
-                ['12', '/rewind 撤回改动', '回退 Claude 最近的文件修改，比 git checkout 更快更精准'],
-                ['13', '/recap 会话摘要', '生成当前 Session 的单行总结，适合交接或记录进度'],
-              ].map(([n, tip, desc]) => (
-                <tr key={n as string}>
-                  <td style={{ fontFamily: 'var(--mono)', color: 'var(--text3)', width: 28 }}>{n}</td>
-                  <td style={{ fontWeight: 500 }}>{tip}</td>
+                ['7', '主动压缩 /compact', 'Claude 开始"忘事"时立即压缩，别等到满了', true],
+                ['8', '离开前先压缩', '去开会/吃饭前 /compact，回来 Claude 仍在状态', false],
+                ['9', '管道传递数据', 'cat error.log | claude "分析原因，不修改文件"', true],
+                ['10', '截图直接粘贴', 'UI 问题最快的上下文传递方式，Ctrl+V 粘贴图片', false],
+                ['11', '/resume 恢复对话', '选择历史 Session 继续，上下文自动恢复；中断的工作不用从头来', true],
+                ['12', '/rewind 撤回改动', '回退 Claude 最近的文件修改，比 git checkout 更快更精准', true],
+                ['13', '/recap 会话摘要', '生成当前 Session 的单行总结，适合交接或记录进度', false],
+              ].map(([n, tip, desc, star]) => (
+                <tr key={n as string} style={star ? { background: 'var(--teal-bg)' } : undefined}>
+                  <td style={{ fontFamily: 'var(--mono)', color: 'var(--teal)', width: 28, fontWeight: 600 }}>{n}</td>
+                  <td style={{ fontWeight: star ? 600 : 500 }}>{tip}</td>
                   <td>{desc}</td>
                 </tr>
               ))}
@@ -566,21 +566,21 @@ claude -p "审查以下代码的安全风险" < src/api/upload.ts`} />
             </thead>
             <tbody>
               {[
-                ['14', 'Plan Mode 先探索', 'Shift+Tab 两次进入；Ctrl+G 直接编辑生成的计划'],
-                ['15', '新任务盯着前几步', '确认方向正确再离开；早发现偏差成本低'],
-                ['16', 'Auto Mode 减少打断', 'settings.json 开启，分类器自动处理低风险操作'],
-                ['17', 'Git Worktree 并行', 'git worktree add ../feat-xyz，独立分支独立 Agent'],
-                ['18', '/permissions 白名单', '安全命令加白名单（如 pnpm lint），免确认提速'],
-                ['19', 'Critic/Reviewer 节点介入', '只在 ADR 后和 PR 前，开独立 Session'],
-                ['20', '/fast 速度模式', '简单任务用 /fast，速度 2.5x，质量不变'],
-                ['21', 'claude -p 无头模式', 'claude -p "prompt" 脚本化调用，适合 CI / 批量'],
-                ['22', '/insights 用量洞察', '查看 token 消耗、会话时长、高频操作，生成报告到 .claude/usage-data/report.html'],
-                ['23', '/model 切换模型', '中途切换 Opus/Sonnet/Haiku，复杂推理用 Opus，简单改动用 /fast'],
-                ['24', '/init 生成 CLAUDE.md', '新项目一键扫描生成项目配置，再手动精简到 50 行以内'],
-              ].map(([n, tip, desc]) => (
-                <tr key={n as string}>
-                  <td style={{ fontFamily: 'var(--mono)', color: 'var(--text3)', width: 28 }}>{n}</td>
-                  <td style={{ fontWeight: 500 }}>{tip}</td>
+                ['14', 'Plan Mode 先探索', 'Shift+Tab 两次进入；Ctrl+G 直接编辑生成的计划', false],
+                ['15', '新任务盯着前几步', '确认方向正确再离开；早发现偏差成本低', false],
+                ['16', 'Auto Mode 减少打断', 'settings.json 开启，分类器自动处理低风险操作', false],
+                ['17', 'Git Worktree 并行', 'git worktree add ../feat-xyz，独立分支独立 Agent', false],
+                ['18', '/permissions 白名单', '安全命令加白名单（如 pnpm lint），免确认提速', false],
+                ['19', 'Critic/Reviewer 节点介入', '只在 ADR 后和 PR 前，开独立 Session', false],
+                ['20', '/fast 速度模式', '简单任务用 /fast，速度 2.5x，质量不变', false],
+                ['21', 'claude -p 无头模式', 'claude -p "prompt" 脚本化调用，适合 CI / 批量', false],
+                ['22', '/insights 用量洞察', '查看 token 消耗、会话时长、高频操作，生成报告到 .claude/usage-data/report.html', true],
+                ['23', '/model 切换模型', '中途切换 Opus/Sonnet/Haiku，复杂推理用 Opus，简单改动用 /fast', false],
+                ['24', '/init 生成 CLAUDE.md', '新项目一键扫描生成项目配置，再手动精简到 50 行以内', true],
+              ].map(([n, tip, desc, star]) => (
+                <tr key={n as string} style={star ? { background: 'var(--purple-bg)' } : undefined}>
+                  <td style={{ fontFamily: 'var(--mono)', color: 'var(--purple)', width: 28, fontWeight: 600 }}>{n}</td>
+                  <td style={{ fontWeight: star ? 600 : 500 }}>{tip}</td>
                   <td>{desc}</td>
                 </tr>
               ))}
@@ -594,24 +594,24 @@ claude -p "审查以下代码的安全风险" < src/api/upload.ts`} />
             </thead>
             <tbody>
               {[
-                ['25', '/plugin', '管理插件（安装/卸载/查看已装插件）'],
-                ['26', '/mcp', '管理 MCP 服务器连接状态'],
-                ['27', '/skills', '列出当前可用 Skill（含自定义 + 已安装）'],
-                ['28', '/hooks', '查看已注册的 Hook 配置'],
-                ['29', '/config', '打开交互式设置界面（别名 /settings）'],
-                ['30', '/context [all]', '可视化上下文窗口消耗（比状态栏更详细）'],
-                ['31', '/effort [level]', '设置推理强度：low / medium / high / xhigh / max'],
-                ['32', '/branch [name]', '在当前节点创建对话分支（别名 /fork）'],
-                ['33', '/memory', '编辑 CLAUDE.md 记忆文件'],
-                ['34', '/permissions', '管理工具权限白名单（别名 /allowed-tools）'],
-                ['35', '/usage', '查看费用和 Token 用量（别名 /cost /stats）'],
-                ['36', '/doctor', '诊断安装问题，检查环境是否正常'],
-                ['37', '/login / /logout', '账号登录/登出，切换订阅计划'],
-                ['38', '/export', '导出当前对话为纯文本文件'],
-              ].map(([n, tip, desc]) => (
-                <tr key={n as string}>
-                  <td style={{ fontFamily: 'var(--mono)', color: 'var(--text3)', width: 28 }}>{n}</td>
-                  <td style={{ fontWeight: 500 }}>{tip}</td>
+                ['25', '/plugin', '管理插件（安装/卸载/查看已装插件）', true],
+                ['26', '/mcp', '管理 MCP 服务器连接状态', true],
+                ['27', '/skills', '列出当前可用 Skill（含自定义 + 已安装）', true],
+                ['28', '/hooks', '查看已注册的 Hook 配置', true],
+                ['29', '/config', '打开交互式设置界面（别名 /settings）', false],
+                ['30', '/context [all]', '可视化上下文窗口消耗（比状态栏更详细）', true],
+                ['31', '/effort [level]', '设置推理强度：low / medium / high / xhigh / max', false],
+                ['32', '/branch [name]', '在当前节点创建对话分支（别名 /fork）', false],
+                ['33', '/memory', '编辑 CLAUDE.md 记忆文件', false],
+                ['34', '/permissions', '管理工具权限白名单（别名 /allowed-tools）', false],
+                ['35', '/usage', '查看费用和 Token 用量（别名 /cost /stats）', true],
+                ['36', '/doctor', '诊断安装问题，检查环境是否正常', false],
+                ['37', '/login / /logout', '账号登录/登出，切换订阅计划', false],
+                ['38', '/export', '导出当前对话为纯文本文件', false],
+              ].map(([n, tip, desc, star]) => (
+                <tr key={n as string} style={star ? { background: 'var(--amber-bg)' } : undefined}>
+                  <td style={{ fontFamily: 'var(--mono)', color: 'var(--amber)', width: 28, fontWeight: 600 }}>{n}</td>
+                  <td style={{ fontWeight: star ? 600 : 500 }}>{tip}</td>
                   <td>{desc}</td>
                 </tr>
               ))}

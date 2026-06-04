@@ -258,6 +258,10 @@ export function FaqSection({ active }: { active: boolean }) {
             </span>
           ))}
         </div>
+
+        <div style={{ marginTop: 16 }}>
+          <ImageLightbox src="/images/a5.png" alt="长期记忆示例截图" style={{ width: '100%', borderRadius: 8, border: '1px solid var(--border)' }} />
+        </div>
       </Accordion>
 
       <Accordion title="问题四：大项目 / Monorepo 里 Claude Code 很慢怎么办？" accent="var(--amber)">

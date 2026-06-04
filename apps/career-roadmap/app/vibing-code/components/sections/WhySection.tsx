@@ -145,6 +145,7 @@ export function WhySection({ active }: { active: boolean }) {
                 ['Sentry MCP', '生产错误上下文直接喂给 Claude', 'claude mcp add sentry'],
                 ['Chrome DevTools MCP', '浏览器性能分析 + 网络请求 + Console 日志', 'claude mcp add chrome-devtools'],
                 ['Git Worktree', '多任务并行隔离', '内置于 git，Claude Code 原生支持'],
+                ['cc-switch', '多账号 / 多 API Key 快速切换', 'npm i -g cc-switch（可选）'],
               ].map(([tool, use, way]) => (
                 <tr key={tool as string}>
                   <td style={{ fontWeight: 500 }}>{tool}</td>
