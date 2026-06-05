@@ -178,5 +178,5 @@ NEXTAUTH_URL=http://localhost:3000
 重点知识：Monorepo + pnpm workspace + TypeScript 严格模式配置
 已完成：8 个知识点
 本周目标：完成 packages/shared 的类型定义层 + 认证系统
-上次学习：2026-06-04T06:13:55.833Z
+上次学习：2026-06-04T07:04:13.632Z
 <!-- LEARNING_FOCUS_END -->

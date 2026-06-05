@@ -66,6 +66,9 @@ export function Pillar2Section({ active }: { active: boolean }) {
 这段代码有哪些潜在的安全风险？
 如果要支持 10 倍流量，现在的架构需要改哪里？
 你觉得这个方案最大的风险是什么？`} />
+        <div style={{ marginTop: 12, padding: '12px 14px', background: 'var(--amber-bg)', borderRadius: 8, borderLeft: '3px solid var(--amber)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.8 }}>
+          <strong style={{ color: 'var(--amber)' }}>⚠️ 探索性 Prompt 的回答必须认真甄别：</strong>AI 在分析/发现场景下的回答是「启发」而非「结论」— 它可能遗漏你熟悉但 AI 不了解的业务上下文，也可能对不熟悉的代码给出过度自信的判断。<strong>永远以你自己的工程经验为准</strong>，AI 的分析是起点，不是答案。
+        </div>
       </Accordion>
 
       <h3 className="section-title">从模糊需求到精确 Prompt</h3>
