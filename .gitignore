@@ -25,3 +25,7 @@ docs/learning/questions.jsonl
 
 # 测试覆盖率
 coverage/
+
+
+# codegraph
+.codegraph/
