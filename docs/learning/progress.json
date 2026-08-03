@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 135,
-  "lastSession": "2026-08-01T01:41:11.808Z",
+  "totalSessionCount": 139,
+  "lastSession": "2026-08-03T01:38:58.229Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -87,9 +87,9 @@
     }
   ],
   "inProgressTopics": [
-    "Monorepo + pnpm workspace",
     "TypeScript 严格模式配置",
-    "Turborepo 构建缓存原理"
+    "CI/CD（GitHub Actions）",
+    "React Fiber 架构"
   ],
   "knowledgeMap": {
     "javascript": {
@@ -152,7 +152,11 @@
       "多模型路由策略": "未开始"
     },
     "engineering": {
-      "Monorepo + Turborepo": "进行中",
+      "Monorepo + Turborepo": "理解",
+      "Lerna 完整搭建流程": "理解",
+      "pnpm workspace 协议": "理解",
+      "ESLint + Prettier + Husky 工程化链路": "理解",
+      "Changesets 版本发布工作流": "理解",
       "Vite 原理": "了解",
       "Webpack 5 & 模块联邦": "了解",
       "微前端架构": "了解",
