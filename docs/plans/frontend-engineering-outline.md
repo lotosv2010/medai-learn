@@ -221,13 +221,20 @@
 ## prompt
 
 ```text
-今天学习：{{ Rollup / SWC / Oxc }}
+今天学习：{{ CSS 工程化 }}
 
 知识点范围：
 {{
-- Rollup：库打包标准，output.format 对比
-- SWC：Rust 实现，Babel 替代方案
-- Oxc：下一代工具链（parser + linter + transformer 一体化）
+1 方案对比
+- CSS Modules：局部作用域原理
+- CSS-in-JS（Styled Components / Emotion）：运行时 vs 零运行时
+- Tailwind CSS：原子化、JIT 编译、设计 Token 集成
+- Vanilla Extract：TypeScript 驱动的零运行时 CSS
+
+2 设计系统工程化
+- CSS Variables（自定义属性）：主题切换实现
+- Design Token：Style Dictionary 管理 Token，多平台输出
+- Storybook：组件文档、视觉测试（Chromatic）
 }}
 
 分析角度（每个子主题都按此展开）：
@@ -235,9 +242,7 @@
 
 已有笔记：
 {{
-@docs/notes/25 rollup-实战.md
-@docs/notes/26 rollup-源码.md
-@docs/notes/27 rollup-插件.md
+@docs/notes/28 CSS-in-JS.md
 }}
 
 任务：
