@@ -220,8 +220,32 @@
 
 ## prompt
 
-```
-今天我们学习 xxx ，主要从基本使用、项目搭建流程、最终项目配置结构以及目录、原理、最佳实践等分析讲透彻；下面是我的一些笔记：@xxx.md，尽量完整的整理这些笔记，做查缺补漏，不要删减内容，最终生成一个公众号文章，放在@docs/articles 下面，先规划后书写
+```text
+今天学习：{{ Rollup / SWC / Oxc }}
+
+知识点范围：
+{{
+- Rollup：库打包标准，output.format 对比
+- SWC：Rust 实现，Babel 替代方案
+- Oxc：下一代工具链（parser + linter + transformer 一体化）
+}}
+
+分析角度（每个子主题都按此展开）：
+是什么 → 核心原理 → 手写实现（关键代码） → 生产级配置与最佳实践
+
+已有笔记：
+{{
+@docs/notes/25 rollup-实战.md
+@docs/notes/26 rollup-源码.md
+@docs/notes/27 rollup-插件.md
+}}
+
+任务：
+1. 先阅读以上笔记，找出缺失或浅尝辄止的知识点
+2. 补全内容（保留原有内容，只增不删）
+3. 调用 /publish 将整理后的内容生成公众号文章，输出到 docs/articles/
+4. 文章结构：先出大纲等我确认，再逐节写作
+
 ```
 
 *整理时间：2026-08-01 | 参考：State of JS 2024 / Vite 官方 / Turborepo 官方 / web.dev*
