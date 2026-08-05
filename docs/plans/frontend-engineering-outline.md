@@ -221,34 +221,53 @@
 ## prompt
 
 ```text
-今天学习：{{ CSS 工程化 }}
+今天学习：{{ 从 URL 到像素——浏览器底层原理与渲染全流程 }}
 
 知识点范围：
-{{
-1 方案对比
-- CSS Modules：局部作用域原理
-- CSS-in-JS（Styled Components / Emotion）：运行时 vs 零运行时
-- Tailwind CSS：原子化、JIT 编译、设计 Token 集成
-- Vanilla Extract：TypeScript 驱动的零运行时 CSS
+- **主题**：建立所有优化的心智模型
 
-2 设计系统工程化
-- CSS Variables（自定义属性）：主题切换实现
-- Design Token：Style Dictionary 管理 Token，多平台输出
-- Storybook：组件文档、视觉测试（Chromatic）
+**浏览器进程架构**
+- Browser 进程 / Renderer 进程 / GPU 进程 / Network 进程的分工
+- 站点隔离（Site Isolation）与进程沙箱；为什么 Tab 崩溃不影响其他 Tab
+
+**V8 与 JavaScript 执行原理**
+- 解析（Parse）→ 字节码（Bytecode）→ JIT 编译（TurboFan）流水线
+- 隐藏类（Hidden Class）与内联缓存（IC）对性能的影响
+- 内存区域：堆 / 栈 / 调用栈；GC 分代（新生代 Scavenge / 老生代 Mark-Compact）
+- 事件循环（Event Loop）：宏任务 / 微任务 / 渲染帧时机
+
+**渲染流水线（The Pixel Pipeline）**
+- Navigation Timing 时序（DNS → TCP → TLS → HTTP → HTML 解析 → DOM/CSSOM → Render Tree → Layout → Paint → Composite）
+- HTML 流式解析、CSS 阻塞渲染、JS 阻塞 HTML 解析的根本原因
+- GPU 图层与合成线程 vs 主线程分工（为什么 `transform` 不触发重排）
+- 重排（Reflow）vs 重绘（Repaint）vs 合成（Composite）代价对比表
+
+- **承上启下**：明确哪些浏览器行为对应哪些性能指标，为第 2 篇 Core Web Vitals 2026 全景——从指标到优化到归因 铺垫
 }}
 
 分析角度（每个子主题都按此展开）：
-是什么 → 核心原理 → 手写实现（关键代码） → 生产级配置与最佳实践
+A · 实操五段式（适用于有「手写内核」的篇章）
+
+是什么 → 核心原理 → 手写实现（关键代码） → 生产级最佳实践 → 完整最佳实践代码
+
+B · 概念四段式（适用于概念/架构/方法论篇章）
+
+真实场景引入 → 概念/机制拆解 → 决策矩阵或对比表 → 行动清单
 
 已有笔记：
 {{
-@docs/notes/28 CSS-in-JS.md
+@docs/notes/29 浏览器原理.md
+@docs/notes/30 浏览器渲染原理与性能优化.md
+@docs/notes/31 浏览器渲染实现.md
+@docs/notes/32 V8.md
+@docs/notes/33 GC.md
+@docs/notes/34 前端页面的生命周期.md
 }}
 
 任务：
 1. 先阅读以上笔记，找出缺失或浅尝辄止的知识点
 2. 补全内容（保留原有内容，只增不删）
-3. 调用 /publish 将整理后的内容生成公众号文章，输出到 docs/articles/
+3. 将整理后的内容生成公众号文章，输出到 docs/articles/
 4. 文章结构：先出大纲等我确认，再逐节写作
 
 ```
