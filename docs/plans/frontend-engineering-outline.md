@@ -221,28 +221,39 @@
 ## prompt
 
 ```text
-今天学习：{{ 从 URL 到像素——浏览器底层原理与渲染全流程 }}
+今天学习：{{ Core Web Vitals 2026 全景——从指标到优化到归因 }}
 
 知识点范围：
-- **主题**：建立所有优化的心智模型
+{{- **主题**：指标是一切优化的度量衡，本篇同时覆盖 LCP / INP 专项深挖
+- **字数预警**：内容密度高，目标 4500~5000 字；写作时执行「删除 20%」红线
 
-**浏览器进程架构**
-- Browser 进程 / Renderer 进程 / GPU 进程 / Network 进程的分工
-- 站点隔离（Site Isolation）与进程沙箱；为什么 Tab 崩溃不影响其他 Tab
+**一、Core Web Vitals 全貌**
+- LCP / CLS / INP 定义、阈值、常见误区
+- 辅助指标：FCP / TTFB / TBT
+- **Long Animation Frames API (LoAF)** 替代 Long Tasks：为什么、如何用
+- **web-vitals v4 attribution build**：把指标归因到具体元素/脚本
+- Lab 数据 vs Field 数据为什么会不一致
+- 指标选择决策矩阵（不同业务优先看哪个）
 
-**V8 与 JavaScript 执行原理**
-- 解析（Parse）→ 字节码（Bytecode）→ JIT 编译（TurboFan）流水线
-- 隐藏类（Hidden Class）与内联缓存（IC）对性能的影响
-- 内存区域：堆 / 栈 / 调用栈；GC 分代（新生代 Scavenge / 老生代 Mark-Compact）
-- 事件循环（Event Loop）：宏任务 / 微任务 / 渲染帧时机
+**二、LCP 专项——首屏最大内容的一切**
+- LCP 候选算法（图片 / 文本 / 背景图三类元素的判定规则）
+- `fetchpriority="high"` 与 `<link rel="preload">` 的正确姿势（及常见误用）
+- 字体加载 FOIT / FOUT 与 `font-display` 策略
+- 首屏 CSS 内联方案（Critical CSS）
 
-**渲染流水线（The Pixel Pipeline）**
-- Navigation Timing 时序（DNS → TCP → TLS → HTTP → HTML 解析 → DOM/CSSOM → Render Tree → Layout → Paint → Composite）
-- HTML 流式解析、CSS 阻塞渲染、JS 阻塞 HTML 解析的根本原因
-- GPU 图层与合成线程 vs 主线程分工（为什么 `transform` 不触发重排）
-- 重排（Reflow）vs 重绘（Repaint）vs 合成（Composite）代价对比表
+**三、INP 专项——交互延迟的攻防**
+- Event Timing API 与 LoAF 的关系（事件循环基础参考第 1 篇）
+- `yieldToMain` / `scheduler.yield` / `isInputPending` 三种让出主线程方案对比
+- React 并发模式（`useTransition` / `useDeferredValue`）对 INP 的影响
 
-- **承上启下**：明确哪些浏览器行为对应哪些性能指标，为第 2 篇 Core Web Vitals 2026 全景——从指标到优化到归因 铺垫
+**四、手写实现**
+- 一个 LCP 探针，实时输出候选变化
+- 一个长任务拆分调度器 + INP 归因面板
+
+**五、完整代码**
+- 生产级 LCP + INP 双优化模板（Next.js + `next/image` + `useTransition`）
+
+- **承上启下**：有了指标，进入监控篇——把采集搬上生产
 }}
 
 分析角度（每个子主题都按此展开）：
@@ -256,17 +267,17 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 
 已有笔记：
 {{
-@docs/notes/29 浏览器原理.md
-@docs/notes/30 浏览器渲染原理与性能优化.md
-@docs/notes/31 浏览器渲染实现.md
-@docs/notes/32 V8.md
-@docs/notes/33 GC.md
-@docs/notes/34 前端页面的生命周期.md
+@docs/notes/35 前端性能优化介绍.md
+@docs/notes/36 性能指标.md
+@docs/notes/37 Web 性能指标.md
+@docs/notes/38 Web 性能测试.md
+@docs/notes/39 前端监控之Lighthouse.md
+@docs/notes/40 前端监控详解.md
 }}
 
-任务：
+规则：
 1. 先阅读以上笔记，找出缺失或浅尝辄止的知识点
-2. 补全内容（保留原有内容，只增不删）
+2. 补全内容（保留原有内容，只增不删），保留图片
 3. 将整理后的内容生成公众号文章，输出到 docs/articles/
 4. 文章结构：先出大纲等我确认，再逐节写作
 
