@@ -667,26 +667,114 @@ init(
 
 接入 SDK 后，打开智愈系统性能页，数据从哪来、代表什么——逐一拆解。
 
+### source badge：数据三态
+
+控制台右上角 badge 反映当前数据状态。判定逻辑在 `apps/web/lib/api/performance.ts`：
+
+```typescript
+// vitals 中有任意一项 sampleCount > 0 → live；全为 0 → empty；fetch 抛错 → error
+const hasSamples = data.vitals.some((v) => v.sampleCount > 0);
+return { source: hasSamples ? "live" : "empty", data };
+```
+
+```typescript
+// apps/web/app/(console)/monitor/performance/page.tsx
+function SourceBadge({ source }: { source: OverviewSource }) {
+  if (source === "live")
+    return <Badge variant="good">数据来自 perf_events_raw</Badge>;
+  if (source === "empty")
+    return <Badge variant="warn">暂无数据 · 请确保 SDK 已接入并访问 demo</Badge>;
+  return <Badge variant="destructive">大盘 API 不可用 · 检查 apps/server</Badge>;
+}
+```
+
+> 💬 **面试官**：控制台怎么判断 SDK 有没有正常上报数据？
+>
+> ✅ 标准答案：后端检查 `vitals` 数组中是否有任意一项 `sampleCount > 0`，有则 `source: "live"`，否则 `source: "empty"`。
+> 🎁 加分答案：`source: "error"` 表示后端不可用，前端降级渲染空态而非白屏——监控系统自身也需要高可用设计。
+
 ### 头部 7 张指标卡片
 
-| 卡片 | 数据来源 | 说明 |
-|---|---|---|
-| 首屏时间 | `stages.firstScreen.ms`（p75） | fspPlugin 上报，DOM 稳定时刻 |
-| TTFB | `vitals.TTFB.value`（p75） | 首字节时间，反映服务器响应速度 |
-| DOM Ready | `stages.domParse.endMs`（p75） | DOMContentLoaded 触发时刻 |
-| 页面完全加载 | `max(stages[*].endMs)`（p75） | 所有资源加载完成时刻 |
-| 总阻塞时间 | `vitals.TBT.value`（p75） | FCP~TTI 窗口长任务累计 |
-| 长任务 | `longTasks.count / p75Ms / tiers` | longTaskPlugin 上报 |
-| 采样数量 | `max(vitals[*].sampleCount)` | 当前时间窗口内有效样本数 |
+卡片数据来自 `common-metrics-cards.tsx`，每张卡片的计算方式源码里都有明确注释：
 
-采样数量是数据置信度的参考——样本量 < 50 时，p75 数值波动较大，不宜做绝对值判断。
+```typescript
+// apps/web/app/(console)/monitor/performance/common-metrics-cards.tsx
+const fmpMs = stageOf("firstScreen")?.ms;              // fspPlugin 上报
+const domReadyMs = stageOf("domParse")?.endMs;         // DOMContentLoaded 时间点
+const fullyLoadedMs = stages.reduce<number | undefined>(
+  (acc, s) => (acc === undefined ? s.endMs : Math.max(acc, s.endMs)),
+  undefined,
+);                                                     // 所有 stage 中最大的 endMs
+const sampleCount = vitals.reduce<number>(
+  (acc, v) => Math.max(acc, v.sampleCount),
+  0,
+);                                                     // vitals 中 sampleCount 最大值
+```
+
+`fullyLoadedMs` 取所有 stage 的 `endMs` 最大值，而不是直接用 `total` 字段——因为 `firstScreen` 和 `lcp` 是合成阶段，endMs 可能超过 Navigation 串联结果。
+
+长任务卡片额外渲染三级分布条 `LongTaskTierBar`，用颜色直观呈现各 tier 占比：
+
+```typescript
+function LongTaskTierBar({ tiers }: { readonly tiers: LongTaskSummary["tiers"] }) {
+  const total = tiers.longTask + tiers.jank + tiers.unresponsive;
+  if (total === 0) return null;
+  const pct = (n: number) => `${Math.round((n / total) * 100)}%`;
+  return (
+    <div className="flex h-2 w-full overflow-hidden rounded-full">
+      <div className="bg-emerald-500" style={{ width: pct(tiers.longTask) }} />
+      <div className="bg-amber-500"   style={{ width: pct(tiers.jank) }} />
+      <div className="bg-rose-500"    style={{ width: pct(tiers.unresponsive) }} />
+    </div>
+  );
+}
+```
+
+绿色 = longTask（50ms~2s）/ 黄色 = jank（2s~5s）/ 红色 = unresponsive（≥5s）。长任务卡片全绿说明主线程压力可控，出现红色条需要排查。
+
+| 卡片 | 数据字段 | 计算方式 |
+|---|---|---|
+| 首屏时间（FMP） | `stages.firstScreen.ms` | fspPlugin 上报，DOM 稳定时刻 |
+| TTFB | `vitals.TTFB.value` | 首字节时间 p75 |
+| DOM Ready | `stages.domParse.endMs` | DOMContentLoaded 触发时刻 |
+| 页面完全加载 | `max(stages[*].endMs)` | 含 firstScreen 和 LCP 合成阶段 |
+| 总阻塞时间 | `vitals.TBT.value` | sampleCount=0 时显示 N/A |
+| 长任务 | `longTasks.count / p75Ms / tiers` | 含 tier 三色分布条 |
+| 采样数量 | `max(vitals[*].sampleCount)` | 置信度参考，< 50 时 p75 波动大 |
+
+### 性能视图趋势图
+
+趋势图是三轴组合图（`TrendChart`），每小时一桶，数据来自 `TrendBucket`：
+
+```typescript
+// apps/web/lib/api/performance.ts
+export interface TrendBucket {
+  readonly hour: string;           // UTC 时间，1小时一桶
+  readonly lcpP75: number;  readonly fcpP75: number;
+  readonly clsP75: number;  readonly inpP75: number;
+  readonly ttfbP75: number; readonly tbtP75: number;
+  readonly fmpP75: number;  readonly siP75: number;
+  readonly dnsP75: number;  readonly tcpP75: number;
+  readonly domParseP75: number; readonly resourceLoadP75: number;
+  readonly sampleCount: number;
+}
+```
+
+图表默认展示「样本数 + 首屏时间 + CLS」，其余 12 个系列通过图例按需切换。三轴解决量纲不统一：左轴耗时（ms）/ 右轴 CLS 评分（0~1）/ 右轴样本数（柱状）。CLS 轴 domain 对齐 web-vitals 阈值（≤0.1 / ≤0.25 / ≤0.5 / ≤1），避免数值在图中被放大夸张。
 
 ### 页面加载瀑布图（9 段）
 
-瀑布图把 Navigation Timing API 的原始数据可视化为串联阶段：
+瀑布图用 AntV G2 渲染横向甘特条，核心是 `coordinate.transpose` 把竖向区间图转为横向：
 
-```
-DNS → TCP → SSL → 请求发出 → 内容传输 → DOM 解析 → 资源加载 → 首屏时间 → LCP
+```typescript
+// apps/web/app/(console)/monitor/performance/page-waterfall.tsx
+chart.coordinate({ transform: [{ type: "transpose" }] });
+chart.interval()
+  .data(data)
+  .encode("x", "label")
+  .encode("y", ["startMs", "endMs"])   // range 区间编码，两端点即 [startMs, endMs]
+  .encode("color", "label")
+  .axis("y", { position: "top", grid: true, title: "ms" });
 ```
 
 SDK 上报的 NavigationTimingSchema 原始字段（随 TTFB 事件携带）：
@@ -707,33 +795,60 @@ SDK 上报的 NavigationTimingSchema 原始字段（随 TTFB 事件携带）：
 }
 ```
 
-后端将原始字段聚合 p75 后，补充 `firstScreen`（来自 FSP 事件）和 `lcp`（来自 LCP 事件）两个合成阶段，拼成完整的 9 段瀑布图。
+前 7 段（DNS~资源加载）是 Navigation Timing 的串联累积，`firstScreen` 和 `lcp` 是独立的合成阶段，起点均为 0，代表从导航开始到该事件的绝对总耗时，不参与串联。这也是"首屏时间"和"LCP"条的起点看起来和其他段不对齐的原因。
 
-🔧 **定位瓶颈**：DNS 段异常长，说明 DNS 预解析未配置；response 段异常长，说明服务端响应慢或 CDN 命中率低；resourceLoad 段异常长，说明 JS bundle 过大或图片未做懒加载。
+> 💬 **面试官**：瀑布图里首屏时间和 LCP 的起点为什么不一样？
+>
+> ✅ 标准答案：DNS~资源加载是串联阶段，endMs 累积递增；首屏（FSP）和 LCP 是独立全程耗时，startMs = 0，表示从导航开始到该事件的绝对时间，不参与串联。
+> 🎁 加分答案：这两个合成阶段由 fspPlugin 和 LCP observer 独立上报，后端单独补充到 `stages` 数组；前端用 `stages.reduce((acc, s) => Math.max(acc, s.endMs), 0)` 计算时间轴总宽度。
 
-### Core Web Vitals 面板评级
+🔧 **定位瓶颈**：DNS 段异常长 → DNS 预解析未配置；response 段异常长 → 服务端响应慢或 CDN 命中率低；resourceLoad 段异常长 → JS bundle 过大或图片未做懒加载。
 
-面板展示 9 个指标的 p75 值和评级，评级阈值来自 web-vitals 官方：
+### Core Web Vitals 面板
 
-| 指标 | good | needs-improvement | poor |
-|---|---|---|---|
-| LCP | ≤ 2500ms | ≤ 4000ms | > 4000ms |
-| INP | ≤ 200ms | ≤ 500ms | > 500ms |
-| CLS | ≤ 0.1 | ≤ 0.25 | > 0.25 |
-| FCP | ≤ 1800ms | ≤ 3000ms | > 3000ms |
-| TTFB | ≤ 800ms | ≤ 1800ms | > 1800ms |
-| TBT | ≤ 200ms | ≤ 600ms | > 600ms |
-| FID（废弃） | ≤ 100ms | ≤ 300ms | > 300ms |
-| TTI（废弃） | ≤ 3800ms | ≤ 7300ms | > 7300ms |
-| SI | ≤ 3400ms | ≤ 5800ms | > 5800ms |
+面板展示 9 个指标的三段式评级条，CONFIGS 数组完整定义了阈值和元信息：
 
-FID 和 TTI 标注"废弃"但仍展示，便于历史数据纵向对比。
+```typescript
+// apps/web/app/(console)/monitor/performance/core-vitals-panel.tsx
+// 面板展示顺序：LCP → INP → CLS → TTFB → FCP → TTI → TBT → FID → SI
+const CONFIGS = [
+  { key: "LCP",  thresholds: [2500, 4000], poorCap: 8000,  unit: "ms" },
+  { key: "INP",  thresholds: [200,  500],  poorCap: 1200,  unit: "ms" },
+  { key: "CLS",  thresholds: [0.1,  0.25], poorCap: 1,    unit: ""   },
+  { key: "TTFB", thresholds: [800,  1800], poorCap: 4000,  unit: "ms" },
+  { key: "FCP",  thresholds: [1800, 3000], poorCap: 6000,  unit: "ms" },
+  { key: "TTI",  thresholds: [3800, 7300], poorCap: 15000, unit: "ms" },
+  { key: "TBT",  thresholds: [200,  600],  poorCap: 2000,  unit: "ms" },
+  { key: "FID",  thresholds: [100,  300],  poorCap: 1000,  unit: "ms", deprecated: true, replacedBy: "INP" },
+  { key: "SI",   thresholds: [3400, 5800], poorCap: 10000, unit: "ms" },
+] as const;
+```
+
+`poorCap` 是 poor 段的视觉上界，超过这个值指针仍在 poor 区内不会跑出色条。`deprecated: true` 的指标渲染"Deprecated"灰色 badge，数值仍展示保留历史对比。
+
+面板支持"当前 / 环比"两种视图。环比模式下，数值变化方向颜色规则：对所有 9 个指标（均为越低越好），数值下降显绿（优化），上升显红（恶化）。当指标处于 warn 或 poor 状态时，数值旁出现 AI 诊断按钮 🤖，点击可调起 AI 分析优化建议。
 
 ### 维度分析
 
-控制台支持按 8 个维度下钻：browser / os / device / version / region / language / network / timezone。
+维度分析支持 8 个维度，定义来自 `dimension-tabs.tsx`：
 
-实际场景：某次发布后 LCP 整体劣化，按 browser 下钻发现只有 Safari 劣化，其他浏览器正常——定位到是 Safari 不支持某个 CSS 特性导致重排，与 Chrome 无关。
+```typescript
+// apps/web/app/(console)/monitor/performance/dimension-tabs.tsx
+const TABS = [
+  { key: "device",   label: "机型" },
+  { key: "browser",  label: "浏览器" },
+  { key: "os",       label: "操作系统" },
+  { key: "version",  label: "版本" },
+  { key: "region",   label: "地域" },
+  { key: "language", label: "语言" },
+  { key: "network",  label: "网络" },
+  { key: "timezone", label: "时区" },
+] as const;
+```
+
+每个 Tab 内是"左 1/3 环图 + 右 2/3 表格"布局，表格列：`#` / 取值 / 占比（`sharePercent`，0~100）/ FMP 均值（`fmpAvgMs`）。
+
+🔧 **典型排查场景**：某次发布后 LCP 整体劣化，按 browser 维度下钻发现只有 Safari 劣化，其他浏览器正常——定位到 Safari 不支持某个 CSS 特性导致重排，避免了全量回滚。
 
 ---
 
