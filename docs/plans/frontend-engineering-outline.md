@@ -221,39 +221,36 @@
 ## prompt
 
 ```text
-今天学习：{{ Core Web Vitals 2026 全景——从指标到优化到归因 }}
+ 下面我们规划前端性能与监控的第四章文章，具体如下：
+ {{
+  今天规划实现：{{ 手写性能监控 SDK——对齐 web-vitals 生产库 }}
 
 知识点范围：
-{{- **主题**：指标是一切优化的度量衡，本篇同时覆盖 LCP / INP 专项深挖
-- **字数预警**：内容密度高，目标 4500~5000 字；写作时执行「删除 20%」红线
+{{
+- **主线**：A · 实操五段式
+- **主题**：从 PerformanceObserver 到生产可用的采集库
 
-**一、Core Web Vitals 全貌**
-- LCP / CLS / INP 定义、阈值、常见误区
-- 辅助指标：FCP / TTFB / TBT
-- **Long Animation Frames API (LoAF)** 替代 Long Tasks：为什么、如何用
-- **web-vitals v4 attribution build**：把指标归因到具体元素/脚本
-- Lab 数据 vs Field 数据为什么会不一致
-- 指标选择决策矩阵（不同业务优先看哪个）
+**核心原理**
+- `web-vitals@v4` 内部实现（`onLCP` / `onCLS` / `onINP` 的 Observer 逻辑）
+- 各指标上报时机差异：FCP/TTFB 即时上报 vs LCP/CLS/INP 在 `pagehide` / `visibilitychange=hidden` 封板
+- BFCache 复活（`pageshow persisted`）导致指标重置的处理
+- 跨标签页 Session 共享：`BroadcastChannel('ghc_session')` + `storage` 事件兜底，避免 UV 翻倍
 
-**二、LCP 专项——首屏最大内容的一切**
-- LCP 候选算法（图片 / 文本 / 背景图三类元素的判定规则）
-- `fetchpriority="high"` 与 `<link rel="preload">` 的正确姿势（及常见误用）
-- 字体加载 FOIT / FOUT 与 `font-display` 策略
-- 首屏 CSS 内联方案（Critical CSS）
+**手写实现**：mini LCP / CLS / INP 采集器
+- LCP PerformanceObserver 候选变化追踪
+- CLS 会话窗口累计算法（5s 间隔 / 1s 间隙）
+- INP `interactionId` 聚合逻辑（Event Timing API）
 
-**三、INP 专项——交互延迟的攻防**
-- Event Timing API 与 LoAF 的关系（事件循环基础参考第 1 篇）
-- `yieldToMain` / `scheduler.yield` / `isInputPending` 三种让出主线程方案对比
-- React 并发模式（`useTransition` / `useDeferredValue`）对 INP 的影响
+**生产边界**
+- `visibilitychange=hidden` 时机 flush，避免最终值丢失
+- 多次上报去重（`eventId` UNIQUE + IndexedDB 离线队列）
+- 采样率在序列化前完成，不占用上报配额
 
-**四、手写实现**
-- 一个 LCP 探针，实时输出候选变化
-- 一个长任务拆分调度器 + INP 归因面板
+**对齐 web-vitals 源码**：手写版还差什么（attribution build / 导航类型判断 / BFCache 边界）
 
-**五、完整代码**
-- 生产级 LCP + INP 双优化模板（Next.js + `next/image` + `useTransition`）
+**完整代码**：一个可发布的 mini SDK，接口风格对齐 web-vitals API
 
-- **承上启下**：有了指标，进入监控篇——把采集搬上生产
+- **承上启下**：错误监控专项——从捕获到还原的全链路
 }}
 
 分析角度（每个子主题都按此展开）：
@@ -267,10 +264,6 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 
 已有笔记：
 {{
-@docs/notes/35 前端性能优化介绍.md
-@docs/notes/36 性能指标.md
-@docs/notes/37 Web 性能指标.md
-@docs/notes/38 Web 性能测试.md
 @docs/notes/39 前端监控之Lighthouse.md
 @docs/notes/40 前端监控详解.md
 }}
@@ -280,6 +273,22 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 2. 补全内容（保留原有内容，只增不删），保留图片
 3. 将整理后的内容生成公众号文章，输出到 docs/articles/
 4. 文章结构：先出大纲等我确认，再逐节写作
+ }}
+ ；
+ 我之前已经完成了一个结合AI的监控项目，入口为@/Users/robin/Downloads/01 git/AI/g-heal-claw/README.md，项目主要完成了
+ {{
+  - **性能监控** — Core Web Vitals（LCP / FCP / CLS / INP / TTFB）、页面加载各阶段耗时、首屏时间、长任务卡顿、加载瀑布图。
+- **异常监控** — JS 运行时错误、Promise 未处理拒绝、静态资源加载失败、AJAX/Fetch 异常、白屏检测、Source Map 源码位置还原。
+- **API 监控** — 自动拦截 XHR / fetch，记录调用量、成功率、耗时分位（p50/p90/p95/p99）、慢请求、异常请求上下文、TraceID 前后端串联。
+- **访问分析** — PV/UV、会话轨迹、访问来源（referrer / UTM / 搜索引擎）、终端环境、IP 地域分布。
+- **资源监控** — 按类型（script / style / image / font / media）拆分的加载耗时、大小、CDN 测速、失败率。
+- **自定义上报** — `track` / `time` / `log` 事件、全局属性、分级日志。
+- **埋点** — 代码埋点、`data-track` 全埋点、曝光埋点（IntersectionObserver）、页面停留时长。
+- **告警** — 错误率突增、Web Vital 劣化、API 成功率下降等预置规则；通过邮件 / 钉钉 / 企微 / Slack / Webhook / 短信分发。
+- **AI 自愈** — LangChain Agent 基于 Issue + Sourcemap + 仓库上下文 ReAct 推理，在 Docker 沙箱生成 patch + 跑 verify + 创建 PR。
+ }}，
+ 你可以使用codegraph查看项目的设计，设计文档都在
+ @/Users/robin/Downloads/01 git/AI/g-heal-claw/docs 下面，其中decisions 文件夹只阅读 /Users/robin/Downloads/01 git/AI/g-heal-claw/docs/decisions/README.md 就行，其他的忽略，同时忽略/Users/robin/Downloads/01 git/AI/g-heal-claw/docs/tasks 文件夹，帮我规划这篇文章
 
 ```
 
