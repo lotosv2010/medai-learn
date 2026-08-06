@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 181,
-  "lastSession": "2026-08-06T07:37:35.023Z",
+  "totalSessionCount": 182,
+  "lastSession": "2026-08-06T08:30:00.000Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -162,7 +162,18 @@
       "微前端架构": "了解",
       "CI/CD（GitHub Actions）": "了解",
       "Docker 容器化": "了解",
-      "性能监控体系": "理解"
+      "性能监控体系": "理解",
+      "web-vitals@v4 内部原理": "理解",
+      "LCP 候选追踪与封板机制": "理解",
+      "CLS 会话窗口累计算法": "理解",
+      "INP interactionId 聚合与 p98": "理解",
+      "BFCache 复活与指标重置": "理解",
+      "上报通道三级降级（beacon/fetch/image）": "理解",
+      "IndexedDB 离线队列": "理解",
+      "eventId 幂等去重": "理解",
+      "FSP 首屏时间采集（MutationObserver+rAF）": "理解",
+      "Speed Index 三里程碑梯形法": "理解",
+      "TBT 长任务累计采集": "理解"
     },
     "nodejs": {
       "Event Loop（与浏览器区别）": "未开始",
