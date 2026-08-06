@@ -531,6 +531,212 @@ web-vitals v3+ 在 `pageshow persisted=true` 时会完整重置所有内部状�
 
 ---
 
+## 🔌 SDK 接入指南：从零到全链路可观测
+
+上面讲了原理，这一节讲怎么把 g-heal-claw SDK 真正接起来。只覆盖性能相关插件，其他插件（错误、接口、资源）后续独立成文。
+
+### 最小可用配置
+
+只需三步：安装、配置 DSN、注册 `performancePlugin`。
+
+```bash
+pnpm add @g-heal-claw/sdk
+```
+
+```typescript
+// src/monitor.ts
+import { init, performancePlugin } from "@g-heal-claw/sdk";
+
+init(
+  {
+    dsn: import.meta.env.VITE_GHC_DSN,
+    environment: import.meta.env.VITE_GHC_ENV ?? "development",
+  },
+  { plugins: [performancePlugin()] }
+);
+```
+
+在 `main.ts` 最顶部调用（早于框架初始化，避免错过 FCP / LCP 早期事件）：
+
+```typescript
+// main.ts
+import "./monitor"; // 必须在第一行
+import { createApp } from "vue";
+import App from "./App.vue";
+```
+
+接入后打开控制台性能页，头部 badge 从 `empty`（SDK 未接入）变成 `live`（有真实数据），表示接入成功。
+
+> 💬 **面试官**：控制台怎么判断 SDK 有没有正常上报数据？
+>
+> ✅ 标准答案：后端 `getPerformanceOverview` 判断 `vitals` 数组中是否有任意一项 `sampleCount > 0`，有则返回 `source: "live"`，否则 `source: "empty"`。
+> 🎁 加分答案：`source: "error"` 是第三种状态，表示后端不可用，前端降级渲染空状态，而不是报错白屏——这是监控系统自身的可用性保障。
+
+### performancePlugin 四个开关
+
+`performancePlugin` 接受一个可选配置对象，四个布尔开关控制上报范围：
+
+```typescript
+performancePlugin({
+  reportNavigation: true,   // Navigation 瀑布（DNS/TCP/请求/DOM各阶段），默认开
+  reportDeprecated: true,   // FID + TTI（已废弃但保留），默认开
+  reportTBT: true,          // Total Blocking Time，默认开
+  reportFSP: false,         // 合成 FSP，默认关（配合 fspPlugin 避免重复）
+})
+```
+
+`reportNavigation: true` 时，TTFB 事件会携带完整的 `navigation` 字段，包含 DNS / TCP / SSL / 请求 / 响应 / DOM 解析各阶段原始耗时，这是瀑布图的数据来源。
+
+`reportDeprecated` 的意义：FID / TTI 虽已被 web-vitals v4 移除，但历史数据对比和旧版 Android WebView 兼容仍需要它们。关掉这个开关可以略微减少上报量，但会丢失这两个维度。
+
+### 补充两个实验室指标
+
+`fspPlugin` 和 `speedIndexPlugin` 是独立插件，需要单独注册。
+
+**为什么 FSP 不放进 performancePlugin？**
+
+FSP（首屏时间）基于 MutationObserver 合成，和 FCP（浏览器原生 paint 事件）是两套采集通道。如果 `performancePlugin({ reportFSP: true })` 同时又注册了 `fspPlugin()`，同一次页面加载会上报两条 FSP 事件，服务端聚合时数据翻倍。设计上选择默认关闭 `reportFSP`，让 `fspPlugin` 独立承担这个职责。
+
+```typescript
+import {
+  init, performancePlugin, fspPlugin, speedIndexPlugin
+} from "@g-heal-claw/sdk";
+
+init(
+  { dsn: import.meta.env.VITE_GHC_DSN },
+  {
+    plugins: [
+      performancePlugin({ reportFSP: false }), // FSP 交给 fspPlugin
+      fspPlugin({
+        settleMs: 1000,    // DOM 静默 1s 后认为首屏稳定
+        minFspMs: 100,     // 低于 100ms 视为误判丢弃
+        maxFspMs: 10000,   // 超过 10s 强制封板
+      }),
+      speedIndexPlugin(),  // 三里程碑梯形法，精度 ±20%，适合趋势对比
+    ],
+  }
+);
+```
+
+> 💬 **面试官**：FSP 和 FCP 有什么区别？
+>
+> ✅ 标准答案：FCP 是浏览器原生指标，由 `paint` 类型的 PerformanceEntry 产出，测量"第一块有意义内容出现"的时间；FSP 是 SDK 合成指标，通过 MutationObserver 追踪 DOM 变化，测量"首屏 DOM 稳定"的时间，两者角度不同。
+> 🎁 加分答案：FCP 可能在骨架屏出现时就触发，但用户看到真实内容要等更久；FSP 的 settle 窗口（默认 1s 无新 DOM 变化）更能反映"用户真正看到有效内容"的时刻。
+
+**Speed Index 的使用建议**
+
+SI 精度只有 ±20%，不适合用绝对值做告警（"SI > 3400ms 触发告警"这种配置会有大量误报）。正确的用法是**趋势监控**：某次发布后 SI 从 2800ms 升到 3500ms，相对变化 25%，值得排查。
+
+### 补充长任务监控
+
+```typescript
+import { init, performancePlugin, longTaskPlugin } from "@g-heal-claw/sdk";
+
+init(
+  { dsn: import.meta.env.VITE_GHC_DSN },
+  {
+    plugins: [
+      performancePlugin(),
+      longTaskPlugin({
+        minDurationMs: 50,        // 低于 50ms 不算长任务
+        maxBatch: 20,             // 攒够 20 条批量上报
+        flushIntervalMs: 5000,    // 每 5s 定时上报
+        reportAttribution: true,  // 上报任务归因（哪段脚本导致的）
+      }),
+    ],
+  }
+);
+```
+
+`longTaskPlugin` 采集的是"主线程被占用超过 50ms 的任务"，这是 TBT（Total Blocking Time）的原始数据来源。控制台长任务卡片会展示 `count`（总次数）、`p75Ms`（75 分位耗时）和三级 tier 分布：
+
+| tier | 耗时范围 | 含义 |
+|---|---|---|
+| longTask | 50ms ~ 2s | 普通长任务，用户可能感知到轻微卡顿 |
+| jank | 2s ~ 5s | 严重卡顿，交互响应明显延迟 |
+| unresponsive | ≥ 5s | 页面失响应，用户体验极差 |
+
+> 💬 **面试官**：TBT 和长任务是什么关系？
+>
+> ✅ 标准答案：TBT 是 FCP 到 TTI 时间窗口内，所有长任务超出 50ms 部分的累加：`TBT = Σ max(0, duration - 50ms)`。长任务是原始采集，TBT 是在特定时间窗口内对长任务的聚合计算。
+> 🎁 加分答案：TBT 是 Lighthouse 实验室指标，只在 FCP~TTI 窗口内计算；而 `longTaskPlugin` 采集整个页面生命周期的长任务，控制台的长任务卡片数据范围更广，更能反映运行时的整体主线程健康度。
+
+---
+
+## 📊 看懂控制台数据
+
+接入 SDK 后，打开智愈系统性能页，数据从哪来、代表什么——逐一拆解。
+
+### 头部 7 张指标卡片
+
+| 卡片 | 数据来源 | 说明 |
+|---|---|---|
+| 首屏时间 | `stages.firstScreen.ms`（p75） | fspPlugin 上报，DOM 稳定时刻 |
+| TTFB | `vitals.TTFB.value`（p75） | 首字节时间，反映服务器响应速度 |
+| DOM Ready | `stages.domParse.endMs`（p75） | DOMContentLoaded 触发时刻 |
+| 页面完全加载 | `max(stages[*].endMs)`（p75） | 所有资源加载完成时刻 |
+| 总阻塞时间 | `vitals.TBT.value`（p75） | FCP~TTI 窗口长任务累计 |
+| 长任务 | `longTasks.count / p75Ms / tiers` | longTaskPlugin 上报 |
+| 采样数量 | `max(vitals[*].sampleCount)` | 当前时间窗口内有效样本数 |
+
+采样数量是数据置信度的参考——样本量 < 50 时，p75 数值波动较大，不宜做绝对值判断。
+
+### 页面加载瀑布图（9 段）
+
+瀑布图把 Navigation Timing API 的原始数据可视化为串联阶段：
+
+```
+DNS → TCP → SSL → 请求发出 → 内容传输 → DOM 解析 → 资源加载 → 首屏时间 → LCP
+```
+
+SDK 上报的 NavigationTimingSchema 原始字段（随 TTFB 事件携带）：
+
+```typescript
+{
+  dns: number,          // DNS 查询耗时
+  tcp: number,          // TCP 连接耗时
+  ssl?: number,         // TLS 握手耗时（HTTPS 才有）
+  request: number,      // 请求发出到首字节等待
+  response: number,     // 内容传输耗时
+  domParse: number,     // HTML 解析 + DOM 构建
+  domReady: number,     // DOMContentLoaded 触发
+  resourceLoad: number, // 子资源（JS/CSS/图片）加载
+  total: number,        // 总耗时（load 事件）
+  redirect?: number,    // 重定向耗时（有重定向才有）
+  type: "navigate" | "reload" | "back_forward" | "prerender"
+}
+```
+
+后端将原始字段聚合 p75 后，补充 `firstScreen`（来自 FSP 事件）和 `lcp`（来自 LCP 事件）两个合成阶段，拼成完整的 9 段瀑布图。
+
+🔧 **定位瓶颈**：DNS 段异常长，说明 DNS 预解析未配置；response 段异常长，说明服务端响应慢或 CDN 命中率低；resourceLoad 段异常长，说明 JS bundle 过大或图片未做懒加载。
+
+### Core Web Vitals 面板评级
+
+面板展示 9 个指标的 p75 值和评级，评级阈值来自 web-vitals 官方：
+
+| 指标 | good | needs-improvement | poor |
+|---|---|---|---|
+| LCP | ≤ 2500ms | ≤ 4000ms | > 4000ms |
+| INP | ≤ 200ms | ≤ 500ms | > 500ms |
+| CLS | ≤ 0.1 | ≤ 0.25 | > 0.25 |
+| FCP | ≤ 1800ms | ≤ 3000ms | > 3000ms |
+| TTFB | ≤ 800ms | ≤ 1800ms | > 1800ms |
+| TBT | ≤ 200ms | ≤ 600ms | > 600ms |
+| FID（废弃） | ≤ 100ms | ≤ 300ms | > 300ms |
+| TTI（废弃） | ≤ 3800ms | ≤ 7300ms | > 7300ms |
+| SI | ≤ 3400ms | ≤ 5800ms | > 5800ms |
+
+FID 和 TTI 标注"废弃"但仍展示，便于历史数据纵向对比。
+
+### 维度分析
+
+控制台支持按 8 个维度下钻：browser / os / device / version / region / language / network / timezone。
+
+实际场景：某次发布后 LCP 整体劣化，按 browser 下钻发现只有 Safari 劣化，其他浏览器正常——定位到是 Safari 不支持某个 CSS 特性导致重排，与 Chrome 无关。
+
+---
+
 ## 🚀 完整最佳实践代码
 
 ### 真实 SDK 初始化（g-heal-claw 项目）
@@ -564,6 +770,46 @@ export function initGhc(): void {
         pageViewPlugin(),      // PV/UV + SPA 路由切换
         resourcePlugin(),      // 静态资源加载监控
         customPlugin(),        // track/time/log 自定义上报
+      ],
+    },
+  );
+}
+```
+
+### 仅性能插件精简版
+
+如果项目只需要性能监控，不需要错误、接口等其他插件，用这个精简版：
+
+```typescript
+import {
+  init,
+  performancePlugin,
+  fspPlugin,
+  speedIndexPlugin,
+  longTaskPlugin,
+} from "@g-heal-claw/sdk";
+
+export function initPerformanceMonitor(): void {
+  init(
+    {
+      dsn: import.meta.env.VITE_GHC_DSN,
+      environment: import.meta.env.VITE_GHC_ENV ?? "development",
+    },
+    {
+      plugins: [
+        // Core Web Vitals + Navigation 瀑布 + TBT + FID/TTI
+        performancePlugin({
+          reportNavigation: true,  // 瀑布图数据来源
+          reportDeprecated: true,  // 保留 FID/TTI 历史对比
+          reportTBT: true,
+          reportFSP: false,        // 交给 fspPlugin 避免重复
+        }),
+        // 首屏时间（MutationObserver 合成）
+        fspPlugin({ settleMs: 1000, minFspMs: 100, maxFspMs: 10000 }),
+        // Speed Index 近似值（趋势监控用，非精确值）
+        speedIndexPlugin(),
+        // 长任务原始数据（TBT 的底层数据源）
+        longTaskPlugin({ reportAttribution: true }),
       ],
     },
   );
@@ -666,16 +912,19 @@ window.addEventListener('pageshow', (e) => {
 
 ## 💡 一张图总结（面试速记）
 
-| 指标 | 采集 API | 上报时机 | 核心算法 | 面试频率 |
-|---|---|---|---|---|
-| LCP | `largest-contentful-paint` | pagehide 封板 | 持续追踪候选值 + 交互封板 | ⭐⭐⭐⭐⭐ |
-| CLS | `layout-shift` | pagehide 封板 | 会话窗口最大值（非累加） | ⭐⭐⭐⭐⭐ |
-| INP | `event`（Event Timing） | pagehide 封板 | interactionId 聚合 + p98 | ⭐⭐⭐⭐ |
-| FCP | `paint` | 即时上报 | 首次 first-contentful-paint | ⭐⭐⭐⭐ |
-| TTFB | `navigation` | 即时上报 | responseStart - requestStart | ⭐⭐⭐ |
-| TBT | `longtask` | load+5s 封板 | Σ max(0, duration-50)，FCP~TTI 窗口 | ⭐⭐⭐ |
-| FSP | MutationObserver + rAF | DOM 稳定后 | 最后一次有意义 DOM 变化时刻 | ⭐⭐⭐ |
-| SI | paint + LCP | load+3s 封板 | 三里程碑梯形法 AUC，±20% 精度 | ⭐⭐ |
+| 指标 | 采集 API / 来源 | 上报时机 | 核心算法 | 插件 | 面试频率 |
+|---|---|---|---|---|---|
+| LCP | `largest-contentful-paint` | pagehide 封板 | 持续追踪候选值 + 交互封板 | performancePlugin | ⭐⭐⭐⭐⭐ |
+| CLS | `layout-shift` | pagehide 封板 | 会话窗口最大值（非累加） | performancePlugin | ⭐⭐⭐⭐⭐ |
+| INP | `event`（Event Timing） | pagehide 封板 | interactionId 聚合 + p98 | performancePlugin | ⭐⭐⭐⭐ |
+| FCP | `paint` | 即时上报 | 首次 first-contentful-paint | performancePlugin | ⭐⭐⭐⭐ |
+| TTFB | `navigation` | 即时上报 | responseStart - requestStart | performancePlugin | ⭐⭐⭐ |
+| TBT | `longtask` | load+5s 封板 | Σ max(0, duration-50)，FCP~TTI | performancePlugin | ⭐⭐⭐ |
+| FSP | MutationObserver + rAF | DOM 稳定后 | settle 窗口 1s，三路兜底 | fspPlugin | ⭐⭐⭐ |
+| SI | paint + LCP 里程碑 | load+3s 封板 | 三里程碑梯形法 AUC，±20% 精度 | speedIndexPlugin | ⭐⭐ |
+| 长任务 | `longtask` | 批量 flush | 50ms 过滤 + tier 分级 | longTaskPlugin | ⭐⭐⭐ |
+| FID（废弃） | `first-input` | 即时上报 | processingStart - startTime | performancePlugin | ⭐⭐ |
+| TTI（废弃） | longtask + FCP | 5s quiet 窗口 | 推导式，pagehide 兜底 | performancePlugin | ⭐⭐ |
 
 ---
 
