@@ -850,6 +850,121 @@ const TABS = [
 
 🔧 **典型排查场景**：某次发布后 LCP 整体劣化，按 browser 维度下钻发现只有 Safari 劣化，其他浏览器正常——定位到 Safari 不支持某个 CSS 特性导致重排，避免了全量回滚。
 
+### 全链路数据流：从 Controller 到页面渲染
+
+理解完每个面板，最后看一眼完整的数据流——从 Next.js 页面到后端聚合，每一层做什么。
+
+**前端页面（RSC，强制动态渲染）**
+
+```typescript
+// apps/web/app/(console)/monitor/performance/page.tsx
+// force-dynamic：禁止 SSG 冻结，每次请求都从 apps/server 拉最新聚合结果
+export const dynamic = "force-dynamic";
+
+export default async function PerformancePage({ searchParams }) {
+  const windowHours = await resolveWindowHours(searchParams);
+  const sp = await searchParams;
+  // pagePath 来自 PagePathFilter 下拉，用于聚焦单个页面的瀑布图
+  const pagePath = typeof sp?.pagePath === "string" ? sp.pagePath : undefined;
+  const { source, data } = await getPerformanceOverview({ windowHours, pagePath });
+  // 依次渲染：指标卡 / 趋势图 / 瀑布图 / Core Vitals / FMP 表 / 维度分析
+}
+```
+
+`searchParams` 在 Next.js 15+ 是 `Promise`，必须 `await` 后再读取。`resolveWindowHours` 把 `range=24h` 这类顶栏参数转成 `windowHours=24` 传给后端。
+
+**后端 Controller（鉴权 + 参数校验入口）**
+
+```typescript
+// apps/server/src/dashboard/monitor/performance.controller.ts
+@Get("overview")
+@UsePipes(new ZodValidationPipe(OverviewQuerySchema))
+@UseGuards(JwtAuthGuard, ProjectGuard)
+public async getOverview(
+  @Query() query: OverviewQuery,
+): Promise<{ data: PerformanceOverviewDto }> {
+  const data = await this.service.getOverview(query);
+  return { data };
+}
+```
+
+Controller 只负责两件事：用 `JwtAuthGuard + ProjectGuard` 鉴权、用 `ZodValidationPipe` 校验 query 参数（`projectId` 必填、`windowHours` 范围 1~168）。核心聚合全在 Service。
+
+**后端 Service：18 路并发 DB 查询**
+
+一次 `getOverview` 请求内部用 `Promise.all` 并发 18 路聚合：
+
+```typescript
+// apps/server/src/dashboard/monitor/performance.service.ts
+// current：当前时间窗；previous：前一周期（用于计算环比 delta）
+const current: WindowParams  = { projectId, sinceMs: now - windowMs, untilMs: now, ... };
+const previous: WindowParams = { projectId, sinceMs: now - 2*windowMs, untilMs: now - windowMs, ... };
+```
+
+```typescript
+const [
+  vitalsCurrent, vitalsPrevious,     // Vitals p75（两个周期，用于环比）
+  trendRows, navTrendRows,            // 趋势 + Navigation 子字段趋势
+  waterfallSamples,                   // 瀑布图原始样本
+  slowPageRows, fmpPageRows,          // 慢页面 Top N + FMP 页面列表
+  browserRows, browserVersionRows, osRows, osVersionRows,
+  platformRows, networkRows, countryRows, languageRows,
+  timezoneRows,                       // 8 个维度聚合行
+  longTasksCurrent, distinctPaths,    // 长任务概览 + 页面路径下拉
+] = await Promise.all([ /* 18 路并发 */ ]);
+```
+
+18 路全部并发，DB 端无写竞争，总耗时等于最慢的一路而非串行累加。
+
+**环比 delta 计算**
+
+每个 Vital 卡片右上角的"↑12.5%"来自 `computeDelta`：
+
+```typescript
+function computeDelta(current: number, previous: number | undefined) {
+  if (previous == null || previous === 0 || current === 0)
+    return { deltaPercent: 0, deltaDirection: "flat" };
+  const pct = ((current - previous) / previous) * 100;
+  const rounded = Math.round(pct * 10) / 10;
+  if (Math.abs(rounded) < 0.1)
+    return { deltaPercent: 0, deltaDirection: "flat" };
+  return {
+    deltaPercent: Math.abs(rounded),
+    deltaDirection: rounded > 0 ? "up" : "down",
+  };
+}
+```
+
+`< 0.1%` 的变化视为 flat，避免显示无意义的微小波动。`deltaDirection: "up"` 配合前端颜色规则：所有指标均为越低越好，所以 `up` = 恶化 = 红，`down` = 优化 = 绿。
+
+**瀑布图：中位数而非均值**
+
+7 个串联 Navigation 阶段用所有样本的中位数拼接：
+
+```typescript
+function buildStages(samples: readonly NavigationTiming[], firstScreenMs, lcpMs) {
+  const dns = median(samples.map((s) => s.dns));
+  const tcp = median(samples.map((s) => s.tcp));
+  const ssl = median(samples.map((s) => s.ssl ?? 0));
+  // ... request / response / domParse / resourceLoad
+  let cursor = 0;
+  for (const [key, label, ms] of serial) {
+    stages.push({ key, label, ms, startMs: cursor, endMs: cursor + ms });
+    cursor += ms;
+  }
+  // firstScreen / lcp 是整体指标，startMs = 0，不参与串联
+  stages.push({ key: "firstScreen", ms: firstScreenMs, startMs: 0, endMs: firstScreenMs });
+  stages.push({ key: "lcp",         ms: lcpMs,         startMs: 0, endMs: lcpMs });
+}
+```
+
+用中位数而非均值：单次极慢加载（比如 DNS 劫持导致某条样本 dns=3000ms）不会把中位数拉高，瀑布图更能代表"典型用户体验"。
+
+> 💬 **面试官**：后端性能大盘接口一次请求要查多少路数据？怎么保证性能？
+>
+> ✅ 标准答案：18 路 DB 查询，全部用 `Promise.all` 并发执行，总耗时等于最慢的一路。两个时间窗（当前 + 前一周期）分别聚合用于计算环比；瀑布图用中位数构建，对离群样本有抗性。
+> 🎁 加分答案：`pagePathFilter` 不影响 `distinctPaths` 查询——路径下拉列表用 `baseParams`（不带 pagePath 过滤）单独查，保证筛选后下拉仍显示全量页面路径，用户体验细节。
+
 ---
 
 ## 🚀 完整最佳实践代码
