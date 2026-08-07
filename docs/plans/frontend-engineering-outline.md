@@ -221,36 +221,14 @@
 ## prompt
 
 ```text
- 下面我们规划前端性能与监控的第四章文章，具体如下：
+ 下面我们规划前端性能与监控的第七章文章，具体如下：
  {{
-  今天规划实现：{{ 手写性能监控 SDK——对齐 web-vitals 生产库 }}
+今天规划实现：{{ 告警与 AI 自愈以及智愈系统中的其他功能 }}
 
 知识点范围：
 {{
 - **主线**：A · 实操五段式
-- **主题**：从 PerformanceObserver 到生产可用的采集库
-
-**核心原理**
-- `web-vitals@v4` 内部实现（`onLCP` / `onCLS` / `onINP` 的 Observer 逻辑）
-- 各指标上报时机差异：FCP/TTFB 即时上报 vs LCP/CLS/INP 在 `pagehide` / `visibilitychange=hidden` 封板
-- BFCache 复活（`pageshow persisted`）导致指标重置的处理
-- 跨标签页 Session 共享：`BroadcastChannel('ghc_session')` + `storage` 事件兜底，避免 UV 翻倍
-
-**手写实现**：mini LCP / CLS / INP 采集器
-- LCP PerformanceObserver 候选变化追踪
-- CLS 会话窗口累计算法（5s 间隔 / 1s 间隙）
-- INP `interactionId` 聚合逻辑（Event Timing API）
-
-**生产边界**
-- `visibilitychange=hidden` 时机 flush，避免最终值丢失
-- 多次上报去重（`eventId` UNIQUE + IndexedDB 离线队列）
-- 采样率在序列化前完成，不占用上报配额
-
-**对齐 web-vitals 源码**：手写版还差什么（attribution build / 导航类型判断 / BFCache 边界）
-
-**完整代码**：一个可发布的 mini SDK，接口风格对齐 web-vitals API
-
-- **承上启下**：错误监控专项——从捕获到还原的全链路
+- **主题**：告警与 AI 自愈以及智愈系统中的其他功能
 }}
 
 分析角度（每个子主题都按此展开）：
@@ -266,6 +244,7 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 {{
 @docs/notes/39 前端监控之Lighthouse.md
 @docs/notes/40 前端监控详解.md
+@docs/articles/2026-08-06-frontend-monitor-system-design.md
 }}
 
 规则：
@@ -288,8 +267,16 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 - **AI 自愈** — LangChain Agent 基于 Issue + Sourcemap + 仓库上下文 ReAct 推理，在 Docker 沙箱生成 patch + 跑 verify + 创建 PR。
  }}，
  你可以使用codegraph查看项目的设计，设计文档都在
- @/Users/robin/Downloads/01 git/AI/g-heal-claw/docs 下面，其中decisions 文件夹只阅读 /Users/robin/Downloads/01 git/AI/g-heal-claw/docs/decisions/README.md 就行，其他的忽略，同时忽略/Users/robin/Downloads/01 git/AI/g-heal-claw/docs/tasks 文件夹，帮我规划这篇文章
+ @/Users/robin/Downloads/01 git/AI/g-heal-claw/docs 下面，其中decisions 文件夹只阅读 /Users/robin/Downloads/01 git/AI/g-heal-claw/docs/decisions/README.md 就行，其他的忽略，同时忽略/Users/robin/Downloads/01 git/AI/g-heal-claw/docs/tasks 文件夹，帮我规划这篇文章，样式格式参考@docs/articles/2026-08-06-perf-sdk-web-vitals.md
 
+```
+
+```text
+1. 性能监控
+2. 错误监控（含 Sourcemap + 面包屑）
+3. 行为监控（API + 资源 + 埋点 + 访问分析）
+4. 自定义上报
+5. 告警与 AI 自愈
 ```
 
 *整理时间：2026-08-01 | 参考：State of JS 2024 / Vite 官方 / Turborepo 官方 / web.dev*
