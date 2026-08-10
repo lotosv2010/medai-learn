@@ -221,14 +221,61 @@
 ## prompt
 
 ```text
- 下面我们规划前端性能与监控的第七章文章，具体如下：
+ 下面我们规划前端性能与监控的第10篇文章，具体如下：
  {{
-今天规划实现：{{ 告警与 AI 自愈以及智愈系统中的其他功能 }}
+今天规划实现：{{ 工程构建优化：Tree Shaking 为什么没生效，以及 Vite 产物瘦身实战（面试收藏级） }}
 
 知识点范围：
 {{
-- **主线**：A · 实操五段式
-- **主题**：告警与 AI 自愈以及智愈系统中的其他功能
+### 大纲
+
+**一、问题从哪来：bundle 体积诊断流程**
+- `rollup-plugin-visualizer` 报告判读（色块含义、面积代表什么）
+- `vite-bundle-analyzer` 与 `source-map-explorer` 对比
+- 一个真实诊断案例：找出是谁塞大了 bundle
+
+**二、体积预算：先定标准，再优化**
+- JS / CSS / 图片分别应该多少（LCP 2.5s 倒推网络预算）
+- `performance.getEntriesByType('resource')` 在线监测超标资源
+
+**三、Tree Shaking：为什么没生效**
+- ESM 静态分析原理（import/export 在编译期可确定）
+- 四大失效原因：`sideEffects` 缺失 / 桶文件 / CJS 模块 / 带副作用的导入
+- 修复方法逐一演示
+
+**四、Code Split：按需加载的三种粒度**
+- 路由级：`React.lazy` + `Suspense`，实测首屏体积变化
+- 组件级：ECharts / Monaco Editor 重型依赖的动态导入
+- vendor 拆分：`manualChunks` 策略，避免缓存失效
+
+**五、Vite 生产构建调优**
+- `build.rollupOptions` 常用配置速查
+- Brotli 压缩配置（比 Gzip 体积小 20-30%）
+- CSS 代码分割与 Critical CSS 内联方案
+- 构建缓存：`cacheDir` 加速 CI 二次构建
+
+**六、构建工具横评（性能视角一张表）**
+- Vite / Rspack / Turbopack / Rolldown：冷启动 / HMR / 产物体积
+- 什么场景值得迁移 Rspack（大型项目 webpack 迁移成本分析）
+
+**七、Lighthouse CI 接入**
+- GitHub Actions 配置，超预算阻断 PR 合并
+- `lighthouserc.json` 断言语法
+
+**八、完整代码**
+- 一份可复用的 `vite.config.ts` 生产优化模板
+- CI 性能卡点 workflow 配置
+
+**九、下一篇预告**
+
+### 涉及知识点
+- Rollup Tree Shaking 的标记-清除（Mark & Sweep）算法
+- `sideEffects` 字段在 `package.json` 与 `vite.config` 中的作用域差异
+- Dynamic `import()` 的 chunk 命名与预加载 hint
+- `splitVendorChunkPlugin` 的 heuristic 策略
+- Brotli 压缩级别与 CPU 成本权衡
+- Lighthouse CI `assertions` 配置语法（`warn` / `error` 级别）
+- Rspack 的 Rust 增量编译与 webpack 兼容层
 }}
 
 分析角度（每个子主题都按此展开）：
@@ -242,9 +289,14 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 
 已有笔记：
 {{
-@docs/notes/39 前端监控之Lighthouse.md
-@docs/notes/40 前端监控详解.md
-@docs/articles/2026-08-06-frontend-monitor-system-design.md
+  @docs/notes/35 前端性能优化介绍.md
+  @docs/notes/34 前端页面的生命周期.md
+  @docs/notes/41 防抖节流.md
+  @docs/notes/42 请求和响应优化.md
+  @docs/notes/43 资源加载优化.md
+  @docs/notes/44 渲染优化.md
+  @docs/notes/45 图片优化.md
+  @docs/notes/46 Web性能优化地图.md
 }}
 
 规则：
@@ -254,29 +306,18 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 4. 文章结构：先出大纲等我确认，再逐节写作
  }}
  ；
- 我之前已经完成了一个结合AI的监控项目，入口为@/Users/robin/Downloads/01 git/AI/g-heal-claw/README.md，项目主要完成了
- {{
-  - **性能监控** — Core Web Vitals（LCP / FCP / CLS / INP / TTFB）、页面加载各阶段耗时、首屏时间、长任务卡顿、加载瀑布图。
-- **异常监控** — JS 运行时错误、Promise 未处理拒绝、静态资源加载失败、AJAX/Fetch 异常、白屏检测、Source Map 源码位置还原。
-- **API 监控** — 自动拦截 XHR / fetch，记录调用量、成功率、耗时分位（p50/p90/p95/p99）、慢请求、异常请求上下文、TraceID 前后端串联。
-- **访问分析** — PV/UV、会话轨迹、访问来源（referrer / UTM / 搜索引擎）、终端环境、IP 地域分布。
-- **资源监控** — 按类型（script / style / image / font / media）拆分的加载耗时、大小、CDN 测速、失败率。
-- **自定义上报** — `track` / `time` / `log` 事件、全局属性、分级日志。
-- **埋点** — 代码埋点、`data-track` 全埋点、曝光埋点（IntersectionObserver）、页面停留时长。
-- **告警** — 错误率突增、Web Vital 劣化、API 成功率下降等预置规则；通过邮件 / 钉钉 / 企微 / Slack / Webhook / 短信分发。
-- **AI 自愈** — LangChain Agent 基于 Issue + Sourcemap + 仓库上下文 ReAct 推理，在 Docker 沙箱生成 patch + 跑 verify + 创建 PR。
- }}，
- 你可以使用codegraph查看项目的设计，设计文档都在
- @/Users/robin/Downloads/01 git/AI/g-heal-claw/docs 下面，其中decisions 文件夹只阅读 /Users/robin/Downloads/01 git/AI/g-heal-claw/docs/decisions/README.md 就行，其他的忽略，同时忽略/Users/robin/Downloads/01 git/AI/g-heal-claw/docs/tasks 文件夹，帮我规划这篇文章，样式格式参考@docs/articles/2026-08-06-perf-sdk-web-vitals.md
 
-```
+ 每一篇最后加一个 参考 章节，引用内容如下
+ https://web.dev/articles/vitals?hl=zh-cn
+ https://web.dev/articles/rail?hl=zh-cn
+ https://web.dev/articles/rendering-performance?hl=zh-cn
+ https://web.dev/learn/performance/welcome?hl=zh-cn
+ https://developer.mozilla.org/zh-CN/docs/Web/Performance
+ https://github.com/berwin/Blog/issues/23
+ https://github.com/GoogleChromeLabs/quicklink
 
-```text
-1. 性能监控
-2. 错误监控（含 Sourcemap + 面包屑）
-3. 行为监控（API + 资源 + 埋点 + 访问分析）
-4. 自定义上报
-5. 告警与 AI 自愈
 ```
 
 *整理时间：2026-08-01 | 参考：State of JS 2024 / Vite 官方 / Turborepo 官方 / web.dev*
+
+每个知识点都是如下主线由浅入深的讲解 是什么 → 核心原理 → 手写实现（关键代码） → 生产级最佳实践 → 完整最佳实践代码
