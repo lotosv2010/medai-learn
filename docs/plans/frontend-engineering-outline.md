@@ -221,61 +221,70 @@
 ## prompt
 
 ```text
- 下面我们规划前端性能与监控的第10篇文章，具体如下：
+ 下面我们规划前端性能与监控的第13篇文章，具体如下：
  {{
-今天规划实现：{{ 工程构建优化：Tree Shaking 为什么没生效，以及 Vite 产物瘦身实战（面试收藏级） }}
+今天规划实现：{{ 感知性能优化：让「慢」看起来不慢——骨架屏、乐观更新与页面过渡实战（面试收藏级） }}
 
 知识点范围：
 {{
+### 标题说明
+标题保持不变，内容补充白屏兜底和动画无障碍两个遗漏点。
+
 ### 大纲
 
-**一、问题从哪来：bundle 体积诊断流程**
-- `rollup-plugin-visualizer` 报告判读（色块含义、面积代表什么）
-- `vite-bundle-analyzer` 与 `source-map-explorer` 对比
-- 一个真实诊断案例：找出是谁塞大了 bundle
+**一、感知性能 vs 客观性能**
+- 为什么 LCP 2.0s 用户还说「慢」（等待心理学：不确定的等待更痛苦）
+- Doherty Threshold：响应时间 400ms 以内用户感知「即时」
+- 客观指标好但感知差的三种典型场景
 
-**二、体积预算：先定标准，再优化**
-- JS / CSS / 图片分别应该多少（LCP 2.5s 倒推网络预算）
-- `performance.getEntriesByType('resource')` 在线监测超标资源
+**二、Loading 状态设计：骨架屏**
+- 骨架屏 vs Spinner vs 进度条：各自适合什么场景
+- CSS shimmer 动画实现（`@keyframes` + `background-position`，~20 行）
+- 与 React `Suspense` fallback 的组合方式
+- 骨架屏自动生成思路：DOM 快照 + CSS 灰化
+- 骨架屏的 CLS 风险：占位尺寸不准导致布局偏移
 
-**三、Tree Shaking：为什么没生效**
-- ESM 静态分析原理（import/export 在编译期可确定）
-- 四大失效原因：`sideEffects` 缺失 / 桶文件 / CJS 模块 / 带副作用的导入
-- 修复方法逐一演示
+**三、白屏兜底策略**
+- 白屏检测：`requestIdleCallback` 后采样关键节点可视尺寸（引用第 5 篇监控）
+- 兜底 UI：最小化静态 HTML fallback，确保用户至少看到内容框架
+- 错误边界（Error Boundary）+ 降级渲染
 
-**四、Code Split：按需加载的三种粒度**
-- 路由级：`React.lazy` + `Suspense`，实测首屏体积变化
-- 组件级：ECharts / Monaco Editor 重型依赖的动态导入
-- vendor 拆分：`manualChunks` 策略，避免缓存失效
+**四、Optimistic UI（乐观更新）**
+- 原理：先更新本地状态，后等待服务端确认
+- React Query `useMutation` 的 `onMutate` / `onError` / `onSettled` 三阶段
+- 失败回滚策略（rollback + toast 提示）
+- 适合场景：点赞 / 收藏 / 评论发布，不适合：支付 / 权限变更
 
-**五、Vite 生产构建调优**
-- `build.rollupOptions` 常用配置速查
-- Brotli 压缩配置（比 Gzip 体积小 20-30%）
-- CSS 代码分割与 Critical CSS 内联方案
-- 构建缓存：`cacheDir` 加速 CI 二次构建
+**五、View Transitions API（从用法到原理）**
+- 基础用法：`document.startViewTransition(() => updateDOM())`
+- 浏览器快照机制：old / new 两帧截图 + CSS 动画过渡
+- 自定义动画：`::view-transition-old` / `::view-transition-new` 伪元素
+- 跨文档 MPA 过渡：`@view-transition { navigation: auto }` CSS 规则
+- 与 Next.js App Router / React Router 的集成
+- 兼容性处理：`document.startViewTransition` 特性检测
 
-**六、构建工具横评（性能视角一张表）**
-- Vite / Rspack / Turbopack / Rolldown：冷启动 / HMR / 产物体积
-- 什么场景值得迁移 Rspack（大型项目 webpack 迁移成本分析）
+**六、动画性能**
+- 60fps 的含义：每帧 16.6ms，主线程任务必须在这之内完成
+- CSS 动画 vs JS 动画（rAF）vs Web Animations API 选型
+- 只用 `transform` + `opacity` 做动画的原因（Compositor 线程）
+- `prefers-reduced-motion`：无障碍适配，系统级减弱动画设置
 
-**七、Lighthouse CI 接入**
-- GitHub Actions 配置，超预算阻断 PR 合并
-- `lighthouserc.json` 断言语法
+**七、完整代码**
+- Skeleton Screen 组件（可复用，支持多种布局，~60 行）
+- View Transitions 列表 → 详情丝滑过渡（Next.js App Router）
+- Optimistic 点赞按钮（React Query，~40 行）
 
-**八、完整代码**
-- 一份可复用的 `vite.config.ts` 生产优化模板
-- CI 性能卡点 workflow 配置
-
-**九、下一篇预告**
+**八、系列收尾预告**
 
 ### 涉及知识点
-- Rollup Tree Shaking 的标记-清除（Mark & Sweep）算法
-- `sideEffects` 字段在 `package.json` 与 `vite.config` 中的作用域差异
-- Dynamic `import()` 的 chunk 命名与预加载 hint
-- `splitVendorChunkPlugin` 的 heuristic 策略
-- Brotli 压缩级别与 CPU 成本权衡
-- Lighthouse CI `assertions` 配置语法（`warn` / `error` 级别）
-- Rspack 的 Rust 增量编译与 webpack 兼容层
+- 感知等待心理学（Doherty Threshold / 不确定性放大等待感）
+- CSS `contain: layout style paint` 与骨架屏性能
+- React Suspense 的 transition 语义与 fallback 触发时机
+- React Query `onMutate` 的 context 传递机制
+- `document.startViewTransition` 的双帧快照原理
+- View Transitions Level 2（跨文档）的触发条件
+- Web Animations API 与 Compositor 线程的调度关系
+- `prefers-reduced-motion` 媒体查询与 WCAG 2.1 AA 要求
 }}
 
 分析角度（每个子主题都按此展开）：
@@ -289,6 +298,7 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 
 已有笔记：
 {{
+  @docs/notes/38 Web 性能测试.md
   @docs/notes/35 前端性能优化介绍.md
   @docs/notes/34 前端页面的生命周期.md
   @docs/notes/41 防抖节流.md
@@ -297,6 +307,9 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
   @docs/notes/44 渲染优化.md
   @docs/notes/45 图片优化.md
   @docs/notes/46 Web性能优化地图.md
+  @docs/notes/47 压缩和解压缩.md
+  @docs/notes/48 Web缓存.md
+  @docs/notes/49 代理服务器.md
 }}
 
 规则：
@@ -307,7 +320,7 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
  }}
  ；
 
- 每一篇最后加一个 参考 章节，引用内容如下
+ 每一篇最后加一个 参考 章节，引用内容如下，直接用一下内容不需要自行修改：
  https://web.dev/articles/vitals?hl=zh-cn
  https://web.dev/articles/rail?hl=zh-cn
  https://web.dev/articles/rendering-performance?hl=zh-cn
