@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 228,
-  "lastSession": "2026-08-11T03:22:28.270Z",
+  "totalSessionCount": 230,
+  "lastSession": "2026-08-11T06:30:00.000Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -180,7 +180,21 @@
       "longTaskPlugin 批量聚合与 tier 分级": "理解",
       "Navigation Timing 瀑布图 9 段结构": "理解",
       "控制台 source live/empty/error 判定逻辑": "理解",
-      "SDK init() 插件注册流程": "理解"
+      "SDK init() 插件注册流程": "理解",
+      "感知性能 vs 客观性能（Doherty Threshold）": "理解",
+      "骨架屏 CSS shimmer 动画实现": "理解",
+      "骨架屏 CLS 风险与 contain 隔离": "理解",
+      "React Suspense fallback + startTransition": "理解",
+      "白屏检测（requestIdleCallback 采样）": "理解",
+      "Error Boundary 降级渲染": "理解",
+      "Optimistic UI（乐观更新）原理": "理解",
+      "React Query useMutation onMutate/onError/onSettled": "理解",
+      "View Transitions API 双帧快照机制": "理解",
+      "view-transition-name FLIP 动画": "理解",
+      "MPA 跨文档过渡 @view-transition": "理解",
+      "CSS vs rAF vs Web Animations API 选型": "理解",
+      "Compositor 线程 transform+opacity 优化": "理解",
+      "prefers-reduced-motion WCAG 2.1 AA": "理解"
     },
     "nodejs": {
       "Event Loop（与浏览器区别）": "未开始",
