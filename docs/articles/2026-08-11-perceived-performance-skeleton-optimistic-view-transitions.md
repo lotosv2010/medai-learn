@@ -145,6 +145,33 @@ function navigateToDrug(id) {
 
 另一个方案：骨架屏和真实内容用同一套 CSS 布局，只替换内容节点，容器尺寸不变。
 
+### 对齐策略：让骨架和真实内容严丝合缝
+
+除了 `contain` 隔离，更根治的做法是**让骨架屏与真实内容共用同一套尺寸定义**，从源头消除占位偏差：
+
+**① 图片用 `aspect-ratio` 占位**：图片是 CLS 最大来源（加载前高度为 0）。给 `img` 设 `aspect-ratio`，浏览器按宽高比提前预留空间，图片加载后不跳动：
+
+```css
+.drug-cover {
+  width: 100%;
+  aspect-ratio: 16 / 9; /* 👈 提前锁定宽高比 */
+  object-fit: cover;
+}
+```
+
+**② 尺寸用 CSS 变量统一管理**：骨架屏和真实内容读同一个变量，改一处全生效：
+
+```css
+:root {
+  --title-line-height: 20px;
+  --card-padding: 12px;
+}
+.skeleton-title { height: var(--title-line-height); }
+.real-title { min-height: var(--title-line-height); }
+```
+
+**③ 服务端直出骨架**：SSR 时直接渲染骨架屏的 DOM 结构，首屏 HTML 就含占位布局，JS 加载前骨架已可见，JS 接管后再替换为真实内容，白屏时间趋近于 0。
+
 > 💬 **面试官**：骨架屏加了反而 CLS 变高，什么原因？
 >
 > ✅ 标准答案：骨架屏占位尺寸和真实内容不一致，内容加载后布局重排触发 CLS。用 `contain: layout` 或让骨架屏与真实内容共用容器尺寸可以规避。
@@ -306,6 +333,83 @@ onSettled(data, error, variables) {
 > ✅ 标准答案：回滚 UI 的同时用 toast 明确告知用户操作失败，让用户知道看到的变化已撤销。回滚动画要平滑（用 CSS transition），避免状态跳变引起困惑。
 > 🎁 加分答案：提到 `cancelQueries` 的重要性——如果不取消进行中的查询，后台的旧数据返回会覆盖乐观更新结果，导致 UI 先更新再还原的闪烁。
 
+### 读操作的感知优化：SWR（Stale-While-Revalidate）
+
+写操作可以乐观更新，读操作同样有对应的感知优化——**SWR：先用缓存旧数据立即渲染，后台静默重新验证**。用户再次打开页面时不用等接口返回，看到的是上一次的可用数据（stale），新数据到了再无缝替换。
+
+React Query / SWR 库都内置了这套模式，原理是三步：
+
+```
+命中缓存 → 立即渲染旧数据（stale 但可用）
+    ↓
+后台发起重新请求（revalidate）
+    ↓
+新数据到达 → 无缝替换，用户无感知
+```
+
+对应的 React Query 配置：
+
+```typescript
+// 读操作的 SWR：staleTime 内不重新请求
+useQuery({
+  queryKey: ['drug', drugId],
+  queryFn: fetchDrugDetail,
+  staleTime: 5 * 60 * 1000, // 5 分钟内直接用缓存
+});
+```
+
+加上 `placeholderData`（占位数据）可以进一步提升体验——首次加载时用上一次查询的数据作为占位，而不是白屏：
+
+```typescript
+useQuery({
+  queryKey: ['drug', drugId],
+  queryFn: fetchDrugDetail,
+  placeholderData: keepPreviousData, // 👈 旧数据占位
+});
+```
+
+> 💬 **面试官**：SWR 和乐观更新有什么关系？它们各自解决什么问题？
+>
+> ✅ 标准答案：SWR 解决「读」——先渲染缓存旧数据，后台静默刷新，用户打开页面不用等；乐观更新解决「写」——先更新 UI，后台异步确认，失败再回滚。一个是读取时不阻塞展示，一个是写入时先给反馈。
+> 🎁 加分答案：两者都建立在「大多数情况下数据不会突变」的假设上，一起用可以让用户在整个交互链路里几乎感觉不到网络等待。
+
+### 乐观删除 + 撤销（undo）
+
+删除是乐观更新最典型的场景：用户点了删除，数据立即消失，同时弹出「已删除，可撤销」提示，倒计时窗口期内可恢复。
+
+```typescript
+// 删除 + 撤销窗口：先乐观移除，5 秒内可恢复
+async onMutate(deletedId) {
+  await queryClient.cancelQueries({ queryKey: ['drugList'] });
+  const snapshot = queryClient.getQueryData(['drugList']);
+  queryClient.setQueryData(['drugList'], old =>
+    old.filter(d => d.id !== deletedId)
+  );
+  return { snapshot, deletedId };
+},
+```
+
+```typescript
+onError(_err, _vars, context) {
+  queryClient.setQueryData(['drugList'], context?.snapshot); // 回滚
+  toast.error('删除失败');
+},
+```
+
+```typescript
+// 撤销：把删掉的数据放回原位置
+function undo(context) {
+  queryClient.setQueryData(['drugList'], context.snapshot);
+}
+```
+
+撤销的价值：**删除是破坏性操作，但撤销窗口把「不可逆」变成了「可逆」**——用户即使误点也有后悔药，这是乐观更新理念的延伸。
+
+> 💬 **面试官**：哪些操作适合加撤销窗口？
+>
+> ✅ 标准答案：删除、移入回收站、隐藏、退出群聊等破坏性但可恢复的操作，适合 5-10 秒撤销窗口。涉及金额、权限、支付的操作不能加。
+> 🎁 加分答案：撤销窗口的时间设计有讲究——太短用户来不及反应，太长用户会忘记；5-10 秒是常见区间，而且撤销之后要重新同步服务端，避免状态不一致。
+
 ---
 
 ## 🎬 View Transitions API
@@ -430,6 +534,36 @@ export function useViewTransition() {
 }
 ```
 
+### Speculation Rules API：让 View Transitions 真正"秒跳"
+
+View Transitions 解决了"跳转动画流畅"的问题，但如果目标页面本身加载慢，动画结束后用户还是要等。**Speculation Rules API** 解决这个上游问题——在用户还没点击时就悄悄预渲染目标页面。
+
+```html
+<!-- 在 <head> 里声明预渲染规则，不需要 JS -->
+<script type="speculationrules">
+{
+  "prerender": [
+    { "urls": ["/drug/detail"] },
+    { "where": { "selector_matches": ".drug-card a" } }
+  ]
+}
+</script>
+```
+
+两者组合的完整效果：
+
+```
+用户悬停/光标移近 → 浏览器后台预渲染目标页（Speculation Rules）
+    ↓
+用户点击 → startViewTransition 触发双帧快照动画
+    ↓
+动画结束 → 目标页已预渲染完毕，立即呈现
+```
+
+结果是用户感知到"点击 → 丝滑动画 → 瞬间到达"，中间没有任何白屏等待。
+
+兼容降级：浏览器不支持 Speculation Rules 时直接忽略这段 `<script>`，不影响正常导航。
+
 > 💬 **面试官**：View Transitions 的双帧快照是怎么实现的？和 FLIP 动画有什么关系？
 >
 > ✅ 标准答案：浏览器在 `startViewTransition` 调用时截取旧页面快照，执行 DOM 更新后截取新页面快照，然后用 CSS 动画在两张快照之间过渡。整个过程在 Compositor 线程执行，不阻塞主线程。
@@ -493,6 +627,19 @@ animation.cancel(); // 随时可取消
 /* ✅ 只触发 Composite，丝滑 */
 .good-animation { transition: transform 300ms; }
 ```
+
+### content-visibility: 视口外内容跳过渲染
+
+药品列表动辄上百条，浏览器却把每一条都完整渲染了。`content-visibility: auto` 告诉浏览器**跳过视口外元素的渲染，滚动到附近再渲染**，大幅减少初始渲染时间：
+
+```css
+.drug-list-item {
+  content-visibility: auto; /* 👈 视口外不渲染 */
+  contain-intrinsic-size: 120px; /* 占位高度，避免滚动条跳动 */
+}
+```
+
+`contain-intrinsic-size` 是配合项：元素没渲染时浏览器不知道它多高，不声明占位高度会导致滚动条长度跳动。声明后滚动体验与全量渲染一致，但首屏渲染成本大幅下降。
 
 ### prefers-reduced-motion：无障碍必做项
 
@@ -734,11 +881,12 @@ export function FavoriteButton({ drugId, isFavorited, count }: Props) {
 
 | 感知问题 | 解法 | 核心原理 | 面试关键词 |
 |---------|------|---------|-----------|
-| 内容加载白屏 | 骨架屏 | CSS shimmer + Suspense fallback | CLS、contain、Doherty Threshold |
+| 内容加载白屏 | 骨架屏 | CSS shimmer + Suspense fallback | CLS、contain、aspect-ratio、对齐策略 |
 | 页面崩溃白屏 | Error Boundary + 白屏检测 | requestIdleCallback 采样 + 静态兜底 | componentDidCatch、降级渲染 |
-| 交互无响应感 | 乐观更新 | onMutate 快照 + onError 回滚 | cancelQueries、context 传递 |
-| 路由切换硬闪 | View Transitions | 双帧快照 + Compositor 动画 | startViewTransition、伪元素 |
-| 动画卡顿 | transform + opacity | Compositor 线程 | 回流 vs 合成、rAF vs WAAPI |
+| 交互无响应感 | 乐观更新 | onMutate 快照 + onError 回滚 | cancelQueries、context 传递、撤销窗口 |
+| 读数据等待 | SWR | stale 缓存 + 后台 revalidate | staleTime、keepPreviousData |
+| 路由切换硬闪 | View Transitions | 双帧快照 + Compositor 动画 | startViewTransition、Speculation Rules |
+| 动画卡顿 | transform + opacity | Compositor 线程 | 回流 vs 合成、content-visibility |
 | 动画无障碍 | prefers-reduced-motion | 系统级减弱设置检测 | WCAG 2.1 AA、2.3.3 条款 |
 
 ---

@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 230,
-  "lastSession": "2026-08-11T06:30:00.000Z",
+  "totalSessionCount": 232,
+  "lastSession": "2026-08-11T05:09:04.892Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -194,7 +194,15 @@
       "MPA 跨文档过渡 @view-transition": "理解",
       "CSS vs rAF vs Web Animations API 选型": "理解",
       "Compositor 线程 transform+opacity 优化": "理解",
-      "prefers-reduced-motion WCAG 2.1 AA": "理解"
+      "prefers-reduced-motion WCAG 2.1 AA": "理解",
+      "SWR（Stale-While-Revalidate）读操作感知优化": "理解",
+      "React Query placeholderData keepPreviousData": "理解",
+      "乐观删除 + 撤销窗口（undo）模式": "理解",
+      "Speculation Rules API 预渲染": "理解",
+      "content-visibility: auto 长列表渲染优化": "理解",
+      "contain-intrinsic-size 占位高度": "理解",
+      "骨架屏 aspect-ratio 图片占位": "理解",
+      "骨架屏 CSS 变量统一尺寸管理": "理解"
     },
     "nodejs": {
       "Event Loop（与浏览器区别）": "未开始",
