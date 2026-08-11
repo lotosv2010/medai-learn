@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 232,
-  "lastSession": "2026-08-11T05:09:04.892Z",
+  "totalSessionCount": 238,
+  "lastSession": "2026-08-11T08:46:05.813Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -203,6 +203,47 @@
       "contain-intrinsic-size 占位高度": "理解",
       "骨架屏 aspect-ratio 图片占位": "理解",
       "骨架屏 CSS 变量统一尺寸管理": "理解"
+    },
+    "vue2": {
+      "响应式原理（Observer/Dep/Watcher）": "未开始",
+      "Object.defineProperty 拦截机制": "未开始",
+      "数组变更检测（7个方法重写）": "未开始",
+      "$nextTick 降级链": "未开始",
+      "虚拟 DOM 与 VNode 结构": "未开始",
+      "Diff 算法双端四指针": "未开始",
+      "sameVnode 判断条件": "未开始",
+      "组件渲染链路（_init → $mount → patch）": "未开始",
+      "生命周期 11 个钩子": "未开始",
+      "组件通信 8 种方式": "未开始",
+      "模板编译三阶段（parse/optimize/generate）": "未开始",
+      "v-model 编译产物": "未开始",
+      "keep-alive LRU 缓存": "未开始",
+      "mixin 合并策略": "未开始",
+      "Vue.extend 命令式弹窗": "未开始",
+      "Vue.observable 轻量响应式": "未开始",
+      "scoped-slot 编译产物": "未开始",
+      "errorCaptured 错误冒泡": "未开始"
+    },
+    "vue_router": {
+      "Hash vs History 模式原理": "未开始",
+      "导航守卫完整执行顺序（14步）": "未开始",
+      "router-view 响应式 _route": "未开始",
+      "嵌套路由 $route.matched 渲染": "未开始",
+      "路由懒加载与 Code Splitting": "未开始"
+    },
+    "vuex": {
+      "new Vue 响应式实现": "未开始",
+      "getters computed 缓存机制": "未开始",
+      "modules 命名空间路径拼接": "未开始",
+      "严格模式 $watch 实现": "未开始",
+      "mapState/mapGetters 原理": "未开始"
+    },
+    "vue2_ssr": {
+      "双端入口设计": "未开始",
+      "Hydration data-server-rendered": "未开始",
+      "工厂函数防状态污染": "未开始",
+      "不执行的生命周期列表": "未开始",
+      "LRU 页面缓存": "未开始"
     },
     "nodejs": {
       "Event Loop（与浏览器区别）": "未开始",
