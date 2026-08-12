@@ -1,76 +1,72 @@
 # prompt
 
-- 下面我们规划Vue全家桶的第1篇文章，具体如下：
+- 下面我们规划Vue2全家桶的第1篇文章，具体如下：
 
 ## 知识点范围
 
 ### 标题
 
-- 标题保持不变，内容补充白屏兜底和动画无障碍两个遗漏点。
+- Vue 2 响应式原理与手写实现
 
 ### 大纲
 
-#### 一、感知性能 vs 客观性能
+**副标题**：数据变了视图为什么会更新？Observer / Dep / Watcher 三件套全链路
 
-- 为什么 LCP 2.0s 用户还说「慢」（等待心理学：不确定的等待更痛苦）
-- Doherty Threshold：响应时间 400ms 以内用户感知「即时」
-- 客观指标好但感知差的三种典型场景
+#### 一、基本使用
+- data 的响应式触发：直接赋值 vs $set / $delete
+- computed 的缓存行为与 watch 的 deep/immediate 选项
+- 数组变更检测：push/pop/splice 等 7 个方法 vs 索引赋值的陷阱
+- 响应式边界：什么情况下数据变了视图不更新？
 
-#### 二、Loading 状态设计：骨架屏
+#### 二、原理
+- Object.defineProperty 的 get/set 拦截机制
+- Observer：递归劫持整个对象树；`__ob__` 标记的作用（防重复 observe + 数组依赖挂载点）
+- 数组 7 个方法重写原因：defineProperty 监听不到长度和索引变化
+- Dep（依赖收集器）：每个响应式属性对应一个 Dep 实例；`dep.id` 去重防止同一 Watcher 重复收集
+- Watcher 三种类型：render Watcher / computed Watcher（lazy + dirty flag）/ user Watcher（watch）
+- 依赖收集完整链路：render → 访问 data → dep.depend() → Dep.target → watcher.addDep()
+- 派发更新完整链路：data 赋值 → dep.notify() → watcher.update() → queueWatcher → flushSchedulerQueue
+- computed 惰性求值：dirty=true 时重新计算，dirty=false 直接返回缓存值
+- $nextTick：flushSchedulerQueue 完成后 → Promise → MutationObserver → setImmediate → setTimeout 降级链
 
-- 骨架屏 vs Spinner vs 进度条：各自适合什么场景
-- CSS shimmer 动画实现（`@keyframes` + `background-position`，~20 行）
-- 与 React `Suspense` fallback 的组合方式
-- 骨架屏自动生成思路：DOM 快照 + CSS 灰化
-- 骨架屏的 CLS 风险：占位尺寸不准导致布局偏移
+#### 三、手写实现（每步可独立跑通）
+1. Rollup + Babel + rollup-plugin-serve 环境搭建，输出 UMD 格式
+2. Observer：递归 walk + defineReactive + `__ob__` 标记
+3. Dep：depend / notify / subs 管理 + id 去重
+4. Watcher：get / update / run / lazy dirty 惰性求值（computed）
+5. $nextTick：Promise 降级到 setTimeout 的完整实现
 
-#### 三、白屏兜底策略
+#### 四、生产级最佳实践
+- $set / $delete 的使用时机与实现原理（数组走 splice，对象走 defineReactive）
+- Object.freeze 冻结大型只读数据集（药品目录、ICD 码表）：freeze 后 defineProperty 无法重写
+- 深层嵌套对象的响应式性能风险：避免 3 层以上自动递归
+- watch 的 immediate + deep 与内存泄漏风险
+- computed vs watch 的选型：有返回值用 computed，有副作用用 watch
 
-- 白屏检测：`requestIdleCallback` 后采样关键节点可视尺寸（引用第 5 篇监控）
-- 兜底 UI：最小化静态 HTML fallback，确保用户至少看到内容框架
-- 错误边界（Error Boundary）+ 降级渲染
+#### 五、案例完整代码
+医疗场景：患者信息表单，实时响应式验证
 
-#### 四、Optimistic UI（乐观更新）
+#### 六、vue2 手写完整代码
 
-- 原理：先更新本地状态，后等待服务端确认
-- React Query `useMutation` 的 `onMutate` / `onError` / `onSettled` 三阶段
-- 失败回滚策略（rollback + toast 提示）
-- 适合场景：点赞 / 收藏 / 评论发布，不适合：支付 / 权限变更
+```js
+```
 
-#### 五、View Transitions API（从用法到原理）
+#### 七、源码地址（单独一章节，原url文本展示）
 
-- 基础用法：`document.startViewTransition(() => updateDOM())`
-- 浏览器快照机制：old / new 两帧截图 + CSS 动画过渡
-- 自定义动画：`::view-transition-old` / `::view-transition-new` 伪元素
-- 跨文档 MPA 过渡：`@view-transition { navigation: auto }` CSS 规则
-- 与 Next.js App Router / React Router 的集成
-- 兼容性处理：`document.startViewTransition` 特性检测
+- https://github.com/lotosv2010/g-vue
 
-#### 六、动画性能
+#### 八、参考（单独一章节，原url文本展示）
 
-- 60fps 的含义：每帧 16.6ms，主线程任务必须在这之内完成
-- CSS 动画 vs JS 动画（rAF）vs Web Animations API 选型
-- 只用 `transform` + `opacity` 做动画的原因（Compositor 线程）
-- `prefers-reduced-motion`：无障碍适配，系统级减弱动画设置
+- https://v2.cn.vuejs.org/v2/guide/reactivity.html
 
-#### 七、完整代码
 
-- Skeleton Screen 组件（可复用，支持多种布局，~60 行）
-- View Transitions 列表 → 详情丝滑过渡（Next.js App Router）
-- Optimistic 点赞按钮（React Query，~40 行）
-
-#### 八、系列收尾预告
-
-### 涉及知识点
-
-- 感知等待心理学（Doherty Threshold / 不确定性放大等待感）
-- CSS `contain: layout style paint` 与骨架屏性能
-- React Suspense 的 transition 语义与 fallback 触发时机
-- React Query `onMutate` 的 context 传递机制
-- `document.startViewTransition` 的双帧快照原理
-- View Transitions Level 2（跨文档）的触发条件
-- Web Animations API 与 Compositor 线程的调度关系
-- `prefers-reduced-motion` 媒体查询与 WCAG 2.1 AA 要求
+**面试核心问**：
+- defineProperty 和 Proxy 的区别？Vue 3 为什么换掉？
+- 数组为什么不用 defineProperty 监听下标？
+- computed 和 watch 的 Watcher 有什么区别？lazy/dirty 机制是什么？
+- `__ob__` 标记在 Vue 2 响应式系统中有什么作用？
+- $nextTick 的降级策略是什么？为什么优先用微任务？
+- dep.id 去重机制解决了什么问题？
 
 ## 分析角度（每个子主题都按此展开）
 
@@ -84,18 +80,7 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 
 ## 已有笔记
 
-- @docs/notes/38 Web 性能测试.md
-- @docs/notes/35 前端性能优化介绍.md
-- @docs/notes/34 前端页面的生命周期.md
-- @docs/notes/41 防抖节流.md
-- @docs/notes/42 请求和响应优化.md
-- @docs/notes/43 资源加载优化.md
-- @docs/notes/44 渲染优化.md
-- @docs/notes/45 图片优化.md
-- @docs/notes/46 Web性能优化地图.md
-- @docs/notes/47 压缩和解压缩.md
-- @docs/notes/48 Web缓存.md
-- @docs/notes/49 代理服务器.md
+- @docs/notes/05 vue 2/01 手写vue2源码.md
 
 ## 规则
 
@@ -104,14 +89,3 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 - 补全内容（保留原有内容，只增不删），保留图片
 - 将整理后的内容生成公众号文章，输出到 docs/articles/vue-2
 - 文章结构：先出大纲等我确认，再逐节写作
-
-## 参考
-
-- 每一篇最后加一个 参考 章节，引用内容如下，直接用一下内容不需要自行修改：
-- https://web.dev/articles/vitals?hl=zh-cn
-- https://web.dev/articles/rail?hl=zh-cn
-- https://web.dev/articles/rendering-performance?hl=zh-cn
-- https://web.dev/learn/performance/welcome?hl=zh-cn
-- https://developer.mozilla.org/zh-CN/docs/Web/Performance
-- https://github.com/berwin/Blog/issues/23
-- https://github.com/GoogleChromeLabs/quicklink
