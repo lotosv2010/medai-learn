@@ -6,7 +6,7 @@
 
 在开讲之前，先把整条链路摆出来。全文所有章节，都围绕这两条主线转：
 
-```
+```text
 【初次渲染】
 template → compile → render 函数
   → vm._render() → VNode 树
@@ -38,7 +38,7 @@ Virtual DOM 和 Diff 是 Vue 的核心机制，但大多数人只知道「用对
 
 ---
 
-## 🔍 一、先学会用它：render 函数、key、functional component
+## 🔍 先学会用它：render 函数、key、functional component
 
 ### render 函数与 h() 的参数结构
 
@@ -118,7 +118,7 @@ Vue.component('DrugTag', {
 
 ---
 
-## 🏗️ 二、Virtual DOM 是什么：为什么要用对象描述节点
+## 🏗️ Virtual DOM 是什么：为什么要用对象描述节点
 
 ### Virtual DOM 解决了什么问题
 
@@ -185,13 +185,13 @@ Virtual DOM 的价值在于**可维护性和跨平台能力**，而不是性能�
 
 ---
 
-## 🚀 三、初次渲染：从 render 函数到真实 DOM
+## 🚀 初次渲染：从 render 函数到真实 DOM
 
 ### 完整渲染链路
 
 Vue 的渲染流程分六步：
 
-```
+```text
 ① 初始化 data（initState）
 ② 编译 template → render 函数（compileToFunctions）
 ③ 调用 render 函数 → 生成 VNode 树（vm._render()）
@@ -365,7 +365,7 @@ function updateProperties(vnode, oldProps = {}) {
 
 ---
 
-## 🔄 四、数据更新：patch 的对比策略与 sameVnode
+## 🔄 数据更新：patch 的对比策略与 sameVnode
 
 ### patch 更新分支
 
@@ -460,7 +460,7 @@ function sameVnode(a, b) {
 
 两者形成互相调用的递归闭环：
 
-```
+```text
 patch(old, new)
   └── patchVnode(old, new)          ← 更新当前节点属性
         └── updateChildren(...)     ← 对比子节点列表
@@ -476,7 +476,7 @@ patch(old, new)
 > ✅ 标准答案：`patchVnode` 负责更新当前节点（属性 + 子节点），当新旧节点都有子节点时，把子节点的 Diff 委托给 `updateChildren`；`updateChildren` 用双端四指针比对子节点列表，每对命中的子节点再调 `patch → patchVnode` 向下递归。两者互相调用，形成同层递归的 Diff 树遍历。
 > 🎁 加分答案：这个设计让「节点更新」和「列表 Diff」的职责分离——`patchVnode` 只关心单个节点，`updateChildren` 只关心顺序和复用策略，各自可以独立优化。
 
-## ⚡ 五、Diff 核心：双端四指针的五种命中情况
+## ⚡ Diff 核心：双端四指针的五种命中情况
 
 ### 为什么只做同层比较
 
@@ -595,7 +595,7 @@ function updateChildren(oldChildren, newChildren, parent) {
 
 用医疗场景演示：初始列表 `[A, B, C, D]`，更新后变成 `[D, B, C, A]`（首尾互换）：
 
-```
+```text
 初始：old [A, B, C, D]     new [D, B, C, A]
           ↑           ↑         ↑           ↑
        oldStart    oldEnd    newStart    newEnd
@@ -630,7 +630,7 @@ function updateChildren(oldChildren, newChildren, parent) {
 
 ---
 
-## 🔑 六、key 的本质：为什么 index 是危险的
+## 🔑 key 的本质：为什么 index 是危险的
 
 ### key 的核心作用：O(n) 查找
 
@@ -644,7 +644,7 @@ function updateChildren(oldChildren, newChildren, parent) {
 
 假设处方列表有三行药品，用 index 作为 key：
 
-```
+```text
 初始状态（index 为 key）：
   index=0：阿司匹林（100mg）
   index=1：布洛芬（200mg）
@@ -657,7 +657,7 @@ function updateChildren(oldChildren, newChildren, parent) {
 
 Diff 的视角：
 
-```
+```text
 old key=0 阿司匹林  vs  new key=0 阿司匹林  → sameVnode，原地复用 ✅
 old key=1 布洛芬   vs  new key=1 奥美拉唑  → sameVnode（key 都是 1！），错误复用
   → Vue 认为这是同一个节点，只更新文本，不销毁重建
@@ -679,7 +679,7 @@ old key=2 奥美拉唑 → 被删除
 
 用户在「布洛芬」那行输入了备注「饭后服用」，然后你删掉了第一行「阿司匹林」：
 
-```
+```text
 删除前：
   key=0：阿司匹林 | input[value=""]
   key=1：布洛芬   | input[value="饭后服用"]  ← 用户输入
@@ -723,7 +723,7 @@ old key=2 奥美拉唑 → 被删除
 
 ---
 
-## 🛠️ 七、生产级最佳实践
+## 🛠️ 生产级最佳实践
 
 ### functional component 的正确姿势
 
@@ -796,7 +796,7 @@ computed: {
 
 ---
 
-## 📖 八、源码解析（真实 Vue 2 代码）
+## 📖 源码解析（真实 Vue 2 代码）
 
 以下代码来自 Vue 2 官方仓库（`vuejs/vue`），为便于阅读做了轻微格式整理，关键逻辑完整保留。
 
@@ -1000,7 +1000,7 @@ function createKeyToOldIdx(children, beginIdx, endIdx) {
 
 ---
 
-## ✍️ 九、手写实现：处方药品列表 Diff 演示
+## ✍️ 手写实现：处方药品列表 Diff 演示
 
 下面是可独立运行的完整实现，涵盖 VNode 创建 + patch 初次渲染 + updateChildren 双端 Diff。
 
@@ -1271,7 +1271,7 @@ setTimeout(() => {
 
 ---
 
-## 💡 十、一张图总结（面试速记）
+## 💡 一张图总结（面试速记）
 
 | 知识点 | 一句话 | 面试频率 |
 |--------|--------|---------|
@@ -1300,18 +1300,9 @@ setTimeout(() => {
 
 ---
 
-## 🖥️ 源码地址
-
-https://github.com/lotosv2010/g-vue
-
----
-
-## 🌍 参考
-
-- https://v2.vuejs.org/v2/guide/list.html#Maintaining-State
-- https://v2.vuejs.org/v2/guide/render-function.html
-- https://github.com/vuejs/vue/blob/dev/src/core/vdom/patch.js
-- https://github.com/vuejs/vue/blob/dev/src/core/vdom/vnode.js
+> 💻 手写实现源码：搜索 GitHub「lotosv2010 g-vue」
+>
+> 📄 官方参考：搜索「Vue 2 官方文档 render-function」「vuejs/vue patch.js GitHub」
 
 ---
 

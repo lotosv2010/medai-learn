@@ -1,58 +1,55 @@
 # prompt
 
 ```text
-/publish 下面我们规划Vue2全家桶的第3篇文章，具体如下：
+/publish 下面我们规划Vue2全家桶的第5篇文章，具体如下：
 {{
 ## 知识点范围
 
 ### 标题
 
-- Vue 2 虚拟 DOM 与 Diff 算法
+- Vue 2 模板编译原理
 
-**副标题**：为什么 key 不能用 index？双端四指针 Diff 一次讲透
+**副标题**：.vue 文件里的 `<template>` 是怎么变成 render 函数的？
 
 #### 一、基本使用
-- Virtual DOM 解决的问题：跨平台 + 减少直接操作 DOM
-- render 函数与 h() 函数：createElement 的参数结构
-- v-for 的 key 属性：正确用法与常见误区
-- functional component：无实例、无响应式的轻量渲染
+- render 函数 vs template：何时手写 render 函数
+- v-if / v-for / v-model 在 render 函数中的等价写法
+- `v-for` 与 `v-if` 同节点优先级：`v-for` 优先级高于 `v-if`（先循环再判断），应用 `<template>` 包裹规避
+- JSX 在 Vue 2 中的使用：@vue/babel-plugin-transform-vue-jsx
+- vm.$createElement：手动创建 VNode
 
 #### 二、原理
-- VNode 数据结构：tag / data / children / key / componentOptions
-- createElement：规范化 children → 创建 VNode
-- patch 函数：初始化挂载 vs 更新时的差异比较
-- `sameVnode` 判断条件：key + tag + isComment + data 是否定义 + input type 五项全满足才复用
-- Diff 算法核心：同层比较原则（为什么不跨层）
-- 双端四指针算法：oldStart/oldEnd/newStart/newEnd 四个游标的五种命中情况
-  1. oldStart vs newStart（头头相同）
-  2. oldEnd vs newEnd（尾尾相同）
-  3. oldStart vs newEnd（头尾相同，节点右移）
-  4. oldEnd vs newStart（尾头相同，节点左移）
-  5. 以上均未命中 → 用 key 映射表查找 or 新建
-- `patchVnode` 与 `updateChildren` 的递归关系：patchVnode 负责当前节点更新，子节点交给 updateChildren
-- key 的作用：建立旧节点 key→index 映射表，O(n) 复用节点
-- key 用 index 的问题：列表逆序/删除时 key 不稳定导致错误复用、输入框内容错位
+- 编译入口：compileToFunctions（运行时编译）vs vue-loader（构建时编译）
+- 第一步 parse：正则扫描 HTML 字符串 → 构建 AST
+  - 开始标签、结束标签、文本节点的解析逻辑
+  - 属性解析：静态属性 / v-bind / v-on / 指令
+- 第二步 optimize：遍历 AST，标记纯静态节点（static / staticRoot）；静态节点跳过 Diff
+- 第三步 generate：AST → render 函数字符串
+  - `_c / _v / _s / _l` 等辅助函数的含义
+  - v-if 编译为三元表达式，v-for 编译为 `_l(list, fn)`
+  - v-model 编译产物：`<input v-model="val">` → `_c('input', { domProps: { value: val }, on: { input: fn } })`；组件 v-model 走 `model` 选项（prop + event 可自定义）
+  - 自定义指令的编译：生成指令描述对象，运行时按 bind→inserted→update→componentUpdated→unbind 序列调用
+- `v-for` 与 `v-if` 优先级的 AST 表现：v-for 先处理生成 `_l`，v-if 作为内层条件
 
 #### 三、源码解析（重点代码，来源 GitHub 仓库）
-1. VNode 类：`src/core/vdom/vnode.js`
-2. createElement：`src/core/vdom/create-element.js`（children 规范化）
-3. `sameVnode`：`src/core/vdom/patch.js` 判断条件
-4. patch / createElm：首次挂载与 patchVnode 更新
-5. updateChildren：双端四指针五种命中情况完整实现
-6. createKeyToOldIdx：key 映射表 O(n) 复用
+1. 编译入口：`src/compiler/index.js` compileToFunctions 入口
+2. parse 阶段：`src/compiler/parser/index.js` 正则扫描 HTML → AST
+3. optimize 阶段：`src/compiler/optimizer.js` 标记 static 节点
+4. generate 阶段：`src/compiler/codegen/index.js` AST → render 字符串（含 v-if / v-for / v-model）
+5. `_c / _v / _s / _l` 辅助函数：`src/core/instance/render-helpers/index.js`
 
 #### 四、生产级最佳实践
-- key 的最佳实践：用数据 ID，不用 index，不用随机数
-- functional component 适用场景：纯展示型叶节点组件
-- v-if / v-show 选择依据：销毁重建 vs display 切换的性能对比
-- 大列表渲染：结合虚拟列表，Diff 的瓶颈在节点数量而非算法
-- 组件级别 key 强制重建：`<comp :key="version">` 替代手动重置逻辑
+- 构建时编译 vs 运行时编译的体积差（约 30KB）：生产环境只用 runtime 版本
+- v-pre 指令：跳过编译，提升静态内容渲染性能
+- template vs render 的选择：template 可读性好，render 灵活性高（动态组件、条件渲染多分支场景）
+- v-for + v-if 同节点反模式：改用 computed 过滤数据源，避免每次渲染都重算
 
 #### 五、手写实现（可独立跑通）
-医疗场景：Rollup 搭建环境，手写 VNode + patch + updateChildren 双端四指针；处方药品列表增删改时 key 复用完整演示
+医疗场景：Rollup 搭建环境，~170 行手写 parse + optimize + generate；药品说明书动态模板编译产物可视化
 
 #### 六、手写实现源码 GitHub 地址
 （链接占位，写作时填入）
+
 
 #### 七、参考
 - https://v2.cn.vuejs.org/
@@ -62,11 +59,11 @@
 
 
 **面试核心问**：
-- `sameVnode` 的判断条件是什么？为什么 key 不同就不复用？
-- Vue 2 Diff 算法双端四指针的五种命中情况分别是什么？
-- key 不能用 index 的根本原因是什么？举个具体出错场景
-- `patchVnode` 和 `updateChildren` 是什么关系？
-- 为什么 Virtual DOM 不一定比直接操作 DOM 快？
+- 模板编译的三个阶段分别做了什么？
+- v-model 的编译产物是什么？组件上的 v-model 和原生元素有何不同？
+- v-for 和 v-if 同时用在一个元素上，优先级是怎样的？为什么不推荐？
+- Vue 2 的静态节点优化是怎么实现的？optimize 阶段做了什么？
+- 自定义指令的五个钩子分别在什么时机执行？
 
 ## 分析角度（每个子主题都按此展开）
 
@@ -94,5 +91,5 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 - 将整理后的内容生成公众号文章，输出到 docs/articles/vue-2
 - 文章结构：先出大纲等我确认，再逐节写作
 }}
-，保留笔记完整代码和图片，样式格式保持和上一篇一致@docs/articles/05 vue 2/2026-08-12-vue2-reactivity.md，不读我没要求到的文件；可以根据你的经验和最佳实践查漏补缺；主线要明确清晰；每个知识点都要由浅入深的彻底讲透，讲明白。
+，保留笔记完整代码和图片，样式格式保持和上一篇一致@docs/articles/05 vue 2/2026-08-13-vue2-vdom-diff.md，不读我没要求到的文件；可以根据你的经验和最佳实践查漏补缺；主线要明确清晰，不要遗漏源码解析章节；每个知识点都要由浅入深的彻底讲透，讲明白。
 ```
