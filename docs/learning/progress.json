@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 240,
-  "lastSession": "2026-08-12T04:08:27.957Z",
+  "totalSessionCount": 253,
+  "lastSession": "2026-08-13T07:20:00.478Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -209,9 +209,9 @@
       "Object.defineProperty 拦截机制": "未开始",
       "数组变更检测（7个方法重写）": "未开始",
       "$nextTick 降级链": "未开始",
-      "虚拟 DOM 与 VNode 结构": "未开始",
-      "Diff 算法双端四指针": "未开始",
-      "sameVnode 判断条件": "未开始",
+      "虚拟 DOM 与 VNode 结构": "理解",
+      "Diff 算法双端四指针": "理解",
+      "sameVnode 判断条件": "理解",
       "组件渲染链路（_init → $mount → patch）": "未开始",
       "生命周期 11 个钩子": "未开始",
       "组件通信 8 种方式": "未开始",

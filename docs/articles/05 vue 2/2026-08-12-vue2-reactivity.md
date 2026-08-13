@@ -36,7 +36,7 @@
 
 ---
 
-## 一、先学会用它：响应式到底能做什么、边界在哪
+## 🔍 一、先学会用它：响应式到底能做什么、边界在哪
 
 ### 先记第一笔：data 为什么必须是函数
 
@@ -165,7 +165,7 @@ new Vue({
 
 ---
 
-## 二、Object.defineProperty：Vue 2 响应式的基石
+## 📐 二、Object.defineProperty：Vue 2 响应式的基石
 
 ### get / set 拦截机制
 
@@ -211,7 +211,7 @@ state.patient.height = 175   // ✅ Proxy 拦得到
 
 ---
 
-## 三、Observer：递归劫持整棵树 + __ob__ 标记
+## 🌳 三、Observer：递归劫持整棵树 + __ob__ 标记
 
 ### 数据劫持的入口
 
@@ -327,7 +327,7 @@ Object.keys(data).forEach(key => proxy(vm, '_data', key))
 
 ---
 
-## 四、数组重写：defineProperty 监听不到的数组变更
+## 🔄 四、数组重写：defineProperty 监听不到的数组变更
 
 ### 为什么要重写数组的 7 个方法
 
@@ -423,7 +423,7 @@ get() {
 
 ---
 
-## 五、Dep + Watcher：依赖收集与派发更新的双向奔赴
+## 🔗 五、Dep + Watcher：依赖收集与派发更新的双向奔赴
 
 这是响应式最核心、也是面试最爱的部分——是整条链路的心脏，前几章的 Observer / defineProperty / 数组重写，都是为这里铺路的。整条链路就是四个角色配合：
 
@@ -633,9 +633,39 @@ this.patient.age = 52    // 同上
 | computed Watcher | `lazy: true` | 初始化 computed | `dirty = true`，惰性求值 |
 | user Watcher | `user: true` | watch / $watch | `run()` 对比新旧值调 cb |
 
+### 嵌套 Watcher 场景：Dep.target 栈的必要性
+
+前面用的是简化版——`popTarget` 直接把 `Dep.target` 置为 `null`。这在单层组件里没问题，但**嵌套 watcher** 场景会出 bug。
+
+典型场景：父组件 render watcher 执行 `render` 的过程中，遇到子组件，触发子组件的 render watcher 执行。子组件 render 完毕，`popTarget` 把 `Dep.target` 置为 `null`，父组件剩余的渲染函数再触发 getter，`Dep.target` 已经是 `null`，**依赖收集断了**。
+
+正确的做法是用一个**栈**来管理 `Dep.target`，`popTarget` 时恢复到上一层 watcher：
+
+```javascript
+// observer/dep.js —— 正确的栈版本
+let stack = []
+
+export function pushTarget(watcher) {
+  Dep.target = watcher
+  stack.push(watcher)
+}
+
+export function popTarget() {
+  stack.pop()
+  Dep.target = stack[stack.length - 1]  // 恢复上一层 watcher，而不是置 null
+}
+```
+
+这样父子 watcher 交替出入栈，`Dep.target` 始终指向「当前正在收集依赖的那个 watcher」，不会提前断链。
+
+> 💬 **面试官**：computed 依赖的数据变了，为什么模板里用到 computed 的地方也会更新？
+>
+> ✅ 标准答案：computed watcher 在 `evaluate()` 求值时，会触发它依赖数据的 getter，完成依赖收集。此时若外层还有 render watcher 在收集（Dep.target 栈上层是 render watcher），computed 会调 `watcher.depend()` 把自己依赖的所有 dep 也订阅给 render watcher，形成**链式依赖**——所以底层数据变了，render watcher 也能感知到。
+> 🎁 想加分：这也是为什么要用栈管理 Dep.target，而不是直接置 null——嵌套 watcher 场景下，computed watcher 收集完退出后，外层 render watcher 得能继续收集剩余属性的依赖。
+
 ---
 
-## 六、computed 惰性求值：dirty 开关背后的缓存哲学
+## ⚙️ 六、computed 惰性求值：dirty 开关背后的缓存哲学
 
 ### lazy + dirty 实现缓存
 
@@ -764,7 +794,7 @@ computed: {
 
 ---
 
-## 七、watch 与 $nextTick：异步更新的幕后
+## ⏱️ 七、watch 与 $nextTick：异步更新的幕后
 
 ### watch 其实是点了一盏 Watcher
 
@@ -862,7 +892,11 @@ export function nextTick(cb) {
     pending = true
   }
 }
-// flushCallback 里 while 循环清空 callbacks，重置 pending
+
+function flushCallback() {
+  while (callbacks.length) callbacks.shift()()  // FIFO 顺序清空，先进先出
+  pending = false
+}
 ```
 
 **为什么优先微任务？** 微任务在宏任务之前执行——在同步代码执行完后、浏览器正常渲染 DOM 前就先执行 `flushCallback`，把用户传入 `nextTick` 的回调赶在「渲染后、用户能感知前」跑完，保证用户拿到的 DOM 是最新的。如果用 `setTimeout`（宏任务），要等多一个宏任务轮次，中间可能被别的宏任务插入、甚至发生一次多余渲染。
@@ -874,11 +908,383 @@ export function nextTick(cb) {
 
 ---
 
-## 🔧 完整手写实现
+## 📖 八、源码解析（真实 Vue 2 代码）
+
+以下代码来自 Vue 2 官方仓库，为便于阅读做了轻微格式整理，关键逻辑完整保留。
+
+### Observer 类（src/core/observer/index.js）
+
+```javascript
+export function observe(value, asRootData) {
+  if (!isObject(value) || value instanceof VNode) return
+  let ob
+  if (hasOwn(value, '__ob__') && value.__ob__ instanceof Observer) {
+    ob = value.__ob__            // 已劫持过，直接返回
+  } else if (
+    !value._isVue &&
+    (Array.isArray(value) || isPlainObject(value)) &&
+    Object.isExtensible(value)
+  ) {
+    ob = new Observer(value)    // 第一次进来，创建 Observer
+  }
+  if (asRootData && ob) ob.vmCount++
+  return ob
+}
+
+export class Observer {
+  constructor(value) {
+    this.value = value
+    this.dep = new Dep()          // 对象/数组自身的 dep
+    this.vmCount = 0
+    def(value, '__ob__', this)    // 不可枚举挂到对象上（def 内部调 defineProperty）
+    if (Array.isArray(value)) {
+      // 环境支持 __proto__ 就改原型，否则逐个 copy 方法
+      if (hasProto) {
+        protoAugment(value, arrayMethods)
+      } else {
+        copyAugment(value, arrayMethods, arrayKeys)
+      }
+      this.observeArray(value)
+    } else {
+      this.walk(value)
+    }
+  }
+  walk(obj) {
+    const keys = Object.keys(obj)
+    for (let i = 0; i < keys.length; i++) {
+      defineReactive(obj, keys[i])
+    }
+  }
+  observeArray(items) {
+    for (let i = 0, l = items.length; i < l; i++) {
+      observe(items[i])
+    }
+  }
+}
+
+export function defineReactive(obj, key, val, customSetter, shallow) {
+  const dep = new Dep()
+  const property = Object.getOwnPropertyDescriptor(obj, key)
+  if (property && property.configurable === false) return
+
+  const getter = property && property.get
+  const setter = property && property.set
+
+  let childOb = !shallow && observe(val)   // 递归劫持子对象
+
+  Object.defineProperty(obj, key, {
+    enumerable: true,
+    configurable: true,
+    get: function reactiveGetter() {
+      const value = getter ? getter.call(obj) : val
+      if (Dep.target) {
+        dep.depend()
+        if (childOb) {
+          childOb.dep.depend()              // 收集子对象自身的 dep
+          if (Array.isArray(value)) {
+            dependArray(value)              // 递归收集数组元素的 dep
+          }
+        }
+      }
+      return value
+    },
+    set: function reactiveSetter(newVal) {
+      const value = getter ? getter.call(obj) : val
+      if (newVal === value || (newVal !== newVal && value !== value)) return
+      if (process.env.NODE_ENV !== 'production' && customSetter) customSetter()
+      if (getter && !setter) return
+      if (setter) {
+        setter.call(obj, newVal)
+      } else {
+        val = newVal
+      }
+      childOb = !shallow && observe(newVal)  // 新值也劫持
+      dep.notify()
+    }
+  })
+}
+```
+
+### Dep（src/core/observer/dep.js）
+
+```javascript
+let uid = 0
+
+export default class Dep {
+  constructor() {
+    this.id = uid++
+    this.subs = []
+  }
+
+  addSub(sub) { this.subs.push(sub) }
+
+  removeSub(sub) { remove(this.subs, sub) }
+
+  depend() {
+    if (Dep.target) {
+      Dep.target.addDep(this)
+    }
+  }
+
+  notify() {
+    const subs = this.subs.slice()     // 复制一份，避免 notify 过程中 subs 被修改
+    for (let i = 0, l = subs.length; i < l; i++) {
+      subs[i].update()
+    }
+  }
+}
+
+Dep.target = null
+const targetStack = []                 // 栈管理嵌套 watcher
+
+export function pushTarget(target) {
+  targetStack.push(target)
+  Dep.target = target
+}
+
+export function popTarget() {
+  targetStack.pop()
+  Dep.target = targetStack[targetStack.length - 1]  // 恢复上一层
+}
+```
+
+### Watcher（src/core/observer/watcher.js）
+
+```javascript
+export default class Watcher {
+  constructor(vm, expOrFn, cb, options, isRenderWatcher) {
+    this.vm = vm
+    if (isRenderWatcher) vm._watcher = this
+    vm._watchers.push(this)
+
+    if (options) {
+      this.deep = !!options.deep
+      this.user = !!options.user       // user watcher（来自 watch 选项）
+      this.lazy = !!options.lazy       // computed watcher
+      this.sync = !!options.sync
+      this.before = options.before
+    }
+
+    this.cb = cb
+    this.id = ++uid
+    this.dirty = this.lazy             // dirty = true 时才重新求值
+    this.deps = []
+    this.newDeps = []
+    this.depIds = new Set()
+    this.newDepIds = new Set()
+
+    if (typeof expOrFn === 'function') {
+      this.getter = expOrFn
+    } else {
+      this.getter = parsePath(expOrFn)  // 把 'a.b.c' 解析成路径取值函数
+    }
+
+    this.value = this.lazy ? undefined : this.get()
+  }
+
+  get() {
+    pushTarget(this)
+    let value
+    const vm = this.vm
+    try {
+      value = this.getter.call(vm, vm)
+    } catch (e) {
+      if (this.user) handleError(e, vm, `getter for watcher "${this.expression}"`)
+      else throw e
+    } finally {
+      if (this.deep) traverse(value)    // deep：递归读取所有属性触发依赖收集
+      popTarget()
+      this.cleanupDeps()               // 清理上一轮的旧依赖
+    }
+    return value
+  }
+
+  addDep(dep) {
+    const id = dep.id
+    if (!this.newDepIds.has(id)) {
+      this.newDepIds.add(id)
+      this.newDeps.push(dep)
+      if (!this.depIds.has(id)) dep.addSub(this)   // 去重：只订阅一次
+    }
+  }
+
+  update() {
+    if (this.lazy) {
+      this.dirty = true
+    } else if (this.sync) {
+      this.run()
+    } else {
+      queueWatcher(this)                // 异步队列
+    }
+  }
+
+  run() {
+    if (this.active) {
+      const value = this.get()
+      if (value !== this.value || isObject(value) || this.deep) {
+        const oldValue = this.value
+        this.value = value
+        if (this.user) {
+          try { this.cb.call(this.vm, value, oldValue) }
+          catch (e) { handleError(e, this.vm, `callback for watcher "${this.expression}"`) }
+        } else {
+          this.cb.call(this.vm, value, oldValue)
+        }
+      }
+    }
+  }
+
+  evaluate() {
+    this.value = this.get()
+    this.dirty = false
+  }
+
+  depend() {
+    let i = this.deps.length
+    while (i--) this.deps[i].depend()
+  }
+}
+```
+
+### $nextTick（src/core/util/next-tick.js）
+
+```javascript
+const callbacks = []
+let pending = false
+
+function flushCallbacks() {
+  pending = false
+  const copies = callbacks.slice(0)
+  callbacks.length = 0              // 清空原数组
+  for (let i = 0; i < copies.length; i++) {
+    copies[i]()                     // 按顺序执行，FIFO
+  }
+}
+
+let timerFunc
+
+if (typeof Promise !== 'undefined' && isNative(Promise)) {
+  const p = Promise.resolve()
+  timerFunc = () => {
+    p.then(flushCallbacks)
+    // iOS 奇葩 bug：在 microtask checkpoint 结束前可能阻塞，补一个空的 setTimeout 强制刷新
+    if (isIOS) setTimeout(noop)
+  }
+  isUsingMicroTask = true
+} else if (!isIE && typeof MutationObserver !== 'undefined' && (
+  isNative(MutationObserver) ||
+  MutationObserver.toString() === '[object MutationObserverConstructor]'
+)) {
+  let counter = 1
+  const observer = new MutationObserver(flushCallbacks)
+  const textNode = document.createTextNode(String(counter))
+  observer.observe(textNode, { characterData: true })
+  timerFunc = () => {
+    counter = (counter + 1) % 2
+    textNode.data = String(counter)
+  }
+  isUsingMicroTask = true
+} else if (typeof setImmediate !== 'undefined' && isNative(setImmediate)) {
+  timerFunc = () => setImmediate(flushCallbacks)   // Node/IE 宏任务
+} else {
+  timerFunc = () => setTimeout(flushCallbacks, 0)  // 兜底
+}
+
+export function nextTick(cb, ctx) {
+  let _resolve
+  callbacks.push(() => {
+    if (cb) {
+      try { cb.call(ctx) } catch (e) { handleError(e, ctx, 'nextTick') }
+    } else if (_resolve) {
+      _resolve(ctx)
+    }
+  })
+  if (!pending) {
+    pending = true
+    timerFunc()
+  }
+  // 不传 cb 时返回 Promise，支持 await this.$nextTick()
+  if (!cb && typeof Promise !== 'undefined') {
+    return new Promise(resolve => { _resolve = resolve })
+  }
+}
+```
+
+### 数组重写（src/core/observer/array.js）
+
+```javascript
+const arrayProto = Array.prototype
+export const arrayMethods = Object.create(arrayProto)
+
+const methodsToPatch = ['push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse']
+
+methodsToPatch.forEach(function(method) {
+  const original = arrayProto[method]  // 保存原始方法
+  def(arrayMethods, method, function mutator(...args) {
+    const result = original.apply(this, args)
+    const ob = this.__ob__
+    let inserted
+    switch (method) {
+      case 'push':
+      case 'unshift':
+        inserted = args
+        break
+      case 'splice':
+        inserted = args.slice(2)    // splice(start, deleteCount, ...newItems)
+        break
+    }
+    if (inserted) ob.observeArray(inserted)  // 新增元素补劫持
+    ob.dep.notify()                          // 通知更新
+    return result
+  })
+})
+```
+
+---
+
+## ✍️ 九、手写实现（医疗场景，Rollup 搭起来跑）
 
 前面每章只展示了关键片段。这里把完整的可运行代码按文件模块展示，你可以照着这个结构搭一个本地项目跑起来。
 
+### 环境搭建（Rollup + Babel）
+
+```bash
+npm init -y
+npm i rollup rollup-plugin-babel @babel/core @babel/preset-env rollup-plugin-serve -D
+```
+
+`rollup.config.js`：
+
+```javascript
+import babel from 'rollup-plugin-babel'
+import serve from 'rollup-plugin-serve'
+
+export default {
+  input: './src/index.js',
+  output: {
+    format: 'umd',
+    name: 'Vue',
+    file: 'dist/umd/vue.js',
+    sourcemap: true
+  },
+  plugins: [
+    babel({ exclude: 'node_modules/**' }),
+    serve({ open: true, port: 3000, contentBase: '', openPage: 'index.html' })
+  ]
+}
+```
+
+`.babelrc`：
+
+```json
+{
+  "presets": ["@babel/preset-env"]
+}
+```
+
 ### observer/dep.js
+
+使用**栈**版本，正确处理嵌套 watcher 场景：
 
 ```javascript
 let id = 0
@@ -901,11 +1307,17 @@ class Dep {
 
 Dep.target = null
 
+// 使用栈管理 Dep.target，支持嵌套 watcher 场景
+let stack = []
+
 export function pushTarget(watcher) {
   Dep.target = watcher
+  stack.push(watcher)
 }
+
 export function popTarget() {
-  Dep.target = null
+  stack.pop()
+  Dep.target = stack[stack.length - 1]  // 恢复上一层 watcher
 }
 
 export default Dep
@@ -1091,7 +1503,7 @@ export default Watcher
 let callbacks = [], pending = false
 
 function flushCallback() {
-  while (callbacks.length) callbacks.shift()()
+  while (callbacks.length) callbacks.shift()()  // FIFO 顺序，shift 不是 pop
   pending = false
 }
 
@@ -1102,7 +1514,7 @@ if (typeof Promise !== 'undefined') {
   const ob = new MutationObserver(flushCallback)
   const node = document.createTextNode('1')
   ob.observe(node, { characterData: true })
-  timerFunc = () => { node.textContent = String(Date.now()) }
+  timerFunc = () => { node.textContent = String(Math.random()) }
 } else if (typeof setImmediate !== 'undefined') {
   timerFunc = () => setImmediate(flushCallback)
 } else {
@@ -1195,9 +1607,64 @@ function initWatch(vm) {
 }
 ```
 
+### 医疗场景演示：患者信息表单实时响应式验证
+
+一个完整的医疗电商场景——患者信息表单，实时响应式验证：
+
+```javascript
+data() {
+  return {
+    patient: {
+      name: '',
+      age: null,
+      phone: '',
+      drugAllergies: []
+    }
+  }
+}
+```
+
+computed 联动验证，用缓存优雅处理多个字段：
+
+```javascript
+computed: {
+  nameValid() {
+    return this.patient.name.trim().length >= 2
+  },
+  ageValid() {
+    return this.patient.age > 0 && this.patient.age < 150
+  },
+  formValid() {
+    return this.nameValid && this.ageValid
+  }
+}
+```
+
+watch 处理异步副作用——年龄变化可能联动推荐更合适的药品方案：
+
+```javascript
+watch: {
+  'patient.age'(newVal, oldVal) {
+    if (!newVal) return
+    this.fetchDosingSuggestion(newVal)   // 异步拉取剂量建议
+  }
+}
+```
+
+$set 处理接口回填的动态字段 + 数组更新用重写方法：
+
+```javascript
+// 接口返回的动态过敏史字段
+this.$set(this.patient, 'hasAllergy', true)
+// 数组变更走 7 方法触发更新
+this.patient.drugAllergies.push('青霉素')
+```
+
+这样一个表单组件，computed（缓存验证结果）、watch（异步副作用）、$set（动态字段）、数组方法（过敏史列表）四大机制全部用上，既贴近真实，又覆盖了本文章全部考点。
+
 ---
 
-
+## 💡 十、生产级最佳实践
 
 ### Object.freeze：冻结大规模只读数据
 
@@ -1227,7 +1694,7 @@ Vue.set(target, key, val)
 // 然后 dep.notify() 派发更新
 ```
 
-### 深层嵌套对象的性能风险
+### 深层嵌套对象的响应式性能风险
 
 Vue 2 初始化时要递归劫持整个 data 树，**每层嵌套都是 write 损耗**。一个 10 层深的配置对象，初始化瞬间就递归 10 层。经验法则：
 
@@ -1289,64 +1756,9 @@ this.extraInfo = { note: '过敏' }  // ❌ vm 上挂了个普通属性，无响
 
 **一句话**：要一个「算出来的值」用 computed，要「监控变化去干什么事」用 watch。
 
-### 完整案例：患者信息表单实时响应式验证
-
-一个完整的医疗电商场景——患者信息表单，实时响应式验证：
-
-```javascript
-data() {
-  return {
-    patient: {
-      name: '',
-      age: null,
-      phone: '',
-      drugAllergies: []
-    }
-  }
-}
-```
-
-computed 联动验证，用缓存优雅处理多个字段：
-
-```javascript
-computed: {
-  nameValid() {
-    return this.patient.name.trim().length >= 2
-  },
-  ageValid() {
-    return this.patient.age > 0 && this.patient.age < 150
-  },
-  formValid() {
-    return this.nameValid && this.ageValid
-  }
-}
-```
-
-watch 处理异步副作用——年龄变化可能联动推荐更合适的药品方案：
-
-```javascript
-watch: {
-  'patient.age'(newVal, oldVal) {
-    if (!newVal) return
-    this.fetchDosingSuggestion(newVal)   // 异步拉取剂量建议
-  }
-}
-```
-
-$set 处理接口回填的动态字段 + 数组更新用重写方法：
-
-```javascript
-// 接口返回的动态过敏史字段
-this.$set(this.patient, 'hasAllergy', true)
-// 数组变更走 7 方法触发更新
-this.patient.drugAllergies.push('青霉素')
-```
-
-这样一个表单组件，computed（缓存验证结果）、watch（异步副作用）、$set（动态字段）、数组方法（过敏史列表）四大机制全部用上，既贴近真实，又覆盖了本文章全部考点。
-
 ---
 
-## 💡 一张图总结（面试速记）
+## 💊 一张图总结（面试速记）
 
 | 知识点 | 一句话解释 | 面试价值 |
 |--------|-----------|:---:|
@@ -1360,21 +1772,7 @@ this.patient.drugAllergies.push('青霉素')
 | computed lazy/dirty | 惰性求值，dirty 控制缓存，依赖变化只置脏 | 高 |
 | nextTick | Promise→MutationObserver→setImmediate→setTimeout | 高 |
 | 三种 Watcher | render / computed(lazy) / user | 中 |
-
----
-
-
-## ✍️ 源码
-
-> https://github.com/lotosv2010/g-vue
-
----
-
-## 参考
-
-> https://v2.cn.vuejs.org/v2/guide/reactivity.html
-> https://github.com/vuejs/vue
-> https://jonny-wei.github.io/blog/vue/vue/github.html
+| Dep.target 栈 | 支持嵌套 watcher，popTarget 恢复上一层而非置 null | 中 |
 
 ---
 
@@ -1384,5 +1782,21 @@ this.patient.drugAllergies.push('青霉素')
 
 ---
 
-> 🔖 这是「Vue 2 系列」第 1 篇。下一篇预告：《Vue 2 模板编译与渲染原理：从模板到真实 DOM 的完整链路（面试收藏级）》
+## 🖥️ 源码地址
 
+https://github.com/lotosv2010/g-vue
+
+---
+
+## 🌍 参考
+
+- https://v2.cn.vuejs.org/v2/guide/reactivity.html
+- https://v2.cn.vuejs.org/
+- https://jonny-wei.github.io/blog/vue/vue/vue-observer.html
+- https://github.com/vuejs/vue/blob/dev/src/core/observer/index.js
+- https://github.com/wbccb
+
+---
+
+> 🔖 这是「Vue 2 全家桶系列」第 2 篇。上一篇：《Vue 2 构建与初始化全攻略：三个版本怎么选？new Vue() 之后内部究竟做了什么（面试收藏级）》；下一篇预告：《Vue 2 虚拟 DOM 与 Diff 算法：为什么 key 不能用 index？双端四指针 Diff 一次讲透（面试收藏级）
+》

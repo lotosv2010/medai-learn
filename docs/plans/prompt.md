@@ -1,72 +1,72 @@
 # prompt
 
-- 下面我们规划Vue2全家桶的第1篇文章，具体如下：
-
+```text
+/publish 下面我们规划Vue2全家桶的第3篇文章，具体如下：
+{{
 ## 知识点范围
 
 ### 标题
 
-- Vue 2 响应式原理与手写实现
+- Vue 2 虚拟 DOM 与 Diff 算法
 
-### 大纲
-
-**副标题**：数据变了视图为什么会更新？Observer / Dep / Watcher 三件套全链路
+**副标题**：为什么 key 不能用 index？双端四指针 Diff 一次讲透
 
 #### 一、基本使用
-- data 的响应式触发：直接赋值 vs $set / $delete
-- computed 的缓存行为与 watch 的 deep/immediate 选项
-- 数组变更检测：push/pop/splice 等 7 个方法 vs 索引赋值的陷阱
-- 响应式边界：什么情况下数据变了视图不更新？
+- Virtual DOM 解决的问题：跨平台 + 减少直接操作 DOM
+- render 函数与 h() 函数：createElement 的参数结构
+- v-for 的 key 属性：正确用法与常见误区
+- functional component：无实例、无响应式的轻量渲染
 
 #### 二、原理
-- Object.defineProperty 的 get/set 拦截机制
-- Observer：递归劫持整个对象树；`__ob__` 标记的作用（防重复 observe + 数组依赖挂载点）
-- 数组 7 个方法重写原因：defineProperty 监听不到长度和索引变化
-- Dep（依赖收集器）：每个响应式属性对应一个 Dep 实例；`dep.id` 去重防止同一 Watcher 重复收集
-- Watcher 三种类型：render Watcher / computed Watcher（lazy + dirty flag）/ user Watcher（watch）
-- 依赖收集完整链路：render → 访问 data → dep.depend() → Dep.target → watcher.addDep()
-- 派发更新完整链路：data 赋值 → dep.notify() → watcher.update() → queueWatcher → flushSchedulerQueue
-- computed 惰性求值：dirty=true 时重新计算，dirty=false 直接返回缓存值
-- $nextTick：flushSchedulerQueue 完成后 → Promise → MutationObserver → setImmediate → setTimeout 降级链
+- VNode 数据结构：tag / data / children / key / componentOptions
+- createElement：规范化 children → 创建 VNode
+- patch 函数：初始化挂载 vs 更新时的差异比较
+- `sameVnode` 判断条件：key + tag + isComment + data 是否定义 + input type 五项全满足才复用
+- Diff 算法核心：同层比较原则（为什么不跨层）
+- 双端四指针算法：oldStart/oldEnd/newStart/newEnd 四个游标的五种命中情况
+  1. oldStart vs newStart（头头相同）
+  2. oldEnd vs newEnd（尾尾相同）
+  3. oldStart vs newEnd（头尾相同，节点右移）
+  4. oldEnd vs newStart（尾头相同，节点左移）
+  5. 以上均未命中 → 用 key 映射表查找 or 新建
+- `patchVnode` 与 `updateChildren` 的递归关系：patchVnode 负责当前节点更新，子节点交给 updateChildren
+- key 的作用：建立旧节点 key→index 映射表，O(n) 复用节点
+- key 用 index 的问题：列表逆序/删除时 key 不稳定导致错误复用、输入框内容错位
 
-#### 三、手写实现（每步可独立跑通）
-1. Rollup + Babel + rollup-plugin-serve 环境搭建，输出 UMD 格式
-2. Observer：递归 walk + defineReactive + `__ob__` 标记
-3. Dep：depend / notify / subs 管理 + id 去重
-4. Watcher：get / update / run / lazy dirty 惰性求值（computed）
-5. $nextTick：Promise 降级到 setTimeout 的完整实现
+#### 三、源码解析（重点代码，来源 GitHub 仓库）
+1. VNode 类：`src/core/vdom/vnode.js`
+2. createElement：`src/core/vdom/create-element.js`（children 规范化）
+3. `sameVnode`：`src/core/vdom/patch.js` 判断条件
+4. patch / createElm：首次挂载与 patchVnode 更新
+5. updateChildren：双端四指针五种命中情况完整实现
+6. createKeyToOldIdx：key 映射表 O(n) 复用
 
 #### 四、生产级最佳实践
-- $set / $delete 的使用时机与实现原理（数组走 splice，对象走 defineReactive）
-- Object.freeze 冻结大型只读数据集（药品目录、ICD 码表）：freeze 后 defineProperty 无法重写
-- 深层嵌套对象的响应式性能风险：避免 3 层以上自动递归
-- watch 的 immediate + deep 与内存泄漏风险
-- computed vs watch 的选型：有返回值用 computed，有副作用用 watch
+- key 的最佳实践：用数据 ID，不用 index，不用随机数
+- functional component 适用场景：纯展示型叶节点组件
+- v-if / v-show 选择依据：销毁重建 vs display 切换的性能对比
+- 大列表渲染：结合虚拟列表，Diff 的瓶颈在节点数量而非算法
+- 组件级别 key 强制重建：`<comp :key="version">` 替代手动重置逻辑
 
-#### 五、案例完整代码
-医疗场景：患者信息表单，实时响应式验证
+#### 五、手写实现（可独立跑通）
+医疗场景：Rollup 搭建环境，手写 VNode + patch + updateChildren 双端四指针；处方药品列表增删改时 key 复用完整演示
 
-#### 六、vue2 手写完整代码
+#### 六、手写实现源码 GitHub 地址
+（链接占位，写作时填入）
 
-```js
-```
-
-#### 七、源码地址（单独一章节，原url文本展示）
-
-- https://github.com/lotosv2010/g-vue
-
-#### 八、参考（单独一章节，原url文本展示）
-
-- https://v2.cn.vuejs.org/v2/guide/reactivity.html
+#### 七、参考
+- https://v2.cn.vuejs.org/
+- https://jonny-wei.github.io/blog/vue/vue/vue-diff.html
+- https://github.com/vuejs/vue/blob/dev/src/core/instance/index.js
+- https://github.com/wbccb
 
 
 **面试核心问**：
-- defineProperty 和 Proxy 的区别？Vue 3 为什么换掉？
-- 数组为什么不用 defineProperty 监听下标？
-- computed 和 watch 的 Watcher 有什么区别？lazy/dirty 机制是什么？
-- `__ob__` 标记在 Vue 2 响应式系统中有什么作用？
-- $nextTick 的降级策略是什么？为什么优先用微任务？
-- dep.id 去重机制解决了什么问题？
+- `sameVnode` 的判断条件是什么？为什么 key 不同就不复用？
+- Vue 2 Diff 算法双端四指针的五种命中情况分别是什么？
+- key 不能用 index 的根本原因是什么？举个具体出错场景
+- `patchVnode` 和 `updateChildren` 是什么关系？
+- 为什么 Virtual DOM 不一定比直接操作 DOM 快？
 
 ## 分析角度（每个子主题都按此展开）
 
@@ -82,6 +82,10 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 
 - @docs/notes/05 vue 2/01 手写vue2源码.md
 
+## plans 地址
+
+- @docs/plans/vue2-family-series-outline.md
+
 ## 规则
 
 - 先阅读以上笔记，找出缺失或浅尝辄止的知识点
@@ -89,3 +93,6 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 - 补全内容（保留原有内容，只增不删），保留图片
 - 将整理后的内容生成公众号文章，输出到 docs/articles/vue-2
 - 文章结构：先出大纲等我确认，再逐节写作
+}}
+，保留笔记完整代码和图片，样式格式保持和上一篇一致@docs/articles/05 vue 2/2026-08-12-vue2-reactivity.md，不读我没要求到的文件；可以根据你的经验和最佳实践查漏补缺；主线要明确清晰；每个知识点都要由浅入深的彻底讲透，讲明白。
+```
