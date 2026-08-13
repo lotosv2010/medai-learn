@@ -1034,22 +1034,20 @@ export function resolveAsyncComponent(factory, baseCtor) {
 
 ---
 
-## 💡 十、面试速记表
+## 💡 一张图总结（面试速记）
 
-### 核心问题汇总
-
-| 面试题 | 核心答案 | 加分点 |
-|--------|---------|--------|
-| 父子生命周期顺序 | created 父先子后；mounted 子先父后 | insertedVnodeQueue 实现子先父后 |
-| keep-alive 差异 | activated/deactivated 替换 mounted/destroyed | LRU 缓存；`max` 参数 |
-| $emit 存在哪里 | `vm._events` 对象 | initEvents 注册父传入的监听 |
-| provide/inject 响应式 | 默认不响应式；用 Vue.observable 传响应式对象 | computed 也可实现 |
-| $attrs/$listeners | 非 prop attribute / 事件透传 | inheritAttrs: false 配合使用 |
-| 异步组件重渲染 | forceRender → $forceUpdate 遍历 owners | owners 数组支持多父组件 |
-| Vue.extend | 生成 Sub 构造函数；命令式弹窗 | _Ctor 缓存去重 |
-| $parent/$refs 建立时机 | $parent 在 initLifecycle（beforeCreate 前）；$refs 在 mounted | created 里 $refs 是 undefined |
-
-### 主线链路速记
+| 知识点 | 一句话 | 面试频率 |
+|--------|--------|---------|
+| 组件渲染主链路 | _init → $mount → mountComponent → 渲染 watcher → patch | ⭐⭐⭐⭐⭐ |
+| 父子生命周期顺序 | created 父先子后；mounted 子先父后（insertedVnodeQueue） | ⭐⭐⭐⭐⭐ |
+| Vue.extend | 生成 Sub 构造函数，_Ctor 缓存去重，命令式弹窗原理 | ⭐⭐⭐⭐ |
+| keep-alive 差异 | activated/deactivated 替换 mounted/destroyed，LRU 缓存 | ⭐⭐⭐⭐ |
+| $emit 原理 | 事件存 vm._events，initEvents 在 _init 时注册父传入监听 | ⭐⭐⭐⭐ |
+| provide/inject 响应式 | 默认不响应式；传 Vue.observable 对象或 computed 可实现 | ⭐⭐⭐⭐ |
+| $attrs/$listeners | 非 prop attribute / 事件透传，配合 inheritAttrs: false | ⭐⭐⭐⭐ |
+| 异步组件重渲染 | forceRender → $forceUpdate 遍历 owners 数组 | ⭐⭐⭐ |
+| $parent/$refs 建立时机 | $parent 在 initLifecycle；$refs 在 mounted 后才有值 | ⭐⭐⭐ |
+| prepatch hook | 更新时复用实例，updateChildComponent 同步 props/slots | ⭐⭐⭐ |
 
 ```text
 ① 注册  → Vue.extend → Sub（_Ctor 缓存）→ Vue.options.components
@@ -1058,6 +1056,12 @@ export function resolveAsyncComponent(factory, baseCtor) {
 ④ 挂载  → $mount → mountComponent → 渲染 watcher → patch → insertedVnodeQueue → mounted
 ⑤ 更新  → prepatch hook → updateChildComponent → props setter → 子 watcher
 ```
+
+---
+
+> 💻 手写实现源码：搜索 GitHub「lotosv2010 g-vue」
+>
+> 📄 官方参考：搜索「Vue 2 官方文档 components」「vuejs/vue src/core/instance GitHub」
 
 ---
 
