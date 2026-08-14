@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 256,
-  "lastSession": "2026-08-13T09:42:14.176Z",
+  "totalSessionCount": 257,
+  "lastSession": "2026-08-13T10:45:15.217Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -221,7 +221,12 @@
       "mixin 合并策略": "未开始",
       "Vue.extend 命令式弹窗": "理解",
       "Vue.observable 轻量响应式": "理解",
-      "scoped-slot 编译产物": "未开始",
+      "scoped-slot 编译产物": "理解",
+      "普通/具名插槽编译产物（genSlot/_t）": "理解",
+      "作用域插槽编译产物（genScopedSlot/插槽函数）": "理解",
+      "renderSlot 运行时实现": "理解",
+      "normalizeScopedSlots Vue 2.6 统一": "理解",
+      "renderless 组件设计模式": "理解",
       "errorCaptured 错误冒泡": "未开始"
     },
     "vue_router": {
