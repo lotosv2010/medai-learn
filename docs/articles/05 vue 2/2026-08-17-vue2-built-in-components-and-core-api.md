@@ -8,7 +8,7 @@
 
 Vue 2 的内置组件和全局 API 是面试高频考点，但网上大多数资料要么只讲用法，要么源码贴一大段没有串讲。这篇文章既讲原理，也讲面试怎么答：每个知识点讲完立刻跟上面试视角，给出标准答案和加分答案。
 
-覆盖 9 个核心 API：keep-alive、transition、Vue.mixin、Vue.use、Vue.extend、Vue.observable、$set/$delete、$attrs/$listeners、errorCaptured。
+覆盖 16 个核心 API / 内置组件：keep-alive、component :is、transition、transition-group、Vue.mixin、Vue.use、Vue.extend、Vue.directive、Vue.filter、Vue.observable、$set/$delete、$nextTick、$forceUpdate、$mount/$destroy、$attrs/$listeners、errorCaptured。
 
 ---
 
@@ -202,7 +202,100 @@ methods: {
 
 ---
 
-## 🎬 二、transition：动画钩子执行序列全链路
+## 🔄 二、component :is — 动态组件的编译原理
+
+### 基本使用
+
+`<component :is="xxx">` 是 Vue 内置的动态组件语法，`:is` 接受**字符串**（组件名）或**组件配置对象**：
+
+```html
+<!-- 字符串：通过组件名查找已注册组件 -->
+<component :is="currentTab" />
+
+<!-- 组件对象：直接传入配置，无需注册 -->
+<component :is="tabs[active].component" />
+
+<!-- 医疗场景：根据问诊类型切换不同的输入面板 -->
+<keep-alive>
+  <component :is="consultType" />  <!-- 'TextConsult' | 'VoiceConsult' | 'VideoConsult' -->
+</keep-alive>
+```
+
+### 字符串 vs 组件对象的区别
+
+| 传入类型 | 查找方式 | 适用场景 |
+|---------|---------|---------|
+| 字符串 `'MyComp'` | 从当前组件的 `components` 选项或全局注册中查找 | 已注册的命名组件 |
+| 组件配置对象 `{ template, data... }` | 直接使用，不走注册表 | 动态加载、异步组件 |
+| 异步组件函数 `() => import('./Comp')` | 异步解析后渲染 | 路由懒加载、按需加载 |
+
+### 编译产物
+
+```html
+<component :is="currentTab" />
+```
+
+编译产物：
+
+```javascript
+// resolveDynamicComponent 在运行时解析 :is 的值
+_c(resolveDynamicComponent(currentTab), { tag: currentTab })
+```
+
+实际上 `_c` 就是 `createElement`，Vue 在运行时对 tag 做类型判断：
+
+- 字符串 → 在全局 components 和局部 components 里查找构造函数
+- 对象/函数 → 直接当做组件定义处理
+
+### 配合 keep-alive 的完整模式
+
+keep-alive 只缓存第一个子组件，`<component :is>` 刚好是单组件占位，两者是标准搭档：
+
+```javascript
+// 医疗系统：问诊记录、科室列表、个人信息三个 Tab 页面缓存
+export default {
+  data() {
+    return {
+      tabs: [
+        { name: '问诊记录',  component: 'ConsultList',  cache: true  },
+        { name: '科室列表',  component: 'DeptList',     cache: true  },
+        { name: '开药确认',  component: 'PrescribeForm', cache: false }, // 每次重置
+      ],
+      currentTab: 'ConsultList'
+    }
+  },
+  computed: {
+    cachedTabs() {
+      return this.tabs.filter(t => t.cache).map(t => t.component)
+    }
+  }
+}
+```
+
+```html
+<template>
+  <div>
+    <nav>
+      <button v-for="tab in tabs" :key="tab.name" @click="currentTab = tab.component">
+        {{ tab.name }}
+      </button>
+    </nav>
+    <keep-alive :include="cachedTabs">
+      <component :is="currentTab" />
+    </keep-alive>
+  </div>
+</template>
+```
+
+> 💬 **面试官**：`<component :is>` 传字符串和传对象有什么区别？
+>
+> ✅ 标准答案：传字符串时，Vue 在运行时去 `components` 注册表里查找对应构造函数；传对象时直接把该对象作为组件配置使用，不走注册表。编译产物都是 `_c(resolveDynamicComponent(val), ...)`，只是运行时的解析路径不同。
+>
+> 🎁 加分答案：和 keep-alive 搭配时，注意 keep-alive 匹配的是组件的 `name` 选项而不是 `:is` 传的字符串，所以组件必须定义 `name` 字段，否则 `include/exclude` 不生效。
+
+---
+
+## 🎬 三、transition：动画钩子执行序列全链路
 
 ### 基本使用
 
@@ -333,7 +426,111 @@ vm.$scopedSlots.default({ item: this.item }) // 👈 主动调用，控制传参
 
 ---
 
-## 🔀 三、Vue.mixin 合并策略：mergeOptions 的分层规则
+## 🎞️ 四、transition-group：列表动画与 FLIP 原理
+
+### 基本使用
+
+`<transition>` 只能包裹单个元素/组件，列表动画需要 `<transition-group>`：
+
+```html
+<transition-group name="list" tag="ul">
+  <li v-for="drug in drugs" :key="drug.id">{{ drug.name }}</li>
+</transition-group>
+```
+
+**和 `<transition>` 的关键区别**：
+
+| 对比点 | `<transition>` | `<transition-group>` |
+|-------|---------------|---------------------|
+| 包裹数量 | 单个子节点 | 多个子节点（列表） |
+| 渲染元素 | 不渲染 DOM | 渲染真实 DOM（默认 `<span>`，可用 `tag` 改） |
+| key 要求 | 不强制 | **必须给每个子节点设 key** |
+| 移动动画 | 无 | 支持 `v-move` 类名（FLIP 算法） |
+
+### key 为什么必须设
+
+`<transition-group>` 内部依赖每个节点的 key 来追踪「哪个元素是哪个」。没有 key，Vue 无法判断是元素移动了还是内容替换了，FLIP 动画就无从计算。
+
+### FLIP 动画原理
+
+FLIP 是 `<transition-group>` 实现列表移动动画的核心算法，四个阶段：
+
+```
+F (First)   — 记录每个元素动画开始前的位置（getBoundingClientRect）
+L (Last)    — DOM 更新完成后，记录每个元素的新位置
+I (Invert)  — 用 transform 把元素「逆变换」回旧位置（视觉上没动）
+P (Play)    — 移除 transform，加上 CSS transition，元素从旧位置流畅滑向新位置
+```
+
+```javascript
+// Vue 源码内部（src/platforms/web/runtime/modules/transition.js）简化版
+// 1. 在 updated 钩子中，对每个 moved 的子元素：
+const el = child.el
+const oldPos = child.data.pos     // F: 旧位置
+const newPos = child.data.newPos  // L: 新位置
+const dx = oldPos.left - newPos.left
+const dy = oldPos.top - newPos.top
+if (dx || dy) {
+  child.data.moved = true
+  el.style.transform = `translate(${dx}px,${dy}px)` // I: 逆变换回旧位置
+  el.style.transitionDuration = '0s'
+}
+// 2. 下一帧：移除 transform，CSS transition 让元素流畅移动
+requestAnimationFrame(() => {
+  el.style.transform = ''           // P: 播放
+  el.style.transitionDuration = ''
+  el.classList.add('v-move')        // 触发 .v-move 过渡
+})
+```
+
+### 完整使用示例
+
+```html
+<template>
+  <!-- 医疗场景：药品列表排序/过滤动画 -->
+  <div>
+    <input v-model="search" placeholder="搜索药品..." />
+    <transition-group name="drug-list" tag="ul" class="drug-list">
+      <li v-for="drug in filteredDrugs" :key="drug.id" class="drug-item">
+        {{ drug.name }} — {{ drug.price }}元
+      </li>
+    </transition-group>
+  </div>
+</template>
+
+<style>
+/* 进入/离开动画 */
+.drug-list-enter-active,
+.drug-list-leave-active {
+  transition: all 0.3s ease;
+}
+.drug-list-enter,
+.drug-list-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+/* 移动动画（FLIP 核心：v-move 类名） */
+.drug-list-move {
+  transition: transform 0.3s ease;
+}
+
+/* 离开的元素脱离文档流，让其他元素 FLIP 滑动 */
+.drug-list-leave-active {
+  position: absolute;
+}
+</style>
+```
+
+> 💬 **面试官**：transition-group 的列表移动动画是怎么实现的？
+>
+> ✅ 标准答案：用 FLIP 算法。First 记录旧位置，Last 记录 DOM 更新后的新位置，Invert 用 transform 把元素瞬间移回旧位置，Play 移除 transform 触发 CSS transition 让元素从旧位置流向新位置。Vue 通过 `.v-move` 类名控制这段 transition。
+>
+> 🎁 加分答案：离开的元素必须设置 `position: absolute` 脱离文档流，否则它占位会影响其他元素的 FLIP 计算，导致移动动画位置计算错误。
+
+---
+
+## 🔀 五、Vue.mixin 合并策略：mergeOptions 的分层规则
 
 ### 基本使用
 
@@ -510,7 +707,7 @@ function useLoading() {
 
 ---
 
-## 🔌 四、Vue.use + Vue.extend：插件安装与命令式组件
+## 🔌 六、Vue.use + Vue.extend：插件安装与命令式组件
 
 ### Vue.use：install 机制
 
@@ -693,7 +890,7 @@ export default {
 
 ---
 
-## ⚡ 五、Vue.observable + $set / $delete：响应式 API 补全
+## ⚡ 七、Vue.observable + $set / $delete：响应式 API 补全
 
 ### Vue.observable：轻量全局状态
 
@@ -827,7 +1024,7 @@ export function del(target, key) {
 
 ---
 
-## 🌐 六、$attrs / $listeners + errorCaptured：透传与错误边界
+## 🌐 八、$attrs / $listeners + errorCaptured：透传与错误边界
 
 ### $attrs / $listeners：二次封装组件的标准模式
 
@@ -924,7 +1121,375 @@ Vue.config.errorHandler = function(err, vm, info) {
 
 ---
 
-## 📖 七、源码解析（重点代码，来源 GitHub 仓库）
+## 🧩 九、Vue.directive：自定义指令的五个钩子
+
+### 基本使用
+
+```javascript
+// 全局注册
+Vue.directive('focus', {
+  inserted(el) {
+    el.focus()
+  }
+})
+
+// 局部注册
+export default {
+  directives: {
+    loading: {
+      bind(el, binding) {
+        if (binding.value) el.classList.add('is-loading')
+      },
+      update(el, binding) {
+        binding.value
+          ? el.classList.add('is-loading')
+          : el.classList.remove('is-loading')
+      }
+    }
+  }
+}
+```
+
+### 五个钩子函数与调用时机
+
+```
+bind          → 指令第一次绑定到元素时（只调用一次，此时 DOM 还未插入文档）
+inserted      → 被绑定元素插入父节点时（父节点存在，但不一定在文档中）
+update        → 所在组件 VNode 更新时（子组件更新前，binding.value 可能变化）
+componentUpdated → 所在组件 VNode 及其子 VNode 全部更新后
+unbind        → 指令与元素解绑时（只调用一次，元素销毁时）
+```
+
+钩子函数接收四个参数：
+
+```javascript
+// el      — 指令绑定的真实 DOM 元素
+// binding — 对象：{ value, oldValue, arg, modifiers, name, expression }
+// vnode   — 当前 VNode
+// oldVnode — 上一个 VNode（update/componentUpdated 有）
+Vue.directive('permission', {
+  inserted(el, binding) {
+    const permission = binding.value  // v-permission="'doctor:write'"
+    if (!hasPermission(permission)) {
+      el.parentNode && el.parentNode.removeChild(el)
+    }
+  }
+})
+```
+
+### 生产级实现：v-loading + v-permission
+
+```javascript
+// 医疗场景一：v-loading 指令（表单提交时遮罩）
+Vue.directive('loading', {
+  bind(el, binding) {
+    const div = document.createElement('div')
+    div.className = 'v-loading-mask'
+    div.innerHTML = '<span class="v-loading-spinner">加载中...</span>'
+    div.style.cssText = `
+      display: ${binding.value ? 'flex' : 'none'};
+      position: absolute; inset: 0;
+      background: rgba(255,255,255,0.8);
+      align-items: center; justify-content: center;
+    `
+    el.style.position = 'relative'
+    el.appendChild(div)
+    el._loadingEl = div
+  },
+  update(el, binding) {
+    if (el._loadingEl) {
+      el._loadingEl.style.display = binding.value ? 'flex' : 'none'
+    }
+  },
+  unbind(el) {
+    if (el._loadingEl) {
+      el._loadingEl.parentNode && el._loadingEl.parentNode.removeChild(el._loadingEl)
+      el._loadingEl = null
+    }
+  }
+})
+
+// 医疗场景二：v-permission 权限控制（医生/药师/管理员角色）
+Vue.directive('permission', {
+  inserted(el, binding) {
+    const userRole = store.state.user.role
+    const required = binding.value  // v-permission="'pharmacist'"
+    if (userRole !== required && !userRole.includes(required)) {
+      el.parentNode && el.parentNode.removeChild(el)
+    }
+  }
+})
+```
+
+```html
+<button v-loading="isSubmitting" @click="submit">提交问诊</button>
+<button v-permission="'doctor'">开具处方</button>
+```
+
+> 💬 **面试官**：Vue.directive 的 bind 和 inserted 有什么区别？
+>
+> ✅ 标准答案：bind 在指令绑定元素时立即调用，此时元素还未插入 DOM，不能访问父节点；inserted 是元素插入父节点后调用，可以访问 parentNode，适合需要 DOM 上下文的操作（如 focus、获取 offsetHeight）。
+>
+> 🎁 加分答案：实现 v-loading 时推荐在 bind 里创建遮罩 DOM 并 appendChild（此时 el 自身已存在），unbind 里清理，这样避免了在 inserted/update 里重复创建。
+
+---
+
+## 🔧 十、Vue.filter：过滤器原理与 Vue 3 移除原因
+
+### 基本使用
+
+```javascript
+// 全局过滤器
+Vue.filter('currency', (value, symbol = '¥') => {
+  return `${symbol}${(value / 100).toFixed(2)}`
+})
+
+// 局部过滤器
+export default {
+  filters: {
+    drugUnit(val) {
+      const units = { mg: '毫克', ml: '毫升', g: '克' }
+      return units[val] || val
+    }
+  }
+}
+```
+
+```html
+<!-- 模板中用管道符调用 -->
+{{ drug.price | currency }}              <!-- ¥12.50 -->
+{{ drug.unit | drugUnit }}               <!-- 毫克 -->
+{{ drug.price | currency | formatBold }} <!-- 链式调用 -->
+```
+
+### 编译产物
+
+```javascript
+// {{ price | currency('$') }} 编译成：
+_s(_f("currency")(price, '$'))
+// _f 是 resolveFilter，从 $options.filters 里找对应函数
+```
+
+### Vue 3 为什么移除 filter
+
+filter 被 Vue 3 移除的三个原因，面试必答：
+
+1. **表达式不透明**：`{{ val | fn }}` 的管道符不是标准 JS，IDE 类型推断和 lint 支持都很差
+2. **无法被 TypeScript 推断**：filter 函数的入参/返回值 TypeScript 无法感知
+3. **computed + method 完全替代**：`{{ currency(price) }}` 更直观，复用也更容易
+
+```javascript
+// Vue 3 迁移：用 computed 或 method 替代 filter
+computed: {
+  formattedPrice() {
+    return `¥${(this.drug.price / 100).toFixed(2)}`
+  }
+}
+// 或者直接在 template 里调用 method：{{ currency(price) }}
+```
+
+> 💬 **面试官**：Vue 3 为什么移除了 filter？
+>
+> ✅ 标准答案：三个原因——管道符不是标准 JS 语法导致 TypeScript 类型推断失效；IDE 无法追踪 filter 的来源；computed 和 method 可以完全替代 filter 的功能，同时更直观、更易调试。Vue 3 推荐用 method 或 computed 代替。
+
+---
+
+## ⏱️ 十一、$nextTick：微任务队列与 DOM 更新时机
+
+### 基本使用
+
+```javascript
+export default {
+  methods: {
+    async updateAndRead() {
+      this.list = newData     // 触发响应式，但 DOM 尚未更新
+      await this.$nextTick()  // 等 DOM 更新完成
+      const height = this.$el.scrollHeight  // ✅ 此时可以读取最新 DOM
+    }
+  }
+}
+```
+
+### 降级链原理
+
+`$nextTick` 本质是把回调放到「当前响应式更新批次完成后」执行。Vue 2 的实现使用了四级降级：
+
+```
+Promise.then（微任务，现代浏览器首选）
+    ↓ 不支持
+MutationObserver（微任务）
+    ↓ 不支持
+setImmediate（IE 特有，宏任务但比 setTimeout 早）
+    ↓ 不支持
+setTimeout(fn, 0)（宏任务兜底）
+```
+
+```javascript
+// src/core/util/next-tick.js 核心逻辑
+const callbacks = []
+let pending = false
+
+function flushCallbacks() {
+  pending = false
+  const copies = callbacks.slice(0)
+  callbacks.length = 0
+  for (let i = 0; i < copies.length; i++) {
+    copies[i]()
+  }
+}
+
+// timerFunc 根据环境选择最优异步方案
+let timerFunc
+if (typeof Promise !== 'undefined') {
+  const p = Promise.resolve()
+  timerFunc = () => { p.then(flushCallbacks) }
+} else if (typeof MutationObserver !== 'undefined') {
+  let counter = 1
+  const observer = new MutationObserver(flushCallbacks)
+  const textNode = document.createTextNode(String(counter))
+  observer.observe(textNode, { characterData: true })
+  timerFunc = () => { counter = (counter + 1) % 2; textNode.data = String(counter) }
+} else if (typeof setImmediate !== 'undefined') {
+  timerFunc = () => { setImmediate(flushCallbacks) }
+} else {
+  timerFunc = () => { setTimeout(flushCallbacks, 0) }
+}
+
+export function nextTick(cb, ctx) {
+  let _resolve
+  callbacks.push(() => {
+    if (cb) {
+      cb.call(ctx)
+    } else if (_resolve) {
+      _resolve(ctx)
+    }
+  })
+  if (!pending) {
+    pending = true
+    timerFunc()  // 只触发一次，批量执行所有 callbacks
+  }
+  if (!cb && typeof Promise !== 'undefined') {
+    return new Promise(resolve => { _resolve = resolve })
+  }
+}
+```
+
+**为什么是批量**：同一个事件循环 tick 里多次调用 `$nextTick`，Vue 只触发一次 `timerFunc`，所有回调在同一个微任务批次里执行，避免多次 DOM 读写。
+
+### keep-alive 激活后的典型用法
+
+```javascript
+// activated 钩子里，DOM 已是缓存还原状态，但滚动位置需要 nextTick 后恢复
+activated() {
+  this.$nextTick(() => {
+    this.$el.scrollTop = this.savedScrollTop
+  })
+}
+```
+
+> 💬 **面试官**：$nextTick 的实现原理是什么？为什么用微任务而不是宏任务？
+>
+> ✅ 标准答案：$nextTick 把回调放进队列，用 Promise.then/MutationObserver 等微任务在当前同步代码执行完、浏览器渲染前批量执行。用微任务是因为微任务在同一个 event loop tick 内执行，比宏任务（setTimeout）更早，能在浏览器下次渲染前把 DOM 操作批量完成，减少重绘次数。
+>
+> 🎁 加分答案：多次 $nextTick 调用只触发一次 timerFunc（pending 标志位），所有回调在同一批次执行；`this.$nextTick()` 支持 Promise 写法（不传 cb 时返回 Promise），可以配合 async/await 使用。
+
+---
+
+## 🔁 十二、$forceUpdate + $mount / $destroy：实例控制 API
+
+### $forceUpdate：强制重渲染
+
+`$forceUpdate` 让组件实例跳过响应式系统，强制重新渲染：
+
+```javascript
+Vue.prototype.$forceUpdate = function() {
+  const vm = this
+  if (vm._watcher) {
+    vm._watcher.update()  // 触发渲染 watcher 重新执行
+  }
+}
+```
+
+**使用场景**：响应式系统检测不到的变更——比如直接修改了对象深层嵌套属性（没用 $set），或依赖了非响应式数据（外部变量、Date.now()）：
+
+```javascript
+// ❌ 这种修改不触发响应式
+this.form.extra.tags.push('urgent')  // 深层嵌套 + 直接 push（未重写的 push）
+
+// ✅ 临时解决：forceUpdate（更好的做法还是用 $set 修正响应式）
+this.$forceUpdate()
+```
+
+**注意**：$forceUpdate 只强制当前组件重渲，**不影响子组件**（除非子组件依赖父组件传入的响应式数据）。频繁调用是数据设计有问题的信号。
+
+### $mount：手动挂载实例
+
+```javascript
+// 不传参：创建一个游离 DOM，手动 appendChild（命令式弹窗标准写法）
+const vm = new MyComponent().$mount()
+document.body.appendChild(vm.$el)
+
+// 传选择器：替换该元素（等同于 el 选项）
+const vm = new Vue({ template: '<div>hello</div>' }).$mount('#app')
+
+// 传真实 DOM
+const vm = new Vue({ template: '<div>hello</div>' }).$mount(document.getElementById('app'))
+```
+
+`$mount` 源码触发了完整的挂载流程：`mountComponent` → 创建渲染 watcher → `_render()` → `_update()` → `patch()`。
+
+### $destroy：手动销毁实例
+
+```javascript
+Vue.prototype.$destroy = function() {
+  const vm = this
+  if (vm._isBeingDestroyed) return   // 防止重复销毁
+  callHook(vm, 'beforeDestroy')      // ① 触发 beforeDestroy 钩子
+  vm._isBeingDestroyed = true
+
+  // ② 从父组件的 $children 中移除自己
+  const parent = vm.$parent
+  if (parent && !parent._isBeingDestroyed && !vm.$options.abstract) {
+    remove(parent.$children, vm)
+  }
+
+  // ③ 销毁所有 watcher（包括渲染 watcher 和用户 watcher）
+  if (vm._watcher) { vm._watcher.teardown() }
+  let i = vm._watchers.length
+  while (i--) { vm._watchers[i].teardown() }
+
+  // ④ 解除响应式对象的引用（ob.vmCount--）
+  if (vm._data.__ob__) { vm._data.__ob__.vmCount-- }
+
+  // ⑤ 标记已销毁，触发 destroyed 钩子
+  vm._isDestroyed = true
+  vm.__patch__(vm._vnode, null)      // 卸载子组件
+  callHook(vm, 'destroyed')          // ⑥ 触发 destroyed
+
+  // ⑦ 移除所有事件监听（$off）
+  vm.$off()
+  // ⑧ 清理 $el 引用（可选）
+  if (vm.$el) { vm.$el.__vue__ = null }
+  if (vm.$vnode) { vm.$vnode.parent = null }
+}
+```
+
+**手动销毁的完整清理顺序**：
+
+```
+beforeDestroy → 从父 $children 移除 → 所有 watcher teardown
+→ 子组件递归 $destroy → destroyed → $off 清空事件
+```
+
+> 💬 **面试官**：$destroy 执行后，组件的 DOM 会被移除吗？
+>
+> ✅ 标准答案：$destroy 只销毁实例（watcher、事件监听、响应式），但**不会从 DOM 中移除元素**。需要手动 `vm.$el.parentNode.removeChild(vm.$el)` 或用 `v-if` 控制。这就是为什么命令式弹窗在 `$once + hook:beforeDestroy` 里要手动 removeChild。
+>
+> 🎁 加分答案：说出 `$destroy` 的完整销毁顺序——beforeDestroy → 解除 watcher → 递归销毁子组件 → destroyed → $off。其中 `vm.__patch__(vm._vnode, null)` 那一步会递归触发所有子组件的销毁流程。
+
+---
+
+## 📖 十三、源码解析（重点代码，来源 GitHub 仓库）
 
 > 链路位置：keep-alive → mergeOptions → Vue.use → Vue.extend → $set/$delete 完整串联
 
@@ -1121,7 +1686,7 @@ export function del(target, key) {
 
 ---
 
-## 🛠️ 八、手写实现：医疗场景完整代码
+## 🛠️ 十四、手写实现：医疗场景完整代码
 
 基于前面章节的原理，用 Rollup 搭建的手写 Vue 环境（复用第一章 Rollup 配置），实现核心 API 的可运行版本。
 
@@ -1370,20 +1935,27 @@ export function del(target, key) {
 
 ---
 
-## 💡 九、一张图总结（面试速记表）
+## 💡 十五、一张图总结（面试速记表）
 
 | API / 组件 | 核心机制 | 面试频率 | 一句话记忆 |
 |-----------|---------|:-------:|----------|
 | keep-alive | LRU：Map + keys 数组 | ⭐⭐⭐⭐⭐ | Map 存缓存，数组维顺序，超 max 删队头触 $destroy |
+| component :is | resolveDynamicComponent | ⭐⭐⭐⭐ | 字符串查注册表，对象直接用；配合 keep-alive 必须有 name |
 | transition | 6 类名 + 6 JS 钩子 | ⭐⭐⭐ | enter/leave 各三步，transform 不触发 layout |
-| scoped-slot | 插槽编译成函数 | ⭐⭐⭐⭐ | 普通 slot 是 VNode，scoped-slot 是函数（子传父数据） |
+| transition-group | FLIP 算法 + v-move | ⭐⭐⭐ | First/Last/Invert/Play，离开元素 position:absolute |
 | Vue.mixin | mergeOptions strats | ⭐⭐⭐⭐ | 钩子 concat（mixin 先），data 递归（组件优先） |
 | Vue.use | install + _installedPlugins | ⭐⭐⭐ | 防重复，调 install(Vue) |
 | Vue.extend | Sub + _Ctor 缓存 | ⭐⭐⭐⭐ | 继承 Vue，缓存构造函数，命令式弹窗核心 |
+| Vue.directive | bind/inserted/update/unbind | ⭐⭐⭐⭐ | bind 无父节点，inserted 有父节点；unbind 清理副作用 |
+| Vue.filter | resolveFilter + 管道符 | ⭐⭐⭐ | Vue 3 移除：TS 类型推断失效 + method 可替代 |
 | Vue.observable | observe() | ⭐⭐ | 轻量响应式，3 个字段以下的全局状态 |
 | $set / $delete | splice / defineReactive + dep.notify | ⭐⭐⭐⭐⭐ | 数组用 splice，对象用 defineReactive |
+| $nextTick | Promise.then 微任务降级链 | ⭐⭐⭐⭐⭐ | 四级降级，批量执行，微任务优先于宏任务 |
+| $forceUpdate | 渲染 watcher.update() | ⭐⭐⭐ | 只强制当前组件，不影响子组件；频繁调用说明数据设计有问题 |
+| $mount / $destroy | mountComponent / watcher teardown | ⭐⭐⭐⭐ | $destroy 不移除 DOM，需手动 removeChild |
 | $attrs/$listeners | inheritAttrs: false | ⭐⭐⭐ | 封装组件透传的标准模式，Vue 3 合并进了 $attrs |
 | errorCaptured | 向上冒泡 → errorHandler | ⭐⭐⭐ | 返回 false 阻止冒泡，组件树错误边界 |
+| scoped-slot | 插槽编译成函数 | ⭐⭐⭐⭐ | 普通 slot 是 VNode，scoped-slot 是函数（子传父数据） |
 
 ---
 

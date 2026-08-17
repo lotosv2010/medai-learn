@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 260,
-  "lastSession": "2026-08-17T09:00:00.000Z",
+  "totalSessionCount": 261,
+  "lastSession": "2026-08-17T01:21:24.776Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -233,7 +233,14 @@
       ".native 修饰符原理（nativeOn/componentVNodeHooks）": "理解",
       "事件修饰符编译实现（genHandler）": "理解",
       "$listeners 响应式化与透传机制": "理解",
-      "errorCaptured 错误冒泡": "理解"
+      "errorCaptured 错误冒泡": "理解",
+      "component :is 动态组件原理": "理解",
+      "transition-group FLIP 动画算法": "理解",
+      "Vue.directive 五个钩子生命周期": "理解",
+      "Vue.filter 管道符原理与 Vue 3 移除原因": "理解",
+      "$nextTick 微任务降级链": "理解",
+      "$forceUpdate 强制重渲染原理": "理解",
+      "$mount/$destroy 手动挂载与销毁链路": "理解"
     },
     "vue_router": {
       "Hash vs History 模式原理": "未开始",
