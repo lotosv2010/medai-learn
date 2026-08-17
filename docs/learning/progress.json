@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 257,
-  "lastSession": "2026-08-13T10:45:15.217Z",
+  "totalSessionCount": 258,
+  "lastSession": "2026-08-14T07:28:32.687Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -227,6 +227,12 @@
       "renderSlot 运行时实现": "理解",
       "normalizeScopedSlots Vue 2.6 统一": "理解",
       "renderless 组件设计模式": "理解",
+      "vm._events 自定义事件存储结构": "理解",
+      "$on/$emit/$off/$once 实现原理": "理解",
+      "组件事件 vs DOM 事件本质区别": "理解",
+      ".native 修饰符原理（nativeOn/componentVNodeHooks）": "理解",
+      "事件修饰符编译实现（genHandler）": "理解",
+      "$listeners 响应式化与透传机制": "理解",
       "errorCaptured 错误冒泡": "未开始"
     },
     "vue_router": {
