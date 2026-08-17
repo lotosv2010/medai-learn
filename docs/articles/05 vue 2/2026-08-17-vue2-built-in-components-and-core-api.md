@@ -924,7 +924,204 @@ Vue.config.errorHandler = function(err, vm, info) {
 
 ---
 
-## 🛠️ 七、手写实现：医疗场景完整代码
+## 📖 七、源码解析（重点代码，来源 GitHub 仓库）
+
+> 链路位置：keep-alive → mergeOptions → Vue.use → Vue.extend → $set/$delete 完整串联
+
+### keep-alive LRU（src/core/components/keep-alive.js）
+
+```javascript
+// 核心 render 函数：LRU 命中/未命中/淘汰三条路径
+render() {
+  const slot = this.$slots.default
+  const vnode = getFirstComponentChild(slot)
+  const componentOptions = vnode && vnode.componentOptions
+  if (componentOptions) {
+    const name = getComponentName(componentOptions)
+    const { include, exclude } = this
+    if (
+      (include && (!name || !matches(include, name))) ||
+      (exclude && name && matches(exclude, name))
+    ) {
+      return vnode  // 不命中 include / 命中 exclude：直接返回，不缓存
+    }
+    const { cache, keys } = this
+    const key = vnode.key == null
+      ? componentOptions.Ctor.cid + (componentOptions.tag ? `::${componentOptions.tag}` : '')
+      : vnode.key
+    if (cache[key]) {
+      // ✅ 命中：复用 componentInstance，把 key 移到末尾（LRU 刷新）
+      vnode.componentInstance = cache[key].componentInstance
+      remove(keys, key)
+      keys.push(key)
+    } else {
+      // ✅ 未命中：存入缓存
+      cache[key] = vnode
+      keys.push(key)
+      // 超过 max：淘汰 keys[0]，触发被淘汰组件的 $destroy
+      if (this.max && keys.length > parseInt(this.max)) {
+        pruneCacheEntry(cache, keys[0], keys, this._vnode)
+      }
+    }
+    vnode.data.keepAlive = true
+  }
+  return vnode
+}
+
+function pruneCacheEntry(cache, key, keys, current) {
+  const cached = cache[key]
+  if (cached && (!current || cached.tag !== current.tag)) {
+    cached.componentInstance.$destroy()  // 👈 淘汰 → beforeDestroy + destroyed
+  }
+  cache[key] = null
+  remove(keys, key)
+}
+```
+
+### mergeOptions 策略（src/core/util/options.js）
+
+```javascript
+// strats 策略对象：不同 key 用不同合并函数
+const strats = config.optionMergeStrategies
+
+// 生命周期：数组合并，parentVal（mixin）排在前面
+function mergeHook(parentVal, childVal) {
+  const res = childVal
+    ? parentVal
+      ? parentVal.concat(childVal)  // 👈 concat：mixin 先，组件后
+      : Array.isArray(childVal)
+        ? childVal
+        : [childVal]
+    : parentVal
+  return res ? dedupeHooks(res) : res
+}
+LIFECYCLE_HOOKS.forEach(hook => { strats[hook] = mergeHook })
+
+// data：mergeDataOrFn 递归合并，组件 data 优先
+strats.data = function(parentVal, childVal, vm) {
+  if (!vm) {
+    // Vue.extend 场景
+    if (!childVal) return parentVal
+    if (!parentVal) return childVal
+    return function mergedDataFn() {
+      return mergeData(
+        typeof childVal === 'function' ? childVal.call(this, this) : childVal,
+        typeof parentVal === 'function' ? parentVal.call(this, this) : parentVal
+      )
+    }
+  }
+  return function mergedInstanceDataFn() {
+    const instanceData = typeof childVal === 'function' ? childVal.call(vm, vm) : childVal
+    const defaultData = typeof parentVal === 'function' ? parentVal.call(vm, vm) : parentVal
+    if (instanceData) {
+      return mergeData(instanceData, defaultData)  // 组件 data 优先
+    } else {
+      return defaultData
+    }
+  }
+}
+```
+
+### Vue.use（src/core/global-api/use.js）
+
+```javascript
+Vue.use = function(plugin) {
+  const installedPlugins = (this._installedPlugins || (this._installedPlugins = []))
+  if (installedPlugins.indexOf(plugin) > -1) {
+    return this  // 👈 防重复：已安装直接返回
+  }
+  const args = toArray(arguments, 1)
+  args.unshift(this)  // args = [Vue, ...options]
+  if (typeof plugin.install === 'function') {
+    plugin.install.apply(plugin, args)
+  } else if (typeof plugin === 'function') {
+    plugin.apply(null, args)
+  }
+  installedPlugins.push(plugin)
+  return this
+}
+```
+
+### Vue.extend（src/core/global-api/extend.js）
+
+```javascript
+Vue.extend = function(extendOptions) {
+  extendOptions = extendOptions || {}
+  const Super = this
+  const SuperId = Super.cid
+  const cachedCtors = extendOptions._Ctor || (extendOptions._Ctor = {})
+  if (cachedCtors[SuperId]) {
+    return cachedCtors[SuperId]  // 👈 缓存：同一 extendOptions + 同一父类 → 直接返回
+  }
+  const Sub = function VueComponent(options) {
+    this._init(options)
+  }
+  Sub.prototype = Object.create(Super.prototype)
+  Sub.prototype.constructor = Sub
+  Sub.cid = cid++
+  Sub.options = mergeOptions(Super.options, extendOptions)
+  Sub['super'] = Super
+  // 继承父类的静态方法（组件注册、指令等）
+  Sub.extend = Super.extend
+  Sub.mixin = Super.mixin
+  Sub.use = Super.use
+  Sub.component = Super.component
+  Sub.directive = Super.directive
+  Sub.filter = Super.filter
+  cachedCtors[SuperId] = Sub  // 存入缓存
+  return Sub
+}
+```
+
+### $set / $delete（src/core/observer/index.js）
+
+```javascript
+// set：对响应式对象新增属性的完整路径
+export function set(target, key, val) {
+  if (Array.isArray(target) && isValidArrayIndex(key)) {
+    target.length = Math.max(target.length, key)
+    target.splice(key, 1, val)  // 👈 splice 已被重写，触发响应式
+    return val
+  }
+  if (key in target && !(key in Object.prototype)) {
+    target[key] = val  // 已有属性，直接赋值（已有 getter/setter）
+    return val
+  }
+  const ob = (target).__ob__
+  if (target._isVue || (ob && ob.vmCount)) {
+    warn('Avoid adding reactive properties to a Vue instance or its root $data ...')
+    return val
+  }
+  if (!ob) {
+    target[key] = val  // 非响应式对象，直接赋值
+    return val
+  }
+  defineReactive(ob.value, key, val)  // 👈 添加 getter/setter
+  ob.dep.notify()                     // 👈 通知所有 watcher 更新
+  return val
+}
+
+// del：删除属性并触发更新
+export function del(target, key) {
+  if (Array.isArray(target) && isValidArrayIndex(key)) {
+    target.splice(key, 1)
+    return
+  }
+  const ob = (target).__ob__
+  if (target._isVue || (ob && ob.vmCount)) {
+    warn('Avoid deleting properties on a Vue instance or its root $data ...')
+    return
+  }
+  if (!hasOwn(target, key)) return
+  delete target[key]
+  if (!ob) return
+  ob.dep.notify()  // 👈 通知更新
+}
+```
+
+---
+
+## 🛠️ 八、手写实现：医疗场景完整代码
 
 基于前面章节的原理，用 Rollup 搭建的手写 Vue 环境（复用第一章 Rollup 配置），实现核心 API 的可运行版本。
 
@@ -1173,7 +1370,7 @@ export function del(target, key) {
 
 ---
 
-## 💡 八、一张图总结（面试速记表）
+## 💡 九、一张图总结（面试速记表）
 
 | API / 组件 | 核心机制 | 面试频率 | 一句话记忆 |
 |-----------|---------|:-------:|----------|
@@ -1198,15 +1395,21 @@ keep-alive 的 `max` 超出时会调用被淘汰组件的 `$destroy()`。但如�
 
 ---
 
-## 参考资料
+## 🖥️ 源码地址
 
-- 搜索关键词：Vue 2 官方文档 keep-alive
-- 搜索关键词：Vue 2 源码分析 ustbhuangyi
-- 搜索关键词：Vue 2 GitHub 源码 vuejs/vue
+https://github.com/lotosv2010/g-vue
 
-## 手写实现源码
+---
 
-搜索关键词：lotosv2010 g-vue GitHub
+## 🌍 参考
+
+- https://v2.cn.vuejs.org/
+- https://github.com/vuejs/vue/blob/dev/src/core/components/keep-alive.js
+- https://github.com/vuejs/vue/blob/dev/src/core/global-api/use.js
+- https://github.com/vuejs/vue/blob/dev/src/core/global-api/extend.js
+- https://github.com/vuejs/vue/blob/dev/src/core/observer/index.js
+- https://ustbhuangyi.github.io/vue-analysis/
+- https://github.com/wbccb
 
 ---
 
