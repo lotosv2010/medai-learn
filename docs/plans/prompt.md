@@ -1,69 +1,85 @@
 # prompt
 
 ```text
-/publish 下面我们规划Vue2全家桶的第5篇文章，具体如下：
+/publish 下面我们规划Vue2全家桶的第8篇文章，具体如下：
 {{
 ## 知识点范围
 
 ### 标题
 
-- Vue 2 模板编译原理
+- Vue 2 内置组件与核心 API 原理
 
-**副标题**：.vue 文件里的 `<template>` 是怎么变成 render 函数的？
+**副标题**：keep-alive 怎么缓存组件？mixin 合并策略是什么？
 
 #### 一、基本使用
-- render 函数 vs template：何时手写 render 函数
-- v-if / v-for / v-model 在 render 函数中的等价写法
-- `v-for` 与 `v-if` 同节点优先级：`v-for` 优先级高于 `v-if`（先循环再判断），应用 `<template>` 包裹规避
-- JSX 在 Vue 2 中的使用：@vue/babel-plugin-transform-vue-jsx
-- vm.$createElement：手动创建 VNode
+- keep-alive：include / exclude / max 的使用
+- transition：enter/leave 钩子与 CSS 类名序列
+- Vue.mixin：全局混入 vs 局部混入
+- Vue.use：插件安装机制
+- Vue.extend：动态创建组件构造函数（命令式弹窗场景）
+- Vue.observable：Vue 2.6 新增的轻量响应式对象（替代简单 Vuex 场景）
+- $set / $delete：触发响应式更新的 API
+- $attrs / $listeners：非 props 属性和事件的透传（inheritAttrs: false 配合使用）
+- errorCaptured：组件树错误捕获钩子
 
 #### 二、原理
-- 编译入口：compileToFunctions（运行时编译）vs vue-loader（构建时编译）
-- 第一步 parse：正则扫描 HTML 字符串 → 构建 AST
-  - 开始标签、结束标签、文本节点的解析逻辑
-  - 属性解析：静态属性 / v-bind / v-on / 指令
-- 第二步 optimize：遍历 AST，标记纯静态节点（static / staticRoot）；静态节点跳过 Diff
-- 第三步 generate：AST → render 函数字符串
-  - `_c / _v / _s / _l` 等辅助函数的含义
-  - v-if 编译为三元表达式，v-for 编译为 `_l(list, fn)`
-  - v-model 编译产物：`<input v-model="val">` → `_c('input', { domProps: { value: val }, on: { input: fn } })`；组件 v-model 走 `model` 选项（prop + event 可自定义）
-  - 自定义指令的编译：生成指令描述对象，运行时按 bind→inserted→update→componentUpdated→unbind 序列调用
-- `v-for` 与 `v-if` 优先级的 AST 表现：v-for 先处理生成 `_l`，v-if 作为内层条件
+- keep-alive 缓存策略：LRU（最近最少使用）
+  - 用 Map + Set 维护缓存 key 顺序，超过 max 时淘汰最久未访问的 key
+  - activated / deactivated 钩子的触发时机；与 beforeDestroy 的区别
+- transition 动画钩子执行序列：
+  - enter：before-enter → enter → after-enter / enter-cancelled
+  - leave：before-leave → leave → after-leave / leave-cancelled
+  - CSS transition / animation 与 JS 钩子的协同机制
+- scoped-slot 编译产物：父组件生成插槽函数，子组件 `$scopedSlots.default()` 调用；与普通 slot 编译产物的差异
+- Vue.mixin 的合并策略（mergeOptions）：
+  - 生命周期：数组合并，mixin 先于组件执行
+  - data：递归合并，组件 data 优先
+  - methods / computed / components：组件选项覆盖 mixin
+- Vue.use 的 install 机制：调用 plugin.install(Vue) + 防重复注册（installedPlugins 数组）
+- Vue.extend：创建 Sub 构造函数，缓存在 `Sub._Ctor`，避免重复创建；命令式弹窗的核心
+- Vue.observable：对对象调用 `observe()`，返回响应式对象，可作轻量全局状态
+- $set：对数组调用 splice，对对象调用 defineReactive + dep.notify
+- errorCaptured → Vue.config.errorHandler：错误从子组件向上冒泡，可在任意祖先捕获
 
 #### 三、源码解析（重点代码，来源 GitHub 仓库）
-1. 编译入口：`src/compiler/index.js` compileToFunctions 入口
-2. parse 阶段：`src/compiler/parser/index.js` 正则扫描 HTML → AST
-3. optimize 阶段：`src/compiler/optimizer.js` 标记 static 节点
-4. generate 阶段：`src/compiler/codegen/index.js` AST → render 字符串（含 v-if / v-for / v-model）
-5. `_c / _v / _s / _l` 辅助函数：`src/core/instance/render-helpers/index.js`
+1. keep-alive LRU：`src/core/components/keep-alive.js`（Map + keys 数组维护顺序）
+2. mergeOptions 策略：`src/core/util/options.js`（strats 策略对象）
+3. Vue.use：`src/core/global-api/use.js`（installedPlugins 防重复）
+4. Vue.extend：`src/core/global-api/extend.js`（Sub + `_Ctor` 缓存）
+5. $set / $delete：`src/core/observer/index.js`（splice / defineReactive 两条路径）
 
 #### 四、生产级最佳实践
-- 构建时编译 vs 运行时编译的体积差（约 30KB）：生产环境只用 runtime 版本
-- v-pre 指令：跳过编译，提升静态内容渲染性能
-- template vs render 的选择：template 可读性好，render 灵活性高（动态组件、条件渲染多分支场景）
-- v-for + v-if 同节点反模式：改用 computed 过滤数据源，避免每次渲染都重算
+- keep-alive + 路由缓存：include 动态白名单控制（医疗场景：问诊页面缓存）
+- mixin 的命名冲突风险与替代方案（HOC / 插件；Vue 3 改用 Composable）
+- transition 性能优化：transform + will-change，避免触发 layout
+- Vue.extend 实现命令式弹窗：`new Ctor().$mount()` + `document.body.appendChild`
+- `$once + hook:beforeDestroy` 优雅自清理模式，替代 beforeDestroy 中手写 $off
+- Vue.observable 轻量全局状态：适合无需 Vuex 的小型跨组件状态共享
 
 #### 五、手写实现（可独立跑通）
-医疗场景：Rollup 搭建环境，~170 行手写 parse + optimize + generate；药品说明书动态模板编译产物可视化
+医疗场景：Rollup 搭建环境，手写 keep-alive LRU + mergeOptions + Vue.use + Vue.extend + $set/$delete；科室切换 keep-alive 缓存 + 命令式确认弹窗完整代码
+
 
 #### 六、手写实现源码 GitHub 地址
-（链接占位，写作时填入）
+- https://github.com/lotosv2010/g-vue
 
 
 #### 七、参考
 - https://v2.cn.vuejs.org/
-- https://jonny-wei.github.io/blog/vue/vue/vue-diff.html
 - https://github.com/vuejs/vue/blob/dev/src/core/instance/index.js
+- https://jonny-wei.github.io/blog/vue/vue/vue-event.html
+- https://ustbhuangyi.github.io/vue-analysis/
 - https://github.com/wbccb
 
 
 **面试核心问**：
-- 模板编译的三个阶段分别做了什么？
-- v-model 的编译产物是什么？组件上的 v-model 和原生元素有何不同？
-- v-for 和 v-if 同时用在一个元素上，优先级是怎样的？为什么不推荐？
-- Vue 2 的静态节点优化是怎么实现的？optimize 阶段做了什么？
-- 自定义指令的五个钩子分别在什么时机执行？
+- keep-alive 的 LRU 缓存是怎么实现的？max 触发时调用哪个生命周期？
+- mixin 的合并策略是什么？同名生命周期谁先执行？
+- scoped-slot 和普通 slot 的编译产物有什么区别？
+- Vue.extend 的使用场景是什么？命令式弹窗怎么实现？
+- `$once + hook:beforeDestroy` 模式解决了什么问题？
+- Vue.observable 和 Vuex 什么时候选哪个？
+
 
 ## 分析角度（每个子主题都按此展开）
 
@@ -91,5 +107,5 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 - 将整理后的内容生成公众号文章，输出到 docs/articles/vue-2
 - 文章结构：先出大纲等我确认，再逐节写作
 }}
-，保留笔记完整代码和图片，样式格式保持和上一篇一致@docs/articles/05 vue 2/2026-08-13-vue2-component-render.md，不读我没要求到的文件；可以根据你的经验和最佳实践查漏补缺；主线要明确清晰，不要遗漏源码解析章节；每个知识点都要由浅入深的彻底讲透，讲明白。
+，保留笔记完整代码和图片，样式格式保持一致和这篇@docs/articles/05 vue 2/2026-08-12-vue2-reactivity.md，不读我没要求到的文件；可以根据你的经验和最佳实践查漏补缺；主线要明确清晰，不要遗漏源码解析章节；每个知识点都要由浅入深的彻底讲透，讲明白。
 ```
