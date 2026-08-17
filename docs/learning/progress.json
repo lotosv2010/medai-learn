@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 258,
-  "lastSession": "2026-08-14T07:28:32.687Z",
+  "totalSessionCount": 260,
+  "lastSession": "2026-08-17T09:00:00.000Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -217,8 +217,8 @@
       "组件通信 8 种方式": "理解",
       "模板编译三阶段（parse/optimize/generate）": "未开始",
       "v-model 编译产物": "未开始",
-      "keep-alive LRU 缓存": "未开始",
-      "mixin 合并策略": "未开始",
+      "keep-alive LRU 缓存": "理解",
+      "mixin 合并策略": "理解",
       "Vue.extend 命令式弹窗": "理解",
       "Vue.observable 轻量响应式": "理解",
       "scoped-slot 编译产物": "理解",
@@ -233,7 +233,7 @@
       ".native 修饰符原理（nativeOn/componentVNodeHooks）": "理解",
       "事件修饰符编译实现（genHandler）": "理解",
       "$listeners 响应式化与透传机制": "理解",
-      "errorCaptured 错误冒泡": "未开始"
+      "errorCaptured 错误冒泡": "理解"
     },
     "vue_router": {
       "Hash vs History 模式原理": "未开始",
