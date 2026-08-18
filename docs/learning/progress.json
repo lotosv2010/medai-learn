@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 266,
-  "lastSession": "2026-08-17T09:44:13.026Z",
+  "totalSessionCount": 269,
+  "lastSession": "2026-08-18T03:22:57.011Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -250,11 +250,19 @@
       "路由懒加载与 Code Splitting": "未开始"
     },
     "vuex": {
-      "new Vue 响应式实现": "未开始",
-      "getters computed 缓存机制": "未开始",
-      "modules 命名空间路径拼接": "未开始",
-      "严格模式 $watch 实现": "未开始",
-      "mapState/mapGetters 原理": "未开始"
+      "new Vue 响应式实现": "理解",
+      "getters computed 缓存机制": "理解",
+      "modules 命名空间路径拼接": "理解",
+      "严格模式 $watch 实现": "理解",
+      "mapState/mapGetters 原理": "理解",
+      "mutation 必须同步原因（devtools 时间旅行）": "理解",
+      "action 异步 + commit + Promise 包装": "理解",
+      "install Vue.mixin beforeCreate 注入链": "理解",
+      "ModuleCollection 模块树结构": "理解",
+      "installModule 递归安装": "理解",
+      "插件机制 subscribe/replaceState": "理解",
+      "表单处理 computed setter 方案": "理解",
+      "Vuex vs Pinia 对比": "理解"
     },
     "vue2_ssr": {
       "双端入口设计": "未开始",

@@ -178,5 +178,5 @@ NEXTAUTH_URL=http://localhost:3000
 重点知识：TypeScript 严格模式配置 + CI/CD（GitHub Actions）
 已完成：8 个知识点
 本周目标：完成 packages/shared 的类型定义层 + 认证系统
-上次学习：2026-08-17T09:43:36.259Z
+上次学习：2026-08-18T02:51:54.987Z
 <!-- LEARNING_FOCUS_END -->
