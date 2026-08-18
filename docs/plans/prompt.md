@@ -1,63 +1,55 @@
 # prompt
 
 ```text
-/publish 下面我们规划Vue2全家桶的第10篇文章，具体如下：
+/publish 下面我们规划Vue2全家桶的第13篇文章，具体如下：
 {{
 ## 知识点范围
 
 ### 标题
 
-- Vuex 原理与手写实现
+- Vue 2 单元测试实战
 
-**副标题**：mutation 为什么必须同步？Vuex 的设计哲学
+**副标题**：组件测试不是 snapshot，是「用户行为驱动」的测试
 
 #### 一、基本使用
-- 五个核心概念：State / Getter / Mutation / Action / Module
-- mapState / mapGetters / mapMutations / mapActions 辅助函数
-- 模块化 namespaced：命名空间隔离；跨模块访问 rootState / rootGetters
-- 严格模式：防止 state 被直接修改
+- Jest 基础：describe / it / expect / beforeEach / afterEach
+- Vue Test Utils 核心 API：mount / shallowMount / wrapper
+- 模拟用户操作：trigger('click') / setValue / wrapper.find / wrapper.findComponent
+- 异步测试：await nextTick / flushPromises / jest.useFakeTimers
+- 快照测试：toMatchSnapshot 的使用与更新
 
 #### 二、原理
-- Vuex 如何借用 Vue 实例实现数据响应：`new Vue({ data: { $$state: state } })`
-- getters 缓存机制：挂载到 `store._vm` 的 computed 属性，依赖不变不重算
-- mutation 必须同步：devtools 时间旅行依赖同步状态快照，异步会导致快照不准
-- action 的本质：异步操作 + commit mutation，返回 Promise
-- install：Vue.mixin beforeCreate 注入 $store，子组件从父组件继承
-- modules 命名空间：路径拼接（`moduleName/actionName`）+ installModule 递归注册
-- mapState / mapGetters 实现：遍历 keys，生成 computed 函数对象
-- 插件机制：subscribe / subscribeAction 订阅 mutation/action
-- 严格模式实现：`store._vm.$watch('$$state', handler, { deep: true, sync: true })`，在非 mutation 中修改 state 会报错
+- 为什么 Vue 项目单测覆盖率普遍低：难 mock / 难隔离 / 难断言
+- shallowMount vs mount：子组件 stub 的意义；何时用 shallowMount（隔离子组件）/ 何时用 mount（集成测试）
+- JSDOM：Node.js 环境模拟浏览器 DOM 的原理；与真实浏览器的差异
+- 快照测试的本质：序列化 VNode 树做字符串对比；适合纯展示组件，不适合频繁变化的交互组件
+- `wrapper.vm.$nextTick`：DOM 更新后再断言的必要性
+- `flushPromises`：清空所有 pending 的 Promise（含异步组件加载）
 
 #### 三、源码解析（重点代码，来源 GitHub 仓库）
-1. Store install：`src/store.js`（Vue.mixin beforeCreate 注入 $store）
-2. state 响应式化：`src/store.js`（`new Vue({ data: { $$state } })` + resetStoreVM）
-3. getters computed 化：`src/store.js` makeLocalGetters
-4. commit / dispatch：`src/store.js`（mutation 同步 + action Promise）
-5. ModuleCollection + installModule：`src/module/module-collection.js`（命名空间路径拼接）
+1. Jest + @vue/test-utils 环境搭建：jest.config.js transform / moduleNameMapper / testEnvironment
+2. shallowMount stub 原理：@vue/test-utils src/create-instance.js
+3. wrapper.trigger 事件模拟：@vue/test-utils src/wrapper.js
+4. axios-mock-adapter 网络请求 mock
+5. createLocalVue + Vuex store mock 隔离测试
 
 #### 四、生产级最佳实践
-- 什么时候不应该用 Vuex：组件局部状态 vs 跨组件共享状态的边界
-- vuex-persistedstate 持久化原理（subscribe + storage）与使用
-- 大型项目模块化拆分规范：按业务域分模块（医疗：user/drug/prescription）
-- 与 Pinia 的对比：为什么 Vue 3 中更推荐 Pinia（无 mutation、TS 更友好）
+- 测什么：用户行为（点击/输入/提交）+ 状态变化 + 边界条件 + 错误状态
+- 不测什么：实现细节 / 第三方库内部 / 纯 UI 样式 / 框架本身行为
+- 快照测试的适用场景（稳定的纯展示组件）与滥用风险（频繁 snapshot 更新失去意义）
+- CI 接入：Jest coverage + GitHub Actions 门禁（coverage 低于阈值 fail）
+- 测试 mixin：createLocalVue + mixin 注入后验证行为
+- 医疗场景实战：处方单组件的完整测试套件（提交 / 验证 / 加载状态 / 错误处理）
 
-#### 五、手写实现（可独立跑通）
-医疗场景：Rollup 搭建环境，手写 Store + commit/dispatch + Vue.mixin install + ModuleCollection + installModule + 持久化插件；药品库存全局状态管理含模块化 + 持久化完整代码
-
-
-#### 六、手写实现源码 GitHub 地址
-- https://github.com/lotosv2010/vuex-source
 
 #### 七、参考
-- https://v3.vuex.vuejs.org/zh/
-- https://jonny-wei.github.io/blog/vue/vuex/abstract.html
+- https://vue-test-utils.vuejs.org/zh/
 
 **面试核心问**：
-- mutation 为什么必须是同步函数？异步会有什么问题？
-- Vuex 的响应式是怎么实现的？getters 的缓存机制是什么？
-- action 和 mutation 的本质区别？什么情况下必须用 action？
-- modules 命名空间的路径是怎么拼接的？怎么跨模块调用 action？
-- mapState / mapGetters 的实现原理是什么？
+- mount 和 shallowMount 的区别？什么时候选哪个？
+- 如何测试 Vuex action 触发后的组件状态变化？
+- 快照测试的优缺点？什么场景下不适合用快照？
+- 异步操作（如 API 请求）在测试中怎么处理？flushPromises 和 nextTick 的区别？
 
 
 ## 分析角度（每个子主题都按此展开）
@@ -72,7 +64,11 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 
 ## 已有笔记
 
-- @docs/notes/05 vue 2/03 手写vuex源码.md
+- @docs/notes/05 vue 2/08 测试-概述.md
+- @docs/notes/05 vue 2/09  测试-Jest.md
+- @docs/notes/05 vue 2/10  测试-Jest & Vue.md
+- @docs/notes/05 vue 2/11  测试-Jest & VueRouter.md
+- @docs/notes/05 vue 2/12  测试-Jest & Vuex.md
 
 ## plans 地址
 
@@ -86,5 +82,5 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 - 将整理后的内容生成公众号文章，输出到 docs/articles/vue-2
 - 文章结构：先出大纲等我确认，再逐节写作
 }}
-，保留笔记完整代码和图片，样式格式保持一致和这篇@docs/articles/05 vue 2/2026-08-17-vue2-vue-router.md，不读我没要求到的文件；可以根据你的经验和最佳实践查漏补缺；主线要明确清晰，不要遗漏源码解析章节；每个知识点都要由浅入深的彻底讲透，讲明白。
+，保留笔记完整代码和图片，样式格式保持一致和这篇@docs/articles/05 vue 2/2026-08-18-vue2-vuex.md，不读我没要求到的文件；可以根据你的经验和最佳实践查漏补缺；主线要明确清晰，不要遗漏源码解析章节；每个知识点都要由浅入深的彻底讲透，讲明白。
 ```
