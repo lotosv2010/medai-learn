@@ -1,84 +1,64 @@
 # prompt
 
 ```text
-/publish 下面我们规划Vue2全家桶的第8篇文章，具体如下：
+/publish 下面我们规划Vue2全家桶的第9篇文章，具体如下：
 {{
 ## 知识点范围
 
 ### 标题
 
-- Vue 2 内置组件与核心 API 原理
+- Vue Router 原理与手写实现
 
-**副标题**：keep-alive 怎么缓存组件？mixin 合并策略是什么？
+**副标题**：Hash 模式和 History 模式面试怎么答才能加分？
 
 #### 一、基本使用
-- keep-alive：include / exclude / max 的使用
-- transition：enter/leave 钩子与 CSS 类名序列
-- Vue.mixin：全局混入 vs 局部混入
-- Vue.use：插件安装机制
-- Vue.extend：动态创建组件构造函数（命令式弹窗场景）
-- Vue.observable：Vue 2.6 新增的轻量响应式对象（替代简单 Vuex 场景）
-- $set / $delete：触发响应式更新的 API
-- $attrs / $listeners：非 props 属性和事件的透传（inheritAttrs: false 配合使用）
-- errorCaptured：组件树错误捕获钩子
+- 安装与配置：new VueRouter({ mode, routes })
+- router-view / router-link 使用；router-link 的 exact 与 active-class
+- 动态路由：params / query / 路由懒加载（() => import()）
+- 导航守卫：beforeEach / beforeRouteEnter / beforeRouteUpdate / afterEach
+- 路由元信息 meta + 权限控制白名单设计
+- 嵌套路由：children 配置与嵌套 router-view
 
 #### 二、原理
-- keep-alive 缓存策略：LRU（最近最少使用）
-  - 用 Map + Set 维护缓存 key 顺序，超过 max 时淘汰最久未访问的 key
-  - activated / deactivated 钩子的触发时机；与 beforeDestroy 的区别
-- transition 动画钩子执行序列：
-  - enter：before-enter → enter → after-enter / enter-cancelled
-  - leave：before-leave → leave → after-leave / leave-cancelled
-  - CSS transition / animation 与 JS 钩子的协同机制
-- scoped-slot 编译产物：父组件生成插槽函数，子组件 `$scopedSlots.default()` 调用；与普通 slot 编译产物的差异
-- Vue.mixin 的合并策略（mergeOptions）：
-  - 生命周期：数组合并，mixin 先于组件执行
-  - data：递归合并，组件 data 优先
-  - methods / computed / components：组件选项覆盖 mixin
-- Vue.use 的 install 机制：调用 plugin.install(Vue) + 防重复注册（installedPlugins 数组）
-- Vue.extend：创建 Sub 构造函数，缓存在 `Sub._Ctor`，避免重复创建；命令式弹窗的核心
-- Vue.observable：对对象调用 `observe()`，返回响应式对象，可作轻量全局状态
-- $set：对数组调用 splice，对对象调用 defineReactive + dep.notify
-- errorCaptured → Vue.config.errorHandler：错误从子组件向上冒泡，可在任意祖先捕获
+- 前端路由本质：监听 URL 变化，局部更新视图，不触发服务端请求
+- Hash 模式：hashchange 事件 + location.hash；不需要服务端配合
+- History 模式：pushState / replaceState + popstate；服务端必须 fallback 到 index.html
+- router-view 如何响应式切换组件：响应式 `_route` 对象，route 变化触发重渲染
+- 导航守卫完整执行顺序（14步）：组件内离开守卫 → 全局 beforeEach → 路由独享 beforeEnter → 组件内 beforeRouteEnter → 全局 beforeResolve → 全局 afterEach → DOM 更新 → beforeRouteEnter 的 next(vm) 回调
+- 嵌套路由的 router-view 递归渲染机制：通过 `$route.matched` 数组按层级渲染
+- 路由懒加载原理：动态 import() 返回 Promise + Webpack Code Splitting 生成独立 chunk
+- router-link active class 匹配逻辑：exact 精确匹配 vs 包含匹配
 
 #### 三、源码解析（重点代码，来源 GitHub 仓库）
-1. keep-alive LRU：`src/core/components/keep-alive.js`（Map + keys 数组维护顺序）
-2. mergeOptions 策略：`src/core/util/options.js`（strats 策略对象）
-3. Vue.use：`src/core/global-api/use.js`（installedPlugins 防重复）
-4. Vue.extend：`src/core/global-api/extend.js`（Sub + `_Ctor` 缓存）
-5. $set / $delete：`src/core/observer/index.js`（splice / defineReactive 两条路径）
+1. VueRouter install：`src/install.js`（Vue.mixin beforeCreate 注入 $router/$route）
+2. HashHistory：`src/history/hash.js`（hashchange + transitionTo）
+3. router-view 组件：`src/components/view.js`（$route.matched 取层级组件）
+4. router-link 组件：`src/components/link.js`（active class 计算）
+5. 导航守卫队列：`src/history/base.js` runQueue + next 机制
 
 #### 四、生产级最佳实践
-- keep-alive + 路由缓存：include 动态白名单控制（医疗场景：问诊页面缓存）
-- mixin 的命名冲突风险与替代方案（HOC / 插件；Vue 3 改用 Composable）
-- transition 性能优化：transform + will-change，避免触发 layout
-- Vue.extend 实现命令式弹窗：`new Ctor().$mount()` + `document.body.appendChild`
-- `$once + hook:beforeDestroy` 优雅自清理模式，替代 beforeDestroy 中手写 $off
-- Vue.observable 轻量全局状态：适合无需 Vuex 的小型跨组件状态共享
+- 动态路由参数变化组件不重渲染：watch `$route` 或用 beforeRouteUpdate
+- 权限路由动态注册：登录后 addRoutes（医疗：医生/护士/管理员角色）
+- 路由懒加载 + webpack magic comment：`/* webpackChunkName: "drug-detail" */`
+- 滚动行为恢复：scrollBehavior 返回 savedPosition
+- 路由过渡动画：transition + name 动态绑定实现前进/后退方向动画
 
 #### 五、手写实现（可独立跑通）
-医疗场景：Rollup 搭建环境，手写 keep-alive LRU + mergeOptions + Vue.use + Vue.extend + $set/$delete；科室切换 keep-alive 缓存 + 命令式确认弹窗完整代码
-
+医疗场景：Rollup 搭建环境，手写 VueRouter install + HashHistory + router-view + router-link + beforeEach 队列；多角色权限路由 + 动态 addRoutes 完整演示
 
 #### 六、手写实现源码 GitHub 地址
-- https://github.com/lotosv2010/g-vue
-
+- https://github.com/lotosv2010/g-vue-router/tree/3.4
 
 #### 七、参考
-- https://v2.cn.vuejs.org/
-- https://github.com/vuejs/vue/blob/dev/src/core/instance/index.js
-- https://jonny-wei.github.io/blog/vue/vue/vue-event.html
-- https://ustbhuangyi.github.io/vue-analysis/
-- https://github.com/wbccb
-
+- https://v3.router.vuejs.org/
+- https://jonny-wei.github.io/blog/vue/vue-router/abstract.html
 
 **面试核心问**：
-- keep-alive 的 LRU 缓存是怎么实现的？max 触发时调用哪个生命周期？
-- mixin 的合并策略是什么？同名生命周期谁先执行？
-- scoped-slot 和普通 slot 的编译产物有什么区别？
-- Vue.extend 的使用场景是什么？命令式弹窗怎么实现？
-- `$once + hook:beforeDestroy` 模式解决了什么问题？
-- Vue.observable 和 Vuex 什么时候选哪个？
+- Hash 和 History 模式各自的优缺点？History 模式为什么需要服务端配合？
+- 导航守卫的完整执行顺序是什么？beforeRouteEnter 里能拿到 this 吗？
+- router-view 是怎么知道渲染哪个组件的？响应式原理是什么？
+- 路由懒加载的实现原理是什么？和 Webpack Code Splitting 的关系？
+- 嵌套路由中多个 router-view 是如何递归渲染的？
 
 
 ## 分析角度（每个子主题都按此展开）
@@ -93,7 +73,7 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 
 ## 已有笔记
 
-- @docs/notes/05 vue 2/01 手写vue2源码.md
+- @docs/notes/05 vue 2/04 手写vue-router.md
 
 ## plans 地址
 
@@ -107,5 +87,5 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 - 将整理后的内容生成公众号文章，输出到 docs/articles/vue-2
 - 文章结构：先出大纲等我确认，再逐节写作
 }}
-，保留笔记完整代码和图片，样式格式保持一致和这篇@docs/articles/05 vue 2/2026-08-12-vue2-reactivity.md，不读我没要求到的文件；可以根据你的经验和最佳实践查漏补缺；主线要明确清晰，不要遗漏源码解析章节；每个知识点都要由浅入深的彻底讲透，讲明白。
+，保留笔记完整代码和图片，样式格式保持一致和这篇@docs/articles/05 vue 2/2026-08-17-vue2-built-in-components-and-core-api.md，不读我没要求到的文件；可以根据你的经验和最佳实践查漏补缺；主线要明确清晰，不要遗漏源码解析章节；每个知识点都要由浅入深的彻底讲透，讲明白。
 ```
