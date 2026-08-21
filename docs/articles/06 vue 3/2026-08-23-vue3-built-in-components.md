@@ -1792,13 +1792,772 @@ export const Teleport: TeleportImplComp = TeleportImpl
 export const isTeleport = (type: any): boolean => type.__isTeleport
 ```
 
-### KeepAlive.ts（全量）+ activated/deactivated 钩子
+### BaseTransition.ts（全量）
 
-`KeepAlive.ts` 完整代码与笔记 27「KeepAlive.ts」段落逐字一致(已在三、源码解析展示),这里直接引用不重复粘贴。配套的 `component.ts` 新增 `getComponentName` 函数、`renderer.ts` 三处接入(`mountComponent` 挂 `renderer`、`processComponent` 拦截 `COMPONENT_KEPT_ALIVE`、`unmount` 拦截 `COMPONENT_SHOULD_KEEP_ALIVE`)与笔记 27 的 diff 逐字相同。
+```typescript
+import { getCurrentInstance, SetupContext } from "../component"
+import { type RendererElement } from "../renderer"
+import { VNode } from "../vnode"
+
+type Hooks<T = () => void> = T | T[]
+
+export interface BaseTransitionProps<HostElement = RendererElement> {
+  mode?: 'in-out' | 'out-in' | 'default' | undefined
+  appear?: boolean
+  persisted?: boolean
+  // enter
+  onBeforeEnter?: Hooks<(el: HostElement) => void>
+  onEnter?: Hooks<(el: HostElement, done: () => void) => void>
+  onAfterEnter?: Hooks<(el: HostElement) => void>
+  onEnterCancelled?: Hooks<(el: HostElement) => void>
+  // leave
+  onBeforeLeave?: Hooks<(el: HostElement) => void>
+  onLeave?: Hooks<(el: HostElement, done: () => void) => void>
+  onAfterLeave?: Hooks<(el: HostElement) => void>
+  onLeaveCancelled?: Hooks<(el: HostElement) => void>
+  // appear
+  onBeforeAppear?: Hooks<(el: HostElement) => void>
+  onAppear?: Hooks<(el: HostElement, done: () => void) => void>
+  onAfterAppear?: Hooks<(el: HostElement) => void>
+  onAppearCancelled?: Hooks<(el: HostElement) => void>
+}
+
+export const BaseTransitionPropsValidators = {
+  mode: String,
+  appear: Boolean,
+  persisted: Boolean,
+  // enter
+  onBeforeEnter: Function,
+  onEnter: Function,
+  onAfterEnter: Function,
+  onEnterCancelled: Function,
+  // leave
+  onBeforeLeave: Function,
+  onLeave: Function,
+  onAfterLeave: Function,
+  onLeaveCancelled: Function,
+  // appear
+  onBeforeAppear: Function,
+  onAppear: Function,
+  onAfterAppear: Function,
+  onAppearCancelled: Function,
+}
+
+const BaseTransitionImpl: any = {
+  name: 'BaseTransition',
+  props: BaseTransitionPropsValidators,
+  setup(props: BaseTransitionProps, { slots }: SetupContext) {
+    const instance = getCurrentInstance()
+    return () => {
+      const child: VNode = (slots.default as any)?.()
+      if (!child) {
+        return
+      }
+      const {
+        onBeforeEnter: beforeEnter,
+        onEnter: enter,
+        onAfterEnter: afterEnter,
+        onEnterCancelled: enterCancelled,
+        onBeforeLeave: beforeLeave,
+        onLeave: leave,
+        onAfterLeave: afterLeave,
+        onLeaveCancelled: leaveCancelled,
+        onBeforeAppear: beforeAppear,
+        onAppear: appear,
+        onAfterAppear: afterAppear,
+        onAppearCancelled: appearCancelled,
+      } = props
+      child.transition = {
+        beforeEnter,
+        enter,
+        afterEnter,
+        enterCancelled,
+        beforeLeave,
+        leave,
+        afterLeave,
+        leaveCancelled,
+        beforeAppear,
+        appear,
+        afterAppear,
+        appearCancelled,
+      }
+      return child
+    }
+  }
+}
+
+export const BaseTransition = BaseTransitionImpl as unknown as {
+  new (): {
+    $props: BaseTransitionProps<any>
+    $slots: {
+      default: () => VNode[]
+    }
+  }
+}
+```
+
+### Transition.ts（runtime-dom，全量）
+
+```typescript
+import { BaseTransitionProps, FunctionalComponent, h, BaseTransition } from "@g-vue-next/runtime-core";
+import { extend } from "@g-vue-next/shared";
+
+const TRANSITION = 'transition'
+const ANIMATION = 'animation'
+
+type AnimationType = typeof TRANSITION | typeof ANIMATION
+
+export interface TransitionProps extends BaseTransitionProps<Element> {
+  name?: string
+  type?: AnimationType
+  css?: boolean
+  duration?: number | { enter: number, leave: number }
+  // custom transition classes
+  enterFromClass?: string
+  enterActiveClass?: string
+  enterToClass?: string
+  appearFromClass?: string
+  appearActiveClass?: string
+  appearToClass?: string
+  leaveFromClass?: string
+  leaveActiveClass?: string
+  leaveToClass?: string
+}
+
+const DOMTransitionPropsValidators = {
+  name: String,
+  type: String,
+  css: {
+    type: Boolean,
+    default: true
+  },
+  duration: [String, Number, Object],
+  enterFromClass: String,
+  enterActiveClass: String,
+  enterToClass: String,
+  appearFromClass: String,
+  appearActiveClass: String,
+  appearToClass: String,
+  leaveFromClass: String,
+  leaveActiveClass: String,
+  leaveToClass: String,
+}
+
+const callHook = (hook: any, args: any) => {
+  if (hook) {
+    if (Array.isArray(hook)) {
+      hook.forEach((h) => h(...args))
+    } else if (hook) {
+      hook(...args)
+    }
+  }
+}
+
+function nextFrame(cb: () => void) {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(cb)
+  })
+}
+
+export function addTransitionClass(el: Element, cls: string) {
+  cls.split(/\s+/).forEach(c => c && el.classList.add(c));
+}
+
+export function removeTransitionClass(el: Element, cls: string) {
+  cls.split(/\s+/).forEach(c => c && el.classList.remove(c));
+}
+
+export function forceReflow() {
+  return document.body.offsetHeight
+}
+
+export function resolveTransitionProps(rawProps: TransitionProps) {
+  const baseProps: BaseTransitionProps<Element> = {}
+
+  for (const key in rawProps) {
+    if (!(key in DOMTransitionPropsValidators)) {
+      baseProps[key] = rawProps[key]
+    }
+  }
+
+  if (rawProps.css === false) {
+    return baseProps
+  }
+
+  const {
+    name = 'v',
+    type,
+    duration,
+    enterFromClass = `${name}-enter-from`,
+    enterActiveClass = `${name}-enter-active`,
+    enterToClass = `${name}-enter-to`,
+    appearFromClass = enterFromClass,
+    appearActiveClass = enterActiveClass,
+    appearToClass = enterToClass,
+    leaveFromClass = `${name}-leave-from`,
+    leaveActiveClass = `${name}-leave-active`,
+    leaveToClass = `${name}-leave-to`,
+  } = rawProps
+
+  const {
+    onBeforeEnter,
+    onEnter,
+    onEnterCancelled,
+    onBeforeLeave,
+    onLeave,
+    onLeaveCancelled,
+    onBeforeAppear = onBeforeEnter,
+    onAppear = onEnter,
+    onAppearCancelled = onEnterCancelled,
+  } = baseProps
+
+  const props = extend(baseProps, {
+    onBeforeEnter(el) {
+      callHook(onBeforeEnter, [el])
+      addTransitionClass(el, enterFromClass)
+      addTransitionClass(el, enterActiveClass)
+    },
+    onBeforeAppear(el) {
+      callHook(onBeforeAppear, [el])
+      addTransitionClass(el, appearFromClass)
+      addTransitionClass(el, appearActiveClass)
+    },
+    onBeforeLeave(el) {
+      callHook(onBeforeLeave, [el])
+      addTransitionClass(el, leaveFromClass)
+      addTransitionClass(el, leaveActiveClass)
+    },
+    onEnter(el, done) {
+      const resolve = () => {
+        removeTransitionClass(el, enterToClass)
+        removeTransitionClass(el, enterActiveClass)
+        done?.()
+      }
+      callHook(onEnter, [el, resolve])
+      nextFrame(() => {
+        removeTransitionClass(el, enterFromClass)
+        addTransitionClass(el, enterToClass)
+
+        if (!onEnter || onEnter.length <= 1) {
+          el.addEventListener('transitionend', resolve)
+        }
+      })
+    },
+    onAppear(el, done) {
+      const resolve = () => {
+        removeTransitionClass(el, appearToClass)
+        removeTransitionClass(el, appearActiveClass)
+        done?.()
+      }
+      callHook(onAppear, [el, resolve])
+      nextFrame(() => {
+        removeTransitionClass(el, appearFromClass)
+        addTransitionClass(el, appearToClass)
+        if (!onAppear || onAppear.length <= 1) {
+          el.addEventListener('transitionend', resolve)
+        }
+      })
+    },
+    onLeave(el, done) {
+      const resolve = () => {
+        removeTransitionClass(el, leaveFromClass)
+        removeTransitionClass(el, leaveToClass)
+        removeTransitionClass(el, leaveActiveClass)
+        done?.()
+      }
+      addTransitionClass(el, leaveFromClass)
+      forceReflow() // 强制重排，确保动画开始
+      addTransitionClass(el, leaveActiveClass)
+      callHook(onLeave, [el, resolve])
+      nextFrame(() => {
+        removeTransitionClass(el, leaveFromClass)
+        addTransitionClass(el, leaveToClass)
+        if (!onLeave || onLeave.length <= 1) {
+          el.addEventListener('transitionend', resolve)
+        }
+      })
+
+    },
+    onEnterCancelled(el) {
+      removeTransitionClass(el, enterToClass)
+      removeTransitionClass(el, enterActiveClass)
+      callHook(onEnterCancelled, [el])
+    },
+    onAppearCancelled(el) {
+      removeTransitionClass(el, appearToClass)
+      removeTransitionClass(el, appearActiveClass)
+      callHook(onAppearCancelled, [el])
+    },
+    onLeaveCancelled(el) {
+      removeTransitionClass(el, leaveFromClass)
+      removeTransitionClass(el, leaveToClass)
+      removeTransitionClass(el, leaveActiveClass)
+      callHook(onLeaveCancelled, [el])
+    }
+  }) as any
+  return props
+}
+
+// 函数式组件的功能比较少，为了方便函数式组件处理了属性
+// 处理属性后传递给 状态组件 setup
+export const Transition: FunctionalComponent<TransitionProps> = (
+  props,
+  { slots }
+) => h(BaseTransition, resolveTransitionProps(props), slots as any)
+```
+
+配套的三处改动（与笔记 26 的 diff 逐字一致，已在「三、源码解析」完整给出，这里不重复粘贴）：`vnode.ts` 给 `VNode` 加 `transition: any | null` 字段并在 `createBaseVNode` 里初始化为 `null`；`renderer.ts` 的 `mountElement`/`remove` 在插入前后、移除前调用 `transition.beforeEnter/enter/leave`；`setupRenderEffect` 合并 `attrs` 时排除 `BaseTransition`/`Transition` 两个类型名，避免 `attrs` 覆盖掉过渡类名。
+
+### KeepAlive.ts（全量）
+
+```typescript
+import { ElementNamespace, MoveType, RendererElement, RendererInternals, RendererNode } from "../renderer"
+import { ComponentInternalInstance, currentInstance, getComponentName, getCurrentInstance, SetupContext } from "../component"
+import { Comment, isSameVNodeType, isVNode, type VNode, type VNodeProps } from "../vnode"
+import { invokeArrayFns, isArray, isNil, isRegExp, isString, ShapeFlags } from "@g-vue-next/shared"
+import { onUpdated, onMounted, onBeforeUnmount, createHook, injectHooks } from "../apiLifecycle"
+import { LifecycleHooks } from "../enums"
+
+type MatchPattern = string | RegExp | (string | RegExp)[]
+type CacheKey = PropertyKey | any
+type Cache = Map<CacheKey, VNode>
+type Keys = Set<CacheKey>
+
+export interface KeepAliveProps {
+  include?: MatchPattern
+  exclude?: MatchPattern
+  max?: number
+}
+
+export interface KeepAliveContext {
+  renderer: RendererInternals
+  activate: (
+    vnode: VNode,
+    container: RendererElement,
+    anchor: RendererNode | null,
+    namespace: ElementNamespace,
+    optimized: boolean
+  ) => void
+  deactivate: (vnode: VNode) => void
+}
+
+function resetShapeFlag(vnode: VNode) {
+  // 重置ShapeFlags.KeepAlive位
+  vnode.shapeFlag &= ~ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE 
+  vnode.shapeFlag &= ~ShapeFlags.COMPONENT_KEPT_ALIVE
+}
+
+function getInnerChild(vnode: VNode): VNode {
+  return vnode.shapeFlag & ShapeFlags.SUSPENSE
+    ? vnode.ssContent
+    : vnode
+}
+
+function matches(pattern: MatchPattern, name: string): boolean {
+  if (isArray(pattern)) {
+    return pattern.some((p) => matches(p, name))
+  } else if (isString(pattern)) {
+    return pattern.split(",").includes(name)
+  } else if (isRegExp(pattern)) {
+    return pattern.test(name)
+  }
+  return false
+}
+
+let current: VNode | null = null
+
+const KeepAliveImpl = {
+  name: 'KeepAlive',
+  __isKeepAlive: true,
+  props: {
+    include: [String, RegExp, Array],
+    exclude: [String, RegExp, Array],
+    max: [String, Number]
+  },
+  setup(props: KeepAliveProps, { slots }: SetupContext) {
+    // 缓存的key
+    const keys: Keys = new Set()
+    // 缓存的组件
+    let cache: Cache = new Map()
+    // 获取组件实例
+    const instance = getCurrentInstance()
+    // 由于类型不兼容，先断言为 unknown 再断言为 KeepAliveContext
+    const sharedContext = instance.ctx as unknown as KeepAliveContext
+    // 获取组件的 Suspense 实例
+    const parentSuspense = instance.suspense
+    // 获取渲染器
+    const {
+      renderer: {
+        p: patch,
+        m: move,
+        um:_unmount,
+        o: {
+          createElement
+        }
+      }
+    } = sharedContext
+    // 新建缓存容器
+    const storageContainer = createElement('div')
+    sharedContext.activate = (vnode, container, anchor, namespace) => { 
+      const instance = vnode.component
+      // 激活时直接挂载
+      move(vnode, container, anchor, MoveType.ENTER)
+      // 激活时更新
+      patch(
+        instance.vnode,
+        vnode,
+        container,
+        anchor,
+        instance,
+        parentSuspense,
+        namespace
+      )
+
+      // hooks
+      if (instance.a) {
+        invokeArrayFns(instance.a)
+      }
+    }
+    sharedContext.deactivate = (vnode) => {
+      const instance = vnode.component
+      // 移动到缓存容器
+      move(vnode, storageContainer, null, MoveType.LEAVE)
+
+      // hooks
+      if (instance.da) {
+        invokeArrayFns(instance.da)
+      }
+    }
+    const unmount = (vnode: VNode) => {
+      resetShapeFlag(vnode)
+      _unmount(vnode, instance, parentSuspense, true)
+    }
+
+    const pruneCache = (filter?: (name: string) => boolean) => {
+      cache.forEach((vnode, key) => {
+        const name = getComponentName(vnode.type)
+        if (name && (!filter || !filter(name))) {
+          pruneCacheEntry(key)
+        }
+      })
+    }
+
+    const pruneCacheEntry = (key: CacheKey) => { 
+      const cached = cache.get(key) as VNode
+      if (cached && (!current ||isSameVNodeType(cached, current))) {
+        unmount(cached)
+      } else if (current) {
+        resetShapeFlag(current)
+      }
+      cache.delete(key)
+      keys.delete(key)
+    }
+
+    // 缓存的键
+    let pendingCacheKey: CacheKey | null = null
+    const cacheSubtree = () => {
+      if (!isNil(pendingCacheKey)) {
+        cache.set(pendingCacheKey, getInnerChild(instance.subTree))
+      }
+    }
+
+    onMounted(cacheSubtree)
+    onUpdated(cacheSubtree)
+
+    onBeforeUnmount(() => {
+      cache.forEach((cached) => {
+        const { subTree, suspense } = instance
+        const vnode = getInnerChild(subTree)
+        if (cached.type === vnode.type && cached.key === vnode.key) {
+          resetShapeFlag(vnode)
+          const da: any = vnode.component?.da
+          if (isArray(da)) {
+            da.forEach((fn) => fn())
+          } else {
+            da?.()
+          }
+          return
+        }
+        unmount(cached)
+      })
+    })
+
+    return () => {
+      pendingCacheKey = null
+      if (!slots.default) {
+        return null
+      }
+      const vnode: VNode = (slots.default as Function)?.()
+      const comp = vnode.type
+      const name = getComponentName(comp)
+      const { include, exclude, max } = props
+      if (
+        (include && (!name || !matches(include, name))) ||
+        (exclude && name && matches(exclude, name))
+      ) {
+        current = vnode
+        return vnode
+      }
+
+      const key = vnode.key == null ? comp : vnode.key
+      const cachedVNode = cache.get(key) as VNode
+      pendingCacheKey = key
+      if (cachedVNode) {
+        // 复用缓存组件，直接设置组件的 el 属性
+        vnode.el = cachedVNode.el
+        // 设置组件的 component 属性
+        vnode.component = cachedVNode.component
+        // 标识组件已经被缓存过了
+        vnode.shapeFlag |= ShapeFlags.COMPONENT_KEPT_ALIVE
+        // 将set中有的元素移动到末尾
+        keys.delete(key)
+        keys.add(key)
+      } else {
+        keys.add(key)
+        if (max && keys.size > parseInt(max as any, 10)) {
+          // lru: least recently used 最近最少使用算法，缓存中有多个元素时，淘汰最近最不常使用的元素。
+          pruneCacheEntry(keys.values().next().value)
+        }
+      }
+
+      // 作用是稍后组件卸载的时候，不要卸载，意味着后续可以复用这个组件的 DOM 元素
+      vnode.shapeFlag |= ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE
+
+      current = vnode
+
+      return vnode
+    }
+  }
+}
+
+export const KeepAlive = KeepAliveImpl as unknown as { 
+  __isKeepAlive: true 
+  new () : {
+    $props: VNodeProps & KeepAliveProps
+    $slots: {
+      default(): VNode[]
+    }
+  }
+}
+
+export const isKeepAlive = (vnode: VNode): boolean => (vnode.type as any).__isKeepAlive
+
+function registerKeepAliveHook(hook, type: LifecycleHooks, target: ComponentInternalInstance | null = currentInstance) {
+  const wrapperHook = () => {
+    let current = target
+    while (current) {
+      current = current.parent
+    }
+    return hook()
+  }
+  injectHooks(type, wrapperHook, target)
+}
+
+export function onActivated(hook, target?: ComponentInternalInstance | null) {
+  registerKeepAliveHook(hook, LifecycleHooks.ACTIVATED, target)
+}
+
+export function onDeactivated(hook, target?: ComponentInternalInstance | null) {
+  registerKeepAliveHook(hook, LifecycleHooks.DEACTIVATED, target)
+}
+```
+
+`component.ts` 新增的 `getComponentName`（`include`/`exclude` 按组件名匹配的基础）：
+
+```typescript
+export function getComponentName(
+  Component: any,
+  includeInherited: boolean = true
+): string | false | undefined {
+  return isFunction(Component) 
+  ? Component?.displayName || Component?.name 
+  : Component.name || (includeInherited && Component?.__name)
+}
+```
+
+`renderer.ts` 三处接入（与笔记 27 的 diff 逐字一致）：
+
+```typescript
+// mountComponent：把渲染器内部方法集合挂给 KeepAlive 用
+if (isKeepAlive(initialVNode)) {
+  instance.ctx.renderer = internals
+}
+```
+
+```typescript
+// processComponent：命中缓存标记，走 activate，不走 mountComponent
+if (n1 === null) {
+  // 如果组件是被 KeepAlive 组件 缓存过的，则需要进行激活处理
+  if (n2.shapeFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
+    const { activate } = parentComponent.ctx as KeepAliveContext
+    activate?.(n2, container, anchor, namespace, true)
+    return
+  }
+  mountComponent(n2, container, anchor, parentComponent, parentSuspense, namespace)
+}
+```
+
+```typescript
+// unmount：命中 SHOULD_KEEP_ALIVE 标记，走 deactivate，不走真正卸载
+const { shapeFlag } = vnode
+
+// 判断是否是KeepAlive 组件
+if (shapeFlag & ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE) {
+  const { deactivate } = parentComponent.ctx as KeepAliveContext
+  deactivate(vnode)
+  return
+}
+```
 
 ### apiAsyncComponent.ts（全量）
 
-完整代码与笔记 28「apiAsyncComponent.ts」段落逐字一致(已在三、源码解析展示),直接引用。
+```typescript
+import { isFunction, isNil } from "@g-vue-next/shared";
+import { Component, ComponentInternalInstance, currentInstance } from "./component";
+import { createVNode } from "./vnode";
+import { ref } from "@g-vue-next/reactivity";
+
+export type AsyncComponentResolveResult<T = Component> = T | { default: T}
+
+export type AsyncComponentLoader<T = any> = () => Promise<AsyncComponentResolveResult<T>>
+
+export interface AsyncComponentOptions<T = any> {
+  loader: AsyncComponentLoader<T>
+  loadingComponent?: Component
+  errorComponent?: Component
+  delay?: number
+  timeout?: number
+  suspensible?: boolean
+  onError?: (
+    error: Error, 
+    retry: () => void, 
+    fail: () => void, 
+    attempts: number
+  ) => void
+}
+
+export function defineAsyncComponent<T extends Component > (
+  source: AsyncComponentLoader<T> | AsyncComponentOptions<T>
+): T {
+  if (isFunction(source)) {
+    source = { loader: source as any };
+  }
+
+  const {
+    loader,
+    loadingComponent,
+    errorComponent,
+    timeout,
+    delay = 200,
+    suspensible = true,
+    onError: userOnError
+  } = source as any
+
+  let resolvedComp = null
+  let pendingRequest = null
+  let retries = 0
+  let timer: any
+
+  const retry = () => {
+    retries++
+    pendingRequest = null
+    return load()
+  }
+
+  const load = (): Promise<any> => {
+    let thisRequest
+    return (pendingRequest || (thisRequest = pendingRequest = 
+      loader()
+      .catch(err => {
+        err = err instanceof Error ? err : new Error(String(err))
+        if (userOnError) {
+          return new Promise((resolve, reject) => {
+            const userRetry = () => resolve(retry())
+            const userFail = () => reject(err)
+            userOnError(err, userRetry, userFail, retries + 1)
+          })
+        } else {
+          throw err
+        }
+      })
+      .then(comp => {
+        // 如果当前的请求和 pendingRequest不一样，则舍弃
+        if (thisRequest !== pendingRequest && pendingRequest) {
+          return pendingRequest
+        }
+        if (comp && (comp.__esModule || comp[Symbol.toStringTag] === 'Module')) {
+          comp = comp.default
+        }
+        resolvedComp = comp
+        return comp
+      })
+      .finally(() => {
+        clearTimeout(timer)
+        pendingRequest = null
+      })
+    ))
+  }
+  return {
+    name: 'AsyncComponentWrapper',
+    __asyncLoader: load,
+    get __asyncResolved () {
+      return resolvedComp
+    },
+    setup() {
+      const instance = currentInstance
+      if (resolvedComp) {
+        return () => createInnerComp(resolvedComp, instance)
+      }
+
+      const loaded = ref(false)
+      const error = ref(undefined)
+      const delayed = ref(!!delay)
+
+      if (delay) {
+        setTimeout(() => {
+          delayed.value = false
+        }, delay);
+      }
+
+      if (!isNil(timeout)) {
+        timer = setTimeout(() => {
+          if (!loaded.value && !error.value) {
+            const err = new Error(`Async component timed out after ${timeout}ms.`)
+            error.value = err
+          }
+        }, timeout)
+      }
+
+      load()
+        .then((comp) => {
+          loaded.value = true
+          resolvedComp = comp
+        })
+        .catch(err => {
+          error.value = err
+        })
+      return () => {
+        if (loaded.value && resolvedComp) {
+          return createInnerComp(resolvedComp, instance)
+        } else if (error.value && errorComponent) {
+          return createVNode(errorComponent, {
+            error: error.value
+          })
+        } else if (loadingComponent && !delayed.value) {
+          return createVNode(loadingComponent)
+        }
+      }
+    }
+  } as any
+}
+
+function createInnerComp(comp: any, parent: ComponentInternalInstance) {
+  const { ref, props, children } = parent.vnode
+  const vnode = createVNode(comp, props, children)
+  vnode.ref = ref
+  return vnode
+}
+```
 
 ### Suspense 简化版(笔记未覆盖,补充可跑验证代码)
 
@@ -1862,9 +2621,323 @@ setTimeout(() => {
 
 这段简化代码剥离了渲染器集成,只保留核心的"注册依赖 → 计数 → 归零切换"逻辑,可以独立在 Node 环境跑通验证「二、原理」讲的 deps 机制。
 
-### 运行示例 HTML（笔记原文）
+### 运行示例 HTML（笔记原文，逐字一致）
 
-`teleport.html` / `transition.html` / `keepAlive.html` / `asyncComp.html` 四个示例文件与笔记 25/26/27/28 的「示例代码」段落逐字一致,直接复制对应笔记的 HTML 内容即可,这里不重复粘贴全文。
+#### teleport.html
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>teleport</title>
+  <style>
+    body {
+      margin: 0;
+    }
+    #app {
+      background-color: rgb(227, 176, 176);
+      width: 100vw;
+      height: 100px;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="home"></div>
+  <div id="dashboard"></div>
+  <div id="about"></div>
+  <script type="module">
+    import { ref, render, h, Text, Fragment, Teleport } from '../../packages/vue/dist/vue.esm.js'
+
+    const App = {
+      setup() {
+        const visible = ref(true)
+        const hide = ref(false)
+        return () => h(Fragment, {}, [
+          h('div', 'app'),
+          h('button', {
+            onClick: () => visible.value = !visible.value
+          }, 'toggle'),
+          h('button', {
+            onClick: () => hide.value = !hide.value
+          }, hide.value ? 'hide' : 'show'),
+          visible.value ?
+            h(Teleport, { to: '#home' }, h('div', {style: { background: 'lightgreen' }}, 'home'))
+            : h(Teleport, { to: '#dashboard' }, h('p', {style: { background: 'orange' }}, 'dashboard')),
+          !hide.value ?
+            h(Teleport, { to: '#about' }, h('div', {style: { background: 'lightgreen' }}, 'about'))
+            : null
+        ])
+      }
+    }
+
+    render(h(App, {}), document.querySelector('#app'))
+  </script>
+</body>
+</html>
+```
+
+#### transition.html
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transition</title>
+  <style>
+    .v-enter-active,
+    .v-leave-active {
+      transition: opacity 2s ease;
+    }
+
+    .v-enter-from,
+    .v-leave-to {
+      opacity: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script type="module">
+    import { ref, render, h, Fragment, Transition } from '../../packages/vue/dist/vue.esm.js'
+
+    const transitionProps = {
+      mode: 'out-in',
+      onBeforeEnter(el) {
+        console.log('onBeforeEnter', el)
+      },
+      onEnter(el) {
+        console.log('onEnter', el)
+      },
+      onAfterEnter(el) {
+        console.log('onAfterEnter', el)
+      },
+      onBeforeLeave(el) {
+        console.log('onBeforeLeave', el)
+      },
+      onLeave(el) {
+        console.log('onLeave', el)
+      },
+      onAfterLeave(el) {
+        console.log('onAfterLeave', el)
+      }
+    }
+    const style = {
+      width: '100px',
+      height: '100px',
+      background: 'red',
+      display: 'flex',
+      'justify-content': 'center',
+      'align-items': 'center',
+      color: 'yellow'
+    }
+    const App = {
+      setup() {
+        const show = ref(true)
+        return () => h(Fragment, [
+          h('button', {
+            onClick: () => {
+              show.value = !show.value
+            }
+          }, 'toggle'),
+          h(Transition, transitionProps, {
+            default: () => show.value ? h('p', { style }, 'hello') : null
+          })
+        ])
+      }
+    }
+
+    render(h(App), document.getElementById('app'))
+  </script>
+</body>
+
+</html>
+```
+
+#### keepAlive.html
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KeepAlive</title>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script type="module">
+    import { ref, render, h, provide, inject, reactive, getCurrentInstance, KeepAlive, onMounted } from '../../packages/vue/dist/vue.esm.js'
+
+    // 1.组件不会重新创建，而是缓存起来，下次渲染时直接从缓存中获取
+    //  1.1缓存组件的策略：
+    //    1.1.1 默认情况下，所有组件都会被缓存
+    //    1.1.2 可以通过include和exclude属性来指定哪些组件需要被缓存，哪些不需要
+    //    1.1.3 可以通过max属性来指定缓存组件的最大数量
+    // 2.组件不会被卸载，而是直接将DOM移除掉
+    // 3.内部需要缓存DOM
+
+    const DefaultComponent = {
+      name: 'DefaultComponent',
+      setup() {
+        onMounted(() => {
+          console.log('default component mounted')
+        })
+        return () => h('div', {}, 'default component')
+      }
+    }
+
+    const DefaultComponent2 = {
+      name: 'DefaultComponent2',
+      setup() {
+        onMounted(() => {
+          console.log('default component 2 mounted')
+        })
+        return () => h('div', {}, 'default component 2')
+      }
+    }
+
+    const DefaultComponent3 = {
+      name: 'DefaultComponent3',
+      setup() {
+        onMounted(() => {
+          console.log('default component 3 mounted')
+        })
+        return () => h('div', {}, 'default component 3')
+      }
+    }
+
+    const DefaultComponent4 = {
+      name: 'DefaultComponent4',
+      setup() {
+        onMounted(() => {
+          console.log('default component 4 mounted')
+        })
+        return () => h('div', {}, 'default component 4')
+      }
+    }
+
+    render(h(KeepAlive, { exclude: 'DefaultComponent', include: 'DefaultComponent2, DefaultComponent3, DefaultComponent4', max: 2 }, {
+      default: () => h(DefaultComponent)
+    }), document.querySelector('#app'))
+
+    setTimeout(() => {
+      render(h(KeepAlive, { exclude: 'DefaultComponent', include: 'DefaultComponent2, DefaultComponent3, DefaultComponent4', max: 2 }, {
+        default: () => h(DefaultComponent2)
+      }), document.querySelector('#app'))
+    }, 1000)
+
+    setTimeout(() => {
+      render(h(KeepAlive, { exclude: 'DefaultComponent', include: 'DefaultComponent2, DefaultComponent3, DefaultComponent4', max: 2 }, {
+        default: () => h(DefaultComponent3)
+      }), document.querySelector('#app'))
+    }, 2000)
+
+    setTimeout(() => {
+      render(h(KeepAlive, { exclude: 'DefaultComponent', include: 'DefaultComponent2, DefaultComponent3, DefaultComponent4', max: 2 }, {
+        default: () => h(DefaultComponent4)
+      }), document.querySelector('#app'))
+    }, 3000)
+
+    setTimeout(() => {
+      render(h(KeepAlive, { exclude: 'DefaultComponent', include: 'DefaultComponent2, DefaultComponent3, DefaultComponent4', max: 2 }, {
+        default: () => h(DefaultComponent)
+      }), document.querySelector('#app'))
+    }, 4000)
+
+    setTimeout(() => {
+      render(h(KeepAlive, { exclude: 'DefaultComponent', include: 'DefaultComponent2, DefaultComponent3, DefaultComponent4', max: 2 }, {
+        default: () => h(DefaultComponent3)
+      }), document.querySelector('#app'))
+    }, 5000)
+
+    setTimeout(() => {
+      render(h(KeepAlive, { exclude: 'DefaultComponent', include: 'DefaultComponent2, DefaultComponent3, DefaultComponent4', max: 2 }, {
+        default: () => h(DefaultComponent4)
+      }), document.querySelector('#app'))
+    }, 6000)
+
+    setTimeout(() => {
+      render(h(KeepAlive, { exclude: 'DefaultComponent', include: 'DefaultComponent2, DefaultComponent3, DefaultComponent4', max: 2 }, {
+        default: () => h(DefaultComponent2)
+      }), document.querySelector('#app'))
+    }, 7000)
+  </script>
+</body>
+
+</html>
+```
+
+#### asyncComp.html + AsyncComp.js
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AsyncComp</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { render, h, Text, Fragment, defineAsyncComponent } from "../../packages/runtime-dom/dist/runtime-dom.esm.js";
+
+      // 异步组件的原理 类似图片懒加载
+      // 基于状态来实现 loaded ? h(Component) : h(placeholder)
+      const Comp = defineAsyncComponent({
+        loader: () => new Promise((resolve) => setTimeout(() => resolve(import("./AsyncComp.js")), 2000)),
+        loadingComponent() {
+          return h("div", "loading...");
+        },
+        errorComponent:{
+          props: {
+            error: Object
+          },
+          render() {
+            return h('div', this.$props?.error?.message || 'error')
+          }
+        },
+        onError(error, retry, fail, retries) {
+          console.log('onError', retries)
+          if(retries < 3) {
+            retry()
+          } else {
+            fail()
+          }
+        }
+      });
+
+      render(h(Comp), document.getElementById("app"))
+    </script>
+  </body>
+</html>
+```
+
+```javascript
+import { h, render } from '../../node_modules/vue/dist/vue.esm-browser.js'
+
+export default {
+  name: 'AsyncComp',
+  setup() {
+    return {
+      msg: 'Async Component',
+    }
+  },
+  render() {
+    return h('div', this.msg)
+  }
+}
+```
 
 运行方式统一：项目根目录执行 `pnpm preview`(笔记通用测试命令),在浏览器里访问对应 HTML 路径验证各内置组件功能。
 
@@ -1872,28 +2945,17 @@ setTimeout(() => {
 
 ## 六、手写实现源码 GitHub 地址
 
-https://github.com/lotosv2010/g-vue-next
+- https://github.com/lotosv2010/g-vue-next
 
 ## 七、参考
 
-- [Vue 3 官方文档 - Teleport](https://cn.vuejs.org/guide/built-ins/teleport.html)
-- [Vue 3 官方文档 - Transition](https://cn.vuejs.org/guide/built-ins/transition.html)
-- [Vue 3 官方文档 - KeepAlive](https://cn.vuejs.org/guide/built-ins/keep-alive.html)
-- [Vue 3 官方文档 - 异步组件](https://cn.vuejs.org/guide/components/async.html)
-- [Vue 3 官方文档 - Suspense](https://cn.vuejs.org/guide/built-ins/suspense.html)
-
----
-
-## 💡 一张图总结（面试速记）
-
-| 内置组件 | 一句话原理 | 面试考察频率 |
-| --- | --- | --- |
-| **Teleport** | VNode 结构不变(逻辑树/parent 指针照旧),渲染器 insert 时 container 换成目标节点 | ⭐⭐⭐ 必问 provide/inject 还能不能用 |
-| **Transition** | beforeEnter/enter/afterEnter 钩子序列,nextFrame 双 rAF 让类名切换跨帧,transitionend 判断结束 | ⭐⭐⭐ 必问为什么需要两帧 |
-| **TransitionGroup** | FLIP 四步(First-Last-Invert-Play),只用 transform 不触发重排 | ⭐⭐ 偶尔问 FLIP 原理 |
-| **KeepAlive** | cache Map + keys Set 的 LRU,命中缓存复用 vnode.component 跳过 setup,两个 shapeFlag 让渲染器走 activate/deactivate | ⭐⭐⭐⭐⭐ 高频,LRU/生命周期/淘汰都会问 |
-| **异步组件** | Promise 驱动三态渲染(loading/error/成功),delay 防闪烁,timeout 计时器 | ⭐⭐⭐ 常问 delay/timeout 实现 |
-| **Suspense** | deps 计数器统一调度,异步组件主动上报而非被动扫描,deps 归零一次性切换 #default | ⭐⭐⭐⭐ 必问 deps 机制和为什么不扫描 |
+- https://cn.vuejs.org/guide/built-ins/teleport.html
+- https://cn.vuejs.org/guide/built-ins/transition.html
+- https://cn.vuejs.org/guide/built-ins/keep-alive.html
+- https://cn.vuejs.org/guide/components/async.html
+- https://cn.vuejs.org/guide/built-ins/suspense.html
+- https://jonny-wei.github.io/blog/vue/vue3/inner-components.html
+- https://github.com/wbccb/
 
 ---
 
