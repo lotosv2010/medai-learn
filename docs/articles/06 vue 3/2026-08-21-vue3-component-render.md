@@ -1592,12 +1592,14 @@ setTimeout(() => {
 
 ## 六、手写实现源码 GitHub 地址
 
-https://github.com/lotosv2010/g-vue-next
+- https://github.com/lotosv2010/g-vue-next
 
 ## 七、参考
 
-https://cn.vuejs.org/guide/extras/reactivity-in-depth.html
-https://cn.vuejs.org/guide/extras/rendering-mechanism.html
+- https://cn.vuejs.org/guide/extras/rendering-mechanism.html
+- https://github.com/vuejs/core
+- https://jonny-wei.github.io/blog/vue/vue3/components.html
+- https://github.com/wbccb/
 
 ---
 

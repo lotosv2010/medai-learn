@@ -1,49 +1,58 @@
 # prompt
 
 ```text
-/publish 下面我们规划Vue3全家桶的第6篇文章，具体如下：
+/publish 下面我们规划Vue3全家桶的第7篇文章，具体如下：
 {{
 ## 知识点范围
 
 ### 标题（控制在 64个字以内，以（面试收藏级）结尾）
 
-- Vue 3 内置组件全解析
+- Vue 3 编译优化与模板编译原理
 
-**副标题**：Teleport 传送门、KeepAlive LRU 缓存、Suspense 异步编排，实现原理逐个拆解
+**副标题**：parse → transform → generate，模板到 render 函数的三步拆解
 
 #### 一、基本使用
-- Teleport：`<Teleport to="body">`，`disabled` 属性动态切换
-- Transition：`v-enter-from / v-enter-active / v-enter-to` 等类名规范（相比 Vue 2 `v-enter` 的命名升级）；`TransitionGroup` 的 `move` 过渡
-- KeepAlive：`include / exclude`（支持正则）/ `max` 属性；`onActivated / onDeactivated` 组合式写法
-- 异步组件：`defineAsyncComponent` 基础用法 + loading/error 状态配置
-- Suspense：`<Suspense>` 的 `#default` / `#fallback` 两个插槽，包裹异步组件或含顶层 `await` 的 `<script setup>` 组件
+- `<template>` vs 手写 `render` 函数：`h()` 与 JSX 的选择
+- `v-if` / `v-for` 在 render 函数中的等价写法
+- 编译时宏：`<script setup>` 中 `defineProps / defineEmits` 为什么不需要 import
+- Vue 3 单文件组件编译产物的直观查看方式（Vue SFC Playground）
 
 #### 二、原理
-- Teleport 实现原理：渲染时将子树挂载到指定目标 DOM，但组件的逻辑树（`parent` 关系、provide/inject）保持不变；`process` 函数中对 Teleport VNode 特殊处理，`move` 时只移动 DOM 不重新创建
-- Transition 原理：`beforeEnter → enter → afterEnter` / `beforeLeave → leave → afterLeave` 钩子序列；通过 `nextFrame` 与 CSS transitionend/animationend 事件配合判断动画结束时机
-- TransitionGroup 的 FLIP 动画原理：First-Last-Invert-Play，记录移动前后位置差值，用 transform 反向位移再动画归位
-- KeepAlive 实现：内部维护 `cache`（Map）+ `keys`（Set）；LRU 淘汰策略——命中的 key 重新插入到 Set 末尾，超过 `max` 时删除 Set 中最旧（首位）的 key 并调用其 `unmount`
-- KeepAlive 特殊渲染逻辑：`process` 函数中拦截，命中缓存直接从 `cache` 取出 `vnode.component` 复用实例，不重新创建；`activated / deactivated` 钩子替代 `mounted / unmounted`
-- 异步组件实现：`defineAsyncComponent` 返回一个包装组件，内部用 `loader()` 返回的 Promise 状态驱动渲染 loading/error/结果组件
-- **Suspense 异步编排原理**：子树中任意后代组件返回一个 Promise（异步组件的 `loader()`，或 `<script setup>` 顶层 `await`），会被 Suspense 拦截并加入 `deps` 计数器；所有依赖 resolve 前渲染 `#fallback` 插槽，全部 resolve 后一次性切换到 `#default` 插槽内容，避免多个异步组件各自 loading 导致的布局抖动；`suspensible` 属性控制嵌套 Suspense 是否向上传播
+- 编译入口：`compile()` 整合 parse → transform → generate 三个阶段，与 Vue 2 三阶段思路一致但引入了优化标记
+- 第一步 parse：状态机扫描模板字符串 → 构建 AST（相比 Vue 2 正则扫描，Vue 3 用有限状态机解析更严谨）
+- 第二步 transform：
+  - AST 遍历转换：`transformElement / transformText / vFor / vIf` 等一系列 transform 插件
+  - 静态提升标记（`hoistStatic`）：标记纯静态节点，提升到 render 函数外
+  - Patch Flags 标记：在 transform 阶段分析每个节点的动态绑定类型，生成对应的位标记
+  - Block 收集：`vFor` / 组件等节点作为 Block 边界，收集内部动态子节点到 `dynamicChildren`
+  - 缓存事件处理函数（`cacheHandlers`）：内联事件处理器包裹为 `_cache[n] || (_cache[n] = ...)`
+  - 本节讲的是这些优化标记在编译阶段如何**生成**；运行时如何消费这些标记做定向 Diff，见第 03 篇「渲染原理与 Diff 算法」
+- 第三步 generate：AST → render 函数代码字符串
+  - `_createElementVNode / _createTextVNode / _toDisplayString / _renderList` 等辅助函数的含义
+  - `v-if` 编译为三元表达式，`v-for` 编译为 `_renderList(list, fn)`
+  - `<script setup>` 编译产物：顶层变量自动暴露给模板作用域，`defineProps/defineEmits/defineModel` 编译为 `__props` 运行时选项，宏本身在编译阶段被擦除（`defineModel` 展开为一个 prop 声明 + 一个读写 ref，详见第 05 篇）
+- 编译器插件架构：`@vue/compiler-core` 提供平台无关的核心逻辑，`@vue/compiler-dom` 扩展 DOM 特定的 transform（如 v-html、v-model 指令转换）
+- `defineProps` 类型编译原理：`<script setup lang="ts">` 中 `defineProps<Props>()` 的纯类型声明，编译器在 `compileScript` 阶段静态分析类型字面量（接口/type alias），生成等价的运行时 `props` 选项对象（`{ type, required }`），使得类型声明和运行时校验合二为一
+- 泛型组件（Vue 3.3+）编译原理：`<script setup lang="ts" generic="T">` 会被编译为一个带类型参数的函数组件，`resolveType` 阶段解析泛型声明并保留到生成的 `.d.ts` 类型文件中，供使用处通过 TSX 或类型标注传入具体类型
 
 #### 三、源码解析（重点代码，来源 GitHub 仓库）
-1. Teleport：`packages/runtime-core/src/components/Teleport.ts`（`process` / `move` 特殊处理）
-2. Transition：`packages/runtime-core/src/components/BaseTransition.ts`（钩子序列）
-3. TransitionGroup FLIP：`packages/runtime-dom/src/components/TransitionGroup.ts`
-4. KeepAlive LRU：`packages/runtime-core/src/components/KeepAlive.ts`（cache Map + keys Set）
-5. 异步组件：`packages/runtime-core/src/apiAsyncComponent.ts`（`defineAsyncComponent`）
-6. Suspense：`packages/runtime-core/src/components/Suspense.ts`（`deps` 计数器 + `resolve` 切换逻辑）
+1. 编译入口：`packages/compiler-core/src/compile.ts`
+2. parse 阶段：`packages/compiler-core/src/parse.ts`（状态机扫描 → AST）
+3. transform 阶段：`packages/compiler-core/src/transform.ts`（`hoistStatic` / Patch Flags 标记 / Block 收集）
+4. generate 阶段：`packages/compiler-core/src/codegen.ts`（AST → render 字符串）
+5. `<script setup>` 编译：`packages/compiler-sfc/src/compileScript.ts`
+6. `defineProps` 类型编译：`packages/compiler-sfc/src/script/defineProps.ts`（类型字面量 → 运行时 props 选项）
+7. 泛型组件编译：`packages/compiler-sfc/src/script/resolveType.ts`
 
 #### 四、生产级最佳实践
-- Teleport + provide/inject：渲染到 body 后依然能访问父组件的注入数据（医疗场景：全屏药品详情弹窗访问全局患者上下文）
-- KeepAlive + 路由缓存：`include` 动态白名单控制（医疗场景：问诊页面按需缓存）
-- Transition 性能优化：用 `transform` + `will-change`，避免触发 layout 重排
-- Suspense + 多个异步组件协作：医疗场景「患者详情页」同时依赖处方数据、检验报告数据两个异步组件，用一个 Suspense 统一 loading，避免逐个组件写 loading 逻辑；`onErrorCaptured` 配合处理异步依赖失败
-- 异步组件 + 路由懒加载：结合 Vite 的动态 `import()` 实现路由级代码分割
+- 构建时编译（`vue-loader` / `@vitejs/plugin-vue`）vs 运行时编译体积差：生产环境只用 runtime 版本
+- template vs render 的选择：template 可读性好且享受编译时优化，render 灵活性高（动态组件、条件渲染多分支场景）
+- 善用 `<script setup>` 减少样板代码，同时理解其编译产物避免踩坑（如顶层 await 的组件会自动变为异步组件）
+- 自定义指令的编译与运行时实现：五个钩子 `created/beforeMount/mounted/beforeUpdate/updated/beforeUnmount/unmounted`
+- v-for + v-if 同节点反模式：Vue 3 中 `v-if` 优先级高于 `v-for`（与 Vue 2 相反），需重新审视旧代码迁移
 
 #### 五、手写实现（可独立跑通）
-医疗场景：Vite + TypeScript 搭建环境，手写 Teleport 挂载逻辑 + KeepAlive LRU 缓存 + 简化版 defineAsyncComponent + 简化版 Suspense（deps 计数器）；科室切换 KeepAlive 缓存 + 全屏弹窗 Teleport + 患者详情页 Suspense 统一 loading 完整演示
+医疗场景：Vite + TypeScript 搭建环境，~200 行手写 parse + transform（静态提升 + Patch Flags）+ generate；药品说明书动态模板编译产物可视化对比（有无优化标记）
 
 
 #### 六、手写实现源码 GitHub 地址
@@ -51,18 +60,18 @@
 
 
 #### 七、参考
-- https://cn.vuejs.org/guide/built-ins/teleport.html
-- https://cn.vuejs.org/guide/built-ins/keep-alive.html
-- https://cn.vuejs.org/guide/built-ins/suspense.html
+- https://cn.vuejs.org/guide/extras/rendering-mechanism.html
+- https://cn.vuejs.org/api/sfc-script-setup.html
+- https://cn.vuejs.org/guide/typescript/overview.html
 - https://jonny-wei.github.io/blog/vue/vue3/components.html
 - https://github.com/wbccb/
 
 **面试核心问**：
-- Teleport 渲染到 body 后，组件的 provide/inject 还能用吗？为什么？
-- KeepAlive 的 LRU 缓存具体是怎么实现的？`max` 触发时调用哪个生命周期？
-- TransitionGroup 的 FLIP 动画原理是什么？
-- Suspense 是如何统一调度多个异步依赖的？`deps` 计数器的作用是什么？
-- KeepAlive 命中缓存和正常挂载相比，跳过了哪些流程？
+- 模板编译的三个阶段分别做了什么？和 Vue 2 相比核心区别是什么？
+- 静态提升是在编译的哪个阶段完成的？如何影响运行时性能？
+- `<script setup>` 的编译产物是什么样的？宏为什么不需要 import？
+- Vue 3 中 `v-if` 和 `v-for` 同节点的优先级和 Vue 2 有什么不同？
+- Block 是如何收集动态子节点的？为什么能减少 Diff 范围？
 
 
 ## 分析角度（每个子主题都按此展开）
@@ -77,10 +86,11 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 
 ## 已有笔记
 
-- @docs/notes/06 vue 3/25 内置组件-实现 Teleport.md
-- @docs/notes/06 vue 3/26 内置组件-实现 Transition.md
-- @docs/notes/06 vue 3/27 内置组件-实现 KeepAlive.md
-- @docs/notes/06 vue 3/28 内置组件-实现异步组件.md
+- @docs/notes/06 vue 3/29 编译优化.md
+- @docs/notes/06 vue 3/30 模板编译原理-初始化子包.md
+- @docs/notes/06 vue 3/31 模板编译原理-实现AST编译.md
+- @docs/notes/06 vue 3/32 模板编译原理-实现代码转换.md
+- @docs/notes/06 vue 3/33 模板编译原理-实现代码生成.md
 
 ## plans 地址
 
@@ -95,5 +105,5 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 - 将整理后的内容生成公众号文章，输出到 @docs/articles/06 vue 3
 - 文章结构：先出大纲等我确认，再逐节写作
 }}
-，注意⚠️：保留笔记完整代码和图片，样式格式保持一致和这篇@docs/articles/06 vue 3/2026-08-21-vue3-component-render.md，不读我没要求到的文件；可以根据你的经验和最佳实践查漏补缺；主线要明确清晰，不要遗漏源码解析章节；每个知识点都要由浅入深的彻底讲透，讲明白。vue 3系列的文章中每一篇的知识点讲解中都需要对比 vue 2中对应的知识点，讲清楚问什么要这样设计。手写实现，环境搭建已经再第一篇完了，这里直接接着上一遍和笔记中的手写实现的代码。手写源码仓库和参考只保留url。
+，注意⚠️：保留笔记完整代码和图片，样式格式保持一致和这篇@docs/articles/06 vue 3/2026-08-23-vue3-built-in-components.md，不读我没要求到的文件；可以根据你的经验和最佳实践查漏补缺；主线要明确清晰，不要遗漏源码解析章节；每个知识点都要由浅入深的彻底讲透，讲明白。vue 3系列的文章中每一篇的知识点讲解中都需要对比 vue 2中对应的知识点，讲清楚问什么要这样设计。手写实现，环境搭建已经再第一篇完了，这里直接接着上一遍和笔记中的手写实现的代码。手写源码仓库和参考只保留url。
 ```

@@ -1,6 +1,10 @@
 # Vue 3 Composition API 深度拆解：slots/emit/lifecycle/ref/provide-inject（面试收藏级）
 
-> 面试官问：「`emit` 在 Composition API 里是怎么实现的？」你答：「`setup` 第二个参数里有个 `emit` 函数，调用它就能触发父组件监听的事件。」面试官追问：「那它内部是怎么找到父组件的处理函数的？和 Vue 2 的 `vm.$emit`、`vm._events` 有什么本质区别？」你顿了一下：「……好像不太一样。」面试官继续：「`onMounted` 为什么必须写在 `setup` 里同步调用，放到 `setTimeout` 里就失效了？」再追一句：「`provide`/`inject` 底层是怎么保证子组件的 `provide` 不会污染兄弟组件的？」最后抛出一个新题：「Vue 3.4 的 `defineModel` 是怎么替代手写 `modelValue` + `emit('update:modelValue', ...)` 的？」——这几个问题看似分散，其实都指向同一件事：Composition API 暴露给你的 `emit`、`slots`、生命周期钩子、模板 `ref`、`provide`/`inject`，底层都靠同一个隐藏的锚点串联起来，也就是第 4 篇讲过的 `currentInstance`。这篇文章是「Vue 3 全家桶深度拆解」系列第 5 篇，接着第 4 篇讲完的组件渲染链路，往下拆 `setup()` 执行期间到底发生了什么。
+> 面试官问：「`emit` 在 Composition API 里是怎么实现的？」你答：「`setup` 第二个参数里有个 `emit` 函数，调用它就能触发父组件监听的事件。」面试官追问：「那它内部是怎么找到父组件的处理函数的？和 Vue 2 的 `vm.$emit`、`vm._events` 有什么本质区别？」你顿了一下：「……好像不太一样。」
+
+> 面试官继续：「`onMounted` 为什么必须写在 `setup` 里同步调用，放到 `setTimeout` 里就失效了？」再追一句：「`provide`/`inject` 底层是怎么保证子组件的 `provide` 不会污染兄弟组件的？」最后抛出一个新题：「Vue 3.4 的 `defineModel` 是怎么替代手写 `modelValue` + `emit('update:modelValue', ...)` 的？」
+
+> ——这几个问题看似分散，其实都指向同一件事：Composition API 暴露给你的 `emit`、`slots`、生命周期钩子、模板 `ref`、`provide`/`inject`，底层都靠同一个隐藏的锚点串联起来，也就是第 4 篇讲过的 `currentInstance`。这篇文章是「Vue 3 全家桶深度拆解」系列第 5 篇，接着第 4 篇讲完的组件渲染链路，往下拆 `setup()` 执行期间到底发生了什么。
 
 ---
 
@@ -421,7 +425,9 @@ export function emit(
 
 `instance.emit = emit.bind(null, instance)` 在 `createComponentInstance` 阶段就完成绑定（而不是每次 `setup` 执行时现造一个闭包），`toHandlerKey(camelize(event))` 把事件名统一转成 `onXxx` 的形式（比如 `'age-change'` → `camelize` → `'ageChange'` → `toHandlerKey` → `'onAgeChange'`），去父组件传下来的 `vnode.props` 里找对应的处理函数并调用——`emit` 的本质就是"在 `props` 里找一个约定命名的函数并执行它"，没有真正的事件总线、没有订阅发布机制。
 
-> **对比 Vue 2**：Vue 2 的 `vm.$emit` 依赖组件实例上的 `vm._events`——这是一个真正的事件订阅表，父组件用 `v-on`/`@` 监听子组件事件时，Vue 会在子组件初始化阶段（`initEvents`）把父组件传入的事件处理函数注册进 `vm._events[eventName]` 数组，`$emit` 触发时遍历这个数组逐个调用，属于经典的**发布订阅模式**，还支持 `$off` 精确解绑某个监听器。Vue 3 的 `emit` 完全抛弃了这套订阅表——父组件传下来的 `onXxx` 就是普通 `props` 的一部分（`vnode.props.onMyClick`），`emit` 只是去 `props` 里按约定命名找函数直接调用，没有独立的事件登记簿。这个改动的动机是 Composition API 下 `emits` 选项本身就承担了"事件声明"的角色，`v-on` 监听器和普通 `props` 在底层用同一套 `mergeProps`/透传机制处理（第 4 篇讲过 `attrs` 的透传逻辑），不需要再单独维护一份订阅表，模型更简单，也天然支持"事件其实就是一种特殊的 prop"这个 Vue 3 内部的统一视角。
+> **对比 Vue 2**：Vue 2 的 `vm.$emit` 依赖组件实例上的 `vm._events`——这是一个真正的事件订阅表，父组件用 `v-on`/`@` 监听子组件事件时，Vue 会在子组件初始化阶段（`initEvents`）把父组件传入的事件处理函数注册进 `vm._events[eventName]` 数组，`$emit` 触发时遍历这个数组逐个调用，属于经典的**发布订阅模式**，还支持 `$off` 精确解绑某个监听器。
+
+> Vue 3 的 `emit` 完全抛弃了这套订阅表——父组件传下来的 `onXxx` 就是普通 `props` 的一部分（`vnode.props.onMyClick`），`emit` 只是去 `props` 里按约定命名找函数直接调用，没有独立的事件登记簿。这个改动的动机是 Composition API 下 `emits` 选项本身就承担了"事件声明"的角色，`v-on` 监听器和普通 `props` 在底层用同一套 `mergeProps`/透传机制处理（第 4 篇讲过 `attrs` 的透传逻辑），不需要再单独维护一份订阅表，模型更简单，也天然支持"事件其实就是一种特殊的 prop"这个 Vue 3 内部的统一视角。
 
 ### 2. `slots` 实现：插槽函数对象与统一的编译产物
 
@@ -475,7 +481,9 @@ export function useSlots() {
 }
 ```
 
-> **对比 Vue 2**：Vue 2 的普通插槽和作用域插槽走的是两套不同的编译产物和访问方式——普通插槽内容在父组件编译阶段就生成好 VNode 数组，存进 `vnode.children`，子组件通过 `this.$slots.default` 直接拿到**已经渲染好的 VNode 数组**；作用域插槽则编译成一个函数，存进 `vnode.data.scopedSlots`，子组件要通过 `this.$scopedSlots.xxx(props)` **调用**才能拿到 VNode，因为作用域插槽需要子组件传参数进去，编译时不可能提前渲染好。这意味着 Vue 2 代码里经常要同时处理 `$slots` 和 `$scopedSlots` 两套 API，心智负担不小。Vue 3 把这两者统一成了同一种形态——**所有插槽都编译成函数**，`$slots.default()` 和作用域插槽的调用方式完全一致，只是普通插槽的函数不需要传参数。这个统一直接体现在上面的源码里：不管有没有作用域参数，`instance.slots` 里存的都是函数，访问方式没有任何分支判断。
+> **对比 Vue 2**：Vue 2 的普通插槽和作用域插槽走的是两套不同的编译产物和访问方式——普通插槽内容在父组件编译阶段就生成好 VNode 数组，存进 `vnode.children`，子组件通过 `this.$slots.default` 直接拿到**已经渲染好的 VNode 数组**；作用域插槽则编译成一个函数，存进 `vnode.data.scopedSlots`，子组件要通过 `this.$scopedSlots.xxx(props)` **调用**才能拿到 VNode，因为作用域插槽需要子组件传参数进去，编译时不可能提前渲染好。这意味着 Vue 2 代码里经常要同时处理 `$slots` 和 `$scopedSlots` 两套 API，心智负担不小。
+
+> Vue 3 把这两者统一成了同一种形态——**所有插槽都编译成函数**，`$slots.default()` 和作用域插槽的调用方式完全一致，只是普通插槽的函数不需要传参数。这个统一直接体现在上面的源码里：不管有没有作用域参数，`instance.slots` 里存的都是函数，访问方式没有任何分支判断。
 
 ### 3. `useAttrs` 实现：和 `useSlots` 同源的取值壳子
 
@@ -593,7 +601,9 @@ if (!instance.isMounted) {
 
 **为什么 `onMounted` 必须在 `setup` 同步执行期间调用**：`injectHooks` 里 `target` 参数默认值是 `currentInstance`——这是一个模块级的全局变量，只有在 `setupStatefulComponent` 执行 `setup(props, context)` 前后，才会被 `setCurrentInstance(instance)`/`unsetCurrentInstance()` 短暂设置成"当前正在初始化的这个组件实例"。如果 `onMounted` 被放进 `setTimeout` 或者 `await` 之后的异步代码里，等它真正执行的时候，`setup` 早就跑完了，`currentInstance` 早就被 `unsetCurrentInstance()` 清空成 `null`——`injectHooks` 里 `if (target)` 判断为假，回调直接被静默丢弃，钩子形同虚设。
 
-> **对比 Vue 2**：Vue 2 的生命周期钩子是**选项**，不是函数调用——`created()`/`mounted()` 直接写在组件定义对象里，框架在 `_init` 阶段通过 `callHook(vm, 'created')` 按 `vm.$options.created` 直接找到并调用，压根不需要"收集"这一步，因为钩子从一开始就静态挂在组件选项对象上，和组件实例是一一对应的。Vue 3 的 Composition API 钩子是**函数调用**，同一个 `onMounted` 函数在不同组件的 `setup` 里被调用多次，怎么知道"这次调用是哪个组件在注册钩子"？答案就是上面这套基于 `currentInstance` 全局变量的**依赖收集机制**——框架在执行某个组件的 `setup` 前，先把这个组件实例"挂"到全局，`setup` 内部所有同步调用的 `onXxx` 函数才能顺着这个全局变量找到"我应该注册到哪个实例上"。这也是为什么 Composable 函数（下文会讲）可以在内部调用生命周期钩子而不需要显式传组件实例——闭包访问的是这个全局变量，而不是参数传递。
+> **对比 Vue 2**：Vue 2 的生命周期钩子是**选项**，不是函数调用——`created()`/`mounted()` 直接写在组件定义对象里，框架在 `_init` 阶段通过 `callHook(vm, 'created')` 按 `vm.$options.created` 直接找到并调用，压根不需要"收集"这一步，因为钩子从一开始就静态挂在组件选项对象上，和组件实例是一一对应的。
+
+> Vue 3 的 Composition API 钩子是**函数调用**，同一个 `onMounted` 函数在不同组件的 `setup` 里被调用多次，怎么知道"这次调用是哪个组件在注册钩子"？答案就是上面这套基于 `currentInstance` 全局变量的**依赖收集机制**——框架在执行某个组件的 `setup` 前，先把这个组件实例"挂"到全局，`setup` 内部所有同步调用的 `onXxx` 函数才能顺着这个全局变量找到"我应该注册到哪个实例上"。这也是为什么 Composable 函数（下文会讲）可以在内部调用生命周期钩子而不需要显式传组件实例——闭包访问的是这个全局变量，而不是参数传递。
 
 ### 5. 组合式 `ref`：模板引用如何回填到 setup 变量
 
@@ -662,7 +672,9 @@ const normalizeRef = ({
 }
 ```
 
-> **对比 Vue 2**：Vue 2 的模板引用靠字符串 `ref="xxx"` + `this.$refs.xxx` 访问，`$refs` 是一个运行时按需收集的对象，不需要提前在组件里声明任何变量，取值时也没有类型提示（`$refs.xxx` 的类型是 `any`）。Vue 3 Composition API 要求先 `const el = ref(null)`，再把这个 `ref` 对象绑定到模板的 `ref` 属性上——多了一步显式声明，但换来的是完整的 TypeScript 类型推断（`el` 的类型可以精确到具体的 DOM 元素类型或组件实例类型），以及不再需要一个隐式的、挂在 `this` 上的 `$refs` 集合对象。这个变化和 `defineProps`/`setup(props, context)` 是同一种设计思路的延伸——把隐式的、运行时才确定的东西，换成显式的、可以静态分析的声明。
+> **对比 Vue 2**：Vue 2 的模板引用靠字符串 `ref="xxx"` + `this.$refs.xxx` 访问，`$refs` 是一个运行时按需收集的对象，不需要提前在组件里声明任何变量，取值时也没有类型提示（`$refs.xxx` 的类型是 `any`）。
+
+> Vue 3 Composition API 要求先 `const el = ref(null)`，再把这个 `ref` 对象绑定到模板的 `ref` 属性上——多了一步显式声明，但换来的是完整的 TypeScript 类型推断（`el` 的类型可以精确到具体的 DOM 元素类型或组件实例类型），以及不再需要一个隐式的、挂在 `this` 上的 `$refs` 集合对象。这个变化和 `defineProps`/`setup(props, context)` 是同一种设计思路的延伸——把隐式的、运行时才确定的东西，换成显式的、可以静态分析的声明。
 
 ### 6. `provide`/`inject` 实现：原型链继承 provides
 
@@ -726,7 +738,9 @@ provides: parent ? parent.provides : Object.create(null),
 
 只有当某个组件自己调用了 `provide()`，才会触发 `parentProvides === provides` 这个判断为真，用 `Object.create(parentProvides)` 创建一个**以父级 `provides` 为原型**的新对象，后续这个组件（以及它的子孙）的 `provide` 都写到这个新对象上，不会影响父级和兄弟组件。`inject` 查找时依赖的正是原型链的自动向上查找——`provides[key as string in provides]` 这个 `in` 判断，如果当前对象没有这个 key，JS 引擎会自动沿原型链往上找，直到找到或者到达 `Object.create(null)` 的顶层。
 
-> **对比 Vue 2**：Vue 2 从 2.2 版本就已经有了 `provide`/`inject`（并不是 Vue 3 独占的新能力），但 Vue 2 里没有一套像 Vue 3 这样清晰的"原型链复用"实现文档化说明，更常见的实现方式是每个组件实例维护自己的 `_provided` 对象，`inject` 时通过 `while (source)` 循环手动遍历 `$parent` 链逐层查找。Vue 3 用原型链取代手动循环查找，带来两个好处：一是**性能**——`in` 操作符查找原型链是 JS 引擎原生支持的能力，比手写循环遍历组件树更快；二是**天然的覆盖语义**——子组件 `provide` 同名 key 时，`Object.create(parentProvides)` 生成的新对象在自己身上直接有这个属性，属性查找会优先命中"自己身上的"而不是原型链上的，不需要额外写覆盖逻辑，`provide('name', 'Robin')` 覆盖父级 `provide('name', 'Join')` 就是原型链属性遮蔽（shadowing）的原生行为。
+> **对比 Vue 2**：Vue 2 从 2.2 版本就已经有了 `provide`/`inject`（并不是 Vue 3 独占的新能力），但 Vue 2 里没有一套像 Vue 3 这样清晰的"原型链复用"实现文档化说明，更常见的实现方式是每个组件实例维护自己的 `_provided` 对象，`inject` 时通过 `while (source)` 循环手动遍历 `$parent` 链逐层查找。
+
+> Vue 3 用原型链取代手动循环查找，带来两个好处：一是**性能**——`in` 操作符查找原型链是 JS 引擎原生支持的能力，比手写循环遍历组件树更快；二是**天然的覆盖语义**——子组件 `provide` 同名 key 时，`Object.create(parentProvides)` 生成的新对象在自己身上直接有这个属性，属性查找会优先命中"自己身上的"而不是原型链上的，不需要额外写覆盖逻辑，`provide('name', 'Robin')` 覆盖父级 `provide('name', 'Join')` 就是原型链属性遮蔽（shadowing）的原生行为。
 
 ### 7. 函数式组件为什么不能用 `currentInstance` 相关 API：一个边界案例
 
@@ -776,23 +790,25 @@ function usePatientSession() {
 
 两种模式的取舍很直接——**要不要跨组件共享同一份状态**：像患者搜索关键词、药品库存这类"每个使用它的组件应该各管各的"的状态，必须用模式一，否则 A 组件改了关键词，B 组件的搜索框也会跟着变；像当前登录用户、全局主题这类"整个应用应该只有一份"的状态，必须用模式二，把 `ref` 创建挪到 Composable 函数体外部（模块顶层），所有组件调用 `usePatientSession()` 拿到的都是同一个 `currentUser` 引用。这也是 Composable 和 Vuex/Pinia 之类状态管理库的边界——一个用模块作用域共享状态的 Composable，本质上已经是一个手写的极简全局 store，规模再大一些，就应该换成第 09 篇会讲到的 Pinia。
 
-> **一个常见的坑：`reactive()` 对象作为 Composable 返回值，解构会丢失响应性**——`reactive()` 创建的是一个 Proxy 对象，响应性绑定在这个对象引用本身上，一旦解构出单个属性（`const { stock } = state`），拿到的就是一个脱离了 Proxy 拦截的普通值快照，之后 `state.stock` 变化，解构出来的 `stock` 变量不会跟着变。这正是为什么本文所有 Composable 返回值全都用 `ref` 而不是 `reactive`——`toRefs()`（笔记 07 手写实现）就是为了解决这个问题存在的：把一个 `reactive` 对象的每个属性转换成独立的 `ref`，解构出来的每一个字段依然各自持有响应性：
->
-> ```typescript
-> // ❌ 错误：reactive 对象直接返回，解构后丢失响应性
-> function useDrugInventoryBad() {
->   const state = reactive({ stock: 0, loading: false })
->   return state
-> }
-> const { stock } = useDrugInventoryBad() // stock 是快照值，不会再更新
->
-> // ✅ 正确：toRefs() 转换后再返回，或者干脆分别用多个 ref
-> function useDrugInventoryGood() {
->   const state = reactive({ stock: 0, loading: false })
->   return toRefs(state) // 解构出来的每个字段依然是响应式 ref
-> }
-> const { stock } = useDrugInventoryGood() // stock 是 ref，.value 会同步更新
-> ```
+> **一个常见的坑：`reactive()` 对象作为 Composable 返回值，解构会丢失响应性**——`reactive()` 创建的是一个 Proxy 对象，响应性绑定在这个对象引用本身上，一旦解构出单个属性（`const { stock } = state`），拿到的就是一个脱离了 Proxy 拦截的普通值快照，之后 `state.stock` 变化，解构出来的 `stock` 变量不会跟着变。
+
+> 这正是为什么本文所有 Composable 返回值全都用 `ref` 而不是 `reactive`——`toRefs()`（笔记 07 手写实现）就是为了解决这个问题存在的：把一个 `reactive` 对象的每个属性转换成独立的 `ref`，解构出来的每一个字段依然各自持有响应性：
+
+```typescript
+ // ❌ 错误：reactive 对象直接返回，解构后丢失响应性
+ function useDrugInventoryBad() {
+   const state = reactive({ stock: 0, loading: false })
+   return state
+ }
+ const { stock } = useDrugInventoryBad() // stock 是快照值，不会再更新
+
+ // ✅ 正确：toRefs() 转换后再返回，或者干脆分别用多个 ref
+ function useDrugInventoryGood() {
+   const state = reactive({ stock: 0, loading: false })
+   return toRefs(state) // 解构出来的每个字段依然是响应式 ref
+ }
+ const { stock } = useDrugInventoryGood() // stock 是 ref，.value 会同步更新
+```
 
 ### 10. Composable 参数响应式：`toValue()` 统一处理
 
@@ -878,7 +894,9 @@ const count = customRef((track, trigger) => ({
 
 这就是为什么组件内部 `count.value++` 能够"看起来"像修改本地状态一样，实际效果却是通知父组件更新——`count` 这个 `ref` 的 `get`/`set` 被自定义成了"读 `props`、写就 `emit`"，对使用者屏蔽了背后的 `props` + `emit` 两步操作。这和第 07 篇会讲的编译器宏擦除机制是同一件事——`defineModel`/`defineProps`/`defineEmits` 在最终生成的代码里都不存在，全部被替换成了对应的运行时选项和辅助函数调用。
 
-> **对比 Vue 2**：Vue 2 的自定义组件 `v-model` 默认绑定 `value` prop + 监听 `input` 事件（`v-model="foo"` 等价于 `:value="foo" @input="foo = $event"`），要改绑定的 prop/事件名需要 `model: { prop: 'checked', event: 'change' }` 选项，一个组件同时只能有一个默认 `v-model`。Vue 3 把默认 prop 名换成了 `modelValue`、事件名换成 `update:modelValue`，并且**原生支持多个 `v-model`**——`v-model:visible` 对应 `visible` prop + `update:visible` 事件，`defineModel('visible', { default: false })` 这种带参数名的写法就是用来声明"第二个、第三个 `v-model`"的。`defineModel` 相当于把 Vue 3 已经支持的"多 `v-model`"能力，进一步从"手写 `props` + `emit` 两步"压缩成"声明一个双向绑定的 `ref`"一步，是纯粹的开发体验优化，不涉及底层双向绑定机制本身的变化。
+> **对比 Vue 2**：Vue 2 的自定义组件 `v-model` 默认绑定 `value` prop + 监听 `input` 事件（`v-model="foo"` 等价于 `:value="foo" @input="foo = $event"`），要改绑定的 prop/事件名需要 `model: { prop: 'checked', event: 'change' }` 选项，一个组件同时只能有一个默认 `v-model`。
+
+> Vue 3 把默认 prop 名换成了 `modelValue`、事件名换成 `update:modelValue`，并且**原生支持多个 `v-model`**——`v-model:visible` 对应 `visible` prop + `update:visible` 事件，`defineModel('visible', { default: false })` 这种带参数名的写法就是用来声明"第二个、第三个 `v-model`"的。`defineModel` 相当于把 Vue 3 已经支持的"多 `v-model`"能力，进一步从"手写 `props` + `emit` 两步"压缩成"声明一个双向绑定的 `ref`"一步，是纯粹的开发体验优化，不涉及底层双向绑定机制本身的变化。
 
 ---
 
@@ -1925,13 +1943,14 @@ const DrugCard = {
 
 ## 六、手写实现源码 GitHub 地址
 
-https://github.com/lotosv2010/g-vue-next
+- https://github.com/lotosv2010/g-vue-next
 
 ## 七、参考
 
-https://cn.vuejs.org/guide/reusability/composables.html
-https://cn.vuejs.org/guide/extras/composition-api-faq.html
-https://cn.vuejs.org/guide/typescript/composition-api.html
+- https://cn.vuejs.org/guide/reusability/composables.html
+- https://cn.vuejs.org/guide/extras/composition-api-faq.html
+- https://cn.vuejs.org/guide/typescript/composition-api.html
+- https://github.com/wbccb/
 
 ---
 
