@@ -24,7 +24,7 @@
 | 01 | Vue 3 设计思想与整体架构：Monorepo + Tree-shaking + Composition API 三大革新 | 架构全景 | ⬜ 待写 |
 | 02 | Vue 3 响应式原理与手写实现：Proxy + effect + track/trigger 三件套全链路 | 响应式系统 | ⬜ 待写 |
 | 03 | Vue 3 渲染原理与 Diff 算法：首次渲染/更新/卸载 + Block Tree + Patch Flags | 渲染原理 | ⬜ 待写 |
-| 04 | Vue 3 组件渲染原理：Text/Comment/Fragment + setup 执行链路全解析 | 组件系统 | ⬜ 待写 |
+| 04 | Vue 3 组件渲染原理：Text/Comment/Fragment + setup 执行链路全解析 | 组件系统 | ✅ 已发布 |
 | 05 | Vue 3 Composition API 深度拆解：slots/emit/lifecycle/ref/provide/inject | Composition API | ⬜ 待写 |
 | 06 | Vue 3 内置组件全解析：Teleport/Transition/KeepAlive/Suspense 异步编排详解 | 内置能力 | ⬜ 待写 |
 | 07 | Vue 3 编译优化与模板编译原理：parse → transform → generate 三步拆解 | 编译器 | ⬜ 待写 |
