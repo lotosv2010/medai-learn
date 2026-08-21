@@ -1602,3 +1602,5 @@ https://cn.vuejs.org/guide/extras/rendering-mechanism.html
 ---
 
 > 🔖 这是「Vue 3 全家桶深度拆解系列」第 4 篇。上一篇：《Vue 3 渲染原理与 Diff 算法：从首次渲染到 Diff 优化的完整链路？（面试收藏级）》；下一篇预告：《Vue 3 Composition API 深度拆解：slots/emit/lifecycle/ref/provide-inject 全解析（面试收藏级）》
+
+**关注公众号「Coding沉思录」，第一时间获取 Vue 3 全家桶系列更新！**
