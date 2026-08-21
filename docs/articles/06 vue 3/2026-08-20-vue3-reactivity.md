@@ -3192,6 +3192,342 @@ class BaseReactiveHandler implements ProxyHandler<Target> {
 2. 数组方法需要 `arrayInstrumentations` 特殊处理
 3. `Reflect.get` 的第三个参数 `receiver` 保证 `this` 正确
 
+### baseHandlers 数组特殊处理源码
+
+**文件路径**：`packages/reactivity/src/baseHandlers.ts`
+
+```typescript
+// 📚 知识点：数组方法拦截器
+const arrayInstrumentations = createArrayInstrumentations()
+
+function createArrayInstrumentations() {
+  const instrumentations: Record<string, Function> = {}
+  
+  // 📚 知识点：拦截会查找数组元素的方法
+  // includes/indexOf/lastIndexOf 需要特殊处理，因为可能传入响应式对象或原始对象
+  ;(['includes', 'indexOf', 'lastIndexOf'] as const).forEach(key => {
+    instrumentations[key] = function (this: unknown[], ...args: unknown[]) {
+      const arr = toRaw(this) as any
+      // 遍历数组，收集依赖
+      for (let i = 0, l = this.length; i < l; i++) {
+        track(arr, TrackOpTypes.GET, i + '')
+      }
+      // 先用传入的参数查找
+      const res = arr[key](...args)
+      if (res === -1 || res === false) {
+        // 如果没找到，再用原始值查找
+        return arr[key](...args.map(toRaw))
+      } else {
+        return res
+      }
+    }
+  })
+  
+  // 📚 知识点：拦截会修改数组长度的方法
+  // push/pop/shift/unshift/splice 在执行时暂停依赖收集
+  ;(['push', 'pop', 'shift', 'unshift', 'splice'] as const).forEach(key => {
+    instrumentations[key] = function (this: unknown[], ...args: unknown[]) {
+      pauseTracking() // 暂停依赖收集
+      const res = (toRaw(this) as any)[key].apply(this, args)
+      resetTracking() // 恢复依赖收集
+      return res
+    }
+  })
+  
+  return instrumentations
+}
+```
+
+**为什么需要数组方法拦截？**
+
+1. **includes/indexOf/lastIndexOf**：
+```typescript
+const obj = { id: 1 }
+const arr = reactive([obj])
+
+// 问题：用户可能传入原始对象或响应式对象
+arr.includes(obj) // 应该返回 true
+arr.includes(reactive(obj)) // 也应该返回 true
+
+// 解决：先用传入的参数查找，找不到再用 toRaw 转换后查找
+```
+
+2. **push/pop/shift/unshift/splice**：
+```typescript
+const arr = reactive([1, 2, 3])
+
+watchEffect(() => {
+  arr.push(4) // ❌ 会同时触发 get length 和 set length
+  // 导致无限循环：push 触发 length 变化 → watchEffect 重新执行 → 再次 push
+})
+
+// 解决：在执行这些方法时暂停依赖收集
+```
+
+### toRef / toRefs / proxyRefs 源码
+
+**文件路径**：`packages/reactivity/src/ref.ts`
+
+```typescript
+// 📚 知识点：ObjectRefImpl——toRef 的实现类
+class ObjectRefImpl<T extends object, K extends keyof T> {
+  public readonly __v_isRef = true
+
+  constructor(
+    private readonly _object: T,
+    private readonly _key: K,
+    private readonly _defaultValue?: T[K]
+  ) {}
+
+  get value() {
+    const val = this._object[this._key]
+    return val === undefined ? this._defaultValue! : val
+  }
+
+  set value(newVal) {
+    this._object[this._key] = newVal
+  }
+}
+
+// 📚 知识点：GetterRefImpl——只读 ref 的实现类（3.3+）
+class GetterRefImpl<T> {
+  public readonly __v_isRef = true
+  public readonly __v_isReadonly = true
+
+  constructor(private readonly _getter: () => T) {}
+
+  get value() {
+    return this._getter()
+  }
+}
+
+// 📚 知识点：toRef——四种入参形式
+export function toRef<T extends object, K extends keyof T>(
+  object: T,
+  key?: K,
+  defaultValue?: T[K]
+): ToRef<T[K]>
+export function toRef<T>(value: T): Ref<UnwrapRef<T>>
+export function toRef<T extends () => any>(
+  getter: T
+): Readonly<Ref<ReturnType<T>>>
+export function toRef(
+  source: Record<string, any> | MaybeRef,
+  key?: string,
+  defaultValue?: unknown
+): Ref {
+  // 📚 知识点：已经是 ref，直接返回
+  if (isRef(source)) {
+    return source
+  } else if (isFunction(source)) {
+    // 📚 知识点：getter 函数，返回只读 ref（3.3+）
+    return new GetterRefImpl(source) as any
+  } else if (isObject(source) && arguments.length > 1) {
+    // 📚 知识点：对象属性，返回双向绑定的 ObjectRefImpl
+    return propertyToRef(source, key!, defaultValue)
+  } else {
+    // 📚 知识点：普通值，用 ref 包装
+    return ref(source)
+  }
+}
+
+function propertyToRef(
+  source: Record<string, any>,
+  key: string,
+  defaultValue?: unknown
+) {
+  const val = source[key]
+  return isRef(val)
+    ? val
+    : (new ObjectRefImpl(source, key, defaultValue) as any)
+}
+
+// 📚 知识点：toRefs——批量转换对象的所有属性为 ref
+export function toRefs<T extends object>(object: T): ToRefs<T> {
+  if (__DEV__ && !isProxy(object)) {
+    console.warn(`toRefs() expects a reactive object but received a plain one.`)
+  }
+  const ret: any = isArray(object) ? new Array(object.length) : {}
+  for (const key in object) {
+    ret[key] = propertyToRef(object, key)
+  }
+  return ret
+}
+
+// 📚 知识点：proxyRefs——自动解包 ref（Vue 3 模板编译器内部使用）
+export function proxyRefs<T extends object>(
+  objectWithRefs: T
+): ShallowUnwrapRef<T> {
+  if (isReactive(objectWithRefs)) {
+    return objectWithRefs as any
+  }
+  return new Proxy(objectWithRefs, {
+    get(target, key, receiver) {
+      // 📚 知识点：访问时自动 .value
+      return unref(Reflect.get(target, key, receiver))
+    },
+    set(target, key, value, receiver) {
+      const oldValue = (target as any)[key]
+      if (isRef(oldValue) && !isRef(value)) {
+        // 📚 知识点：赋值时自动包装
+        oldValue.value = value
+        return true
+      } else {
+        return Reflect.set(target, key, value, receiver)
+      }
+    }
+  })
+}
+```
+
+**核心要点**：
+1. **ObjectRefImpl**：双向绑定对象属性，修改 ref 会修改原对象
+2. **GetterRefImpl**：只读 ref，用于 getter 函数（3.3+）
+3. **toRef 四种入参**：ref / getter / 对象属性 / 普通值
+4. **toRefs**：批量转换，解决解构丢失响应式问题
+5. **proxyRefs**：自动解包，Vue 3 模板编译器内部使用
+
+**医疗场景示例**：
+
+```typescript
+import { reactive, toRef, toRefs } from 'vue'
+
+// 场景 1：单个属性响应式传递
+const patient = reactive({
+  name: '张三',
+  heartRate: 75,
+  bloodPressure: 120
+})
+
+// ✅ toRef：保持响应式连接
+const heartRateRef = toRef(patient, 'heartRate')
+console.log(heartRateRef.value) // 75
+heartRateRef.value = 80 // ✅ 修改会同步到 patient.heartRate
+
+// 场景 2：解构丢失响应式
+const { heartRate } = patient // ❌ 丢失响应式
+const { heartRate: hr } = toRefs(patient) // ✅ 保持响应式
+
+// 场景 3：getter 函数（3.3+）
+const isAbnormal = toRef(() => patient.heartRate > 100 || patient.heartRate < 60)
+console.log(isAbnormal.value) // false（只读）
+```
+
+### DirtyLevels 五级脏标记机制源码
+
+**文件路径**：`packages/reactivity/src/constants.ts`
+
+```typescript
+// 📚 知识点：DirtyLevels——五级脏值标记
+export enum DirtyLevels {
+  NotDirty = 0,                         // 不脏，使用缓存值
+  QueryingDirty = 1,                    // 正在查询是否脏
+  MaybeDirty_ComputedSideEffect = 2,    // 可能脏（computed 的副作用导致）
+  MaybeDirty = 3,                       // 可能脏
+  Dirty = 4                             // 确定脏，需要重新计算
+}
+```
+
+**为什么需要五级脏标记？**
+
+```typescript
+// 嵌套 computed 的经典问题
+const state = reactive({ count: 0 })
+
+const double = computed(() => {
+  console.log('计算 double')
+  return state.count * 2
+})
+
+const quadruple = computed(() => {
+  console.log('计算 quadruple')
+  return double.value * 2 // 依赖 double
+})
+
+watchEffect(() => {
+  console.log('quadruple:', quadruple.value)
+})
+
+// 📚 知识点：五级脏标记的作用
+state.count = 1
+// 1. state.count 变化，double 标记为 Dirty
+// 2. double 变化，quadruple 标记为 MaybeDirty_ComputedSideEffect（不是 Dirty）
+// 3. 访问 quadruple.value 时，检查 double 是否真的变了
+// 4. double 确实变了，quadruple 升级为 Dirty，重新计算
+// 5. 如果 double 没变（如条件判断），quadruple 降级为 NotDirty，不重新计算
+```
+
+**五级脏标记的状态转换**：
+
+```typescript
+// ReactiveEffect 中的 dirty getter
+public get dirty() {
+  // 📚 知识点：MaybeDirty_ComputedSideEffect 需要重新执行依赖链检查
+  if (this._dirtyLevel === DirtyLevels.MaybeDirty_ComputedSideEffect) {
+    this._dirtyLevel = DirtyLevels.QueryingDirty
+    pauseTracking()
+    // 遍历依赖的 computed，检查是否真的脏了
+    for (let i = 0; i < this._depsLength; i++) {
+      const dep = this.deps[i]
+      if (dep.computed) {
+        triggerComputed(dep.computed) // 触发 computed 的 getter
+        if (this._dirtyLevel >= DirtyLevels.Dirty) {
+          break // 确认脏了，停止检查
+        }
+      }
+    }
+    // 如果检查后还是 QueryingDirty，说明没脏
+    if (this._dirtyLevel === DirtyLevels.QueryingDirty) {
+      this._dirtyLevel = DirtyLevels.NotDirty
+    }
+    resetTracking()
+    this._queryings = 0
+  }
+  return this._dirtyLevel >= DirtyLevels.Dirty
+}
+```
+
+**医疗场景示例**：
+
+```typescript
+import { reactive, computed, watchEffect } from 'vue'
+
+const vitals = reactive({
+  heartRate: 75,
+  bloodPressure: 120,
+  temperature: 36.5
+})
+
+// 第一层 computed
+const heartRateStatus = computed(() => {
+  console.log('检查心率状态')
+  if (vitals.heartRate > 100) return '过快'
+  if (vitals.heartRate < 60) return '过慢'
+  return '正常'
+})
+
+// 第二层 computed（依赖第一层）
+const needsAttention = computed(() => {
+  console.log('检查是否需要注意')
+  return heartRateStatus.value !== '正常' || vitals.temperature > 37.5
+})
+
+// 第三层 watchEffect（依赖第二层）
+watchEffect(() => {
+  if (needsAttention.value) {
+    console.log('⚠️ 需要医生关注')
+  }
+})
+
+// 📚 知识点：五级脏标记优化
+vitals.bloodPressure = 130 // 血压变化
+// 1. heartRateStatus 没有依赖 bloodPressure，不会标记为脏
+// 2. needsAttention 依赖 heartRateStatus，标记为 MaybeDirty_ComputedSideEffect
+// 3. 访问 needsAttention.value 时，检查 heartRateStatus 是否变化
+// 4. heartRateStatus 没变，needsAttention 降级为 NotDirty
+// 5. ✅ 避免了不必要的重新计算
+```
+
 ### ref 源码
 
 **文件路径**：`packages/reactivity/src/ref.ts`
@@ -3239,28 +3575,271 @@ export function toReactive<T extends unknown>(value: T): T {
 2. `hasChanged` 用 `Object.is` 判断变化
 3. 对象类型的 ref 内部调用 `reactive()`
 
+### ReactiveEffect 类源码（核心）⭐
+
+**文件路径**：`packages/reactivity/src/effect.ts`
+
+```typescript
+export let activeEffect: ReactiveEffect | undefined
+export let shouldTrack = true
+const trackStack: boolean[] = []
+
+// 📚 知识点：pauseTracking/resetTracking 用于暂停依赖收集
+export function pauseTracking() {
+  trackStack.push(shouldTrack)
+  shouldTrack = false
+}
+
+export function resetTracking() {
+  const last = trackStack.pop()
+  shouldTrack = last === undefined ? true : last
+}
+
+// 📚 知识点：ReactiveEffect 是响应式副作用的核心类
+export class ReactiveEffect<T = any> {
+  active = true // 是否激活
+  deps: Dep[] = [] // 存储依赖关系（双向记录）
+  
+  // 📚 知识点：分支切换 cleanup 的关键字段
+  private _trackId = 0 // 用于记录 effect 执行的次数，防止重复收集依赖
+  private _depsLength = 0 // 用于记录 deps 的长度
+  private _running = 0 // 用于记录 effect 是否正在执行（防止递归调用）
+  private _dirtyLevel = DirtyLevels.Dirty // 脏值级别
+  private _queryings = 0 // 查询次数
+  private _shouldSchedule = false // 是否应该调度
+
+  // 📚 知识点：computed 相关
+  public computed?: ComputedRefImpl<T>
+  
+  // 📚 知识点：组件实例相关
+  public onStop?: () => void
+  public onTrack?: (event: DebuggerEvent) => void
+  public onTrigger?: (event: DebuggerEvent) => void
+
+  constructor(
+    public fn: () => T,
+    public scheduler: EffectScheduler | null = null,
+    scope?: EffectScope
+  ) {
+    // 📚 知识点：自动收集到 effectScope
+    recordEffectScope(this, scope)
+  }
+
+  // 📚 知识点：dirty getter/setter
+  public get dirty() {
+    // 📚 知识点：MaybeDirty 状态需要重新执行依赖链检查
+    if (this._dirtyLevel === DirtyLevels.MaybeDirty_ComputedSideEffect) {
+      this._dirtyLevel = DirtyLevels.QueryingDirty
+      pauseTracking()
+      for (let i = 0; i < this._depsLength; i++) {
+        const dep = this.deps[i]
+        if (dep.computed) {
+          // 📚 知识点：触发 computed 的 getter，检查是否真的脏了
+          triggerComputed(dep.computed)
+          if (this._dirtyLevel >= DirtyLevels.Dirty) {
+            break
+          }
+        }
+      }
+      if (this._dirtyLevel === DirtyLevels.QueryingDirty) {
+        this._dirtyLevel = DirtyLevels.NotDirty
+      }
+      resetTracking()
+      this._queryings = 0
+    }
+    return this._dirtyLevel >= DirtyLevels.Dirty
+  }
+
+  public set dirty(v: boolean) {
+    this._dirtyLevel = v ? DirtyLevels.Dirty : DirtyLevels.NotDirty
+  }
+
+  // 📚 知识点：run() 执行 effect，是依赖收集的核心入口
+  run() {
+    // 📚 知识点：每次执行后 effect 变为不脏
+    this._dirtyLevel = DirtyLevels.NotDirty
+    
+    // 如果没有激活，则直接执行 fn（不收集依赖）
+    if (!this.active) {
+      return this.fn()
+    }
+    
+    let lastShouldTrack = shouldTrack
+    let lastEffect = activeEffect
+    try {
+      shouldTrack = true
+      activeEffect = this // 📚 知识点：设置当前激活的 effect
+      this._running++ // 📚 知识点：标记为正在执行（防止递归调用）
+      
+      // 📚 知识点：执行前清理——分支切换的关键
+      preCleanupEffect(this)
+      
+      return this.fn() // 执行函数，触发响应式数据的 get，收集依赖
+    } finally {
+      // 📚 知识点：执行后清理——删除多余的依赖
+      postCleanupEffect(this)
+      
+      this._running--
+      activeEffect = lastEffect
+      shouldTrack = lastShouldTrack
+    }
+  }
+
+  stop() {
+    if (this.active) {
+      preCleanupEffect(this)
+      postCleanupEffect(this)
+      // 执行 onStop 回调
+      if (this.onStop) {
+        this.onStop()
+      }
+      this.active = false
+    }
+  }
+}
+
+// 📚 知识点：preCleanupEffect——执行前清理逻辑
+function preCleanupEffect(effect: ReactiveEffect) {
+  effect._trackId++ // trackId 递增，用于判断是否需要执行 cleanup
+  effect._depsLength = 0 // 重置 deps 的长度
+}
+
+// 📚 知识点：postCleanupEffect——执行后清理逻辑
+function postCleanupEffect(effect: ReactiveEffect) {
+  // 首次：{ flag, name, age }
+  // 更新：{ flag }
+  // 此时需要删除多余的属性 name 和 age
+  if (effect.deps.length > effect._depsLength) {
+    for (let i = effect._depsLength; i < effect.deps.length; i++) {
+      cleanupDepEffect(effect.deps[i], effect)
+    }
+    effect.deps.length = effect._depsLength
+  }
+}
+
+// 📚 知识点：cleanupDepEffect——清理旧的依赖关系
+function cleanupDepEffect(dep: Dep, effect: ReactiveEffect) {
+  const trackId = dep.get(effect)
+  if (trackId !== undefined && effect._trackId !== trackId) {
+    dep.delete(effect)
+    if (dep.size === 0) {
+      dep.cleanup() // 清理空的 dep
+    }
+  }
+}
+
+// 📚 知识点：effect() 工厂函数
+export interface ReactiveEffectOptions extends DebuggerOptions {
+  scheduler?: EffectScheduler
+  allowRecurse?: boolean
+  onStop?: () => void
+}
+
+export interface ReactiveEffectRunner<T = any> {
+  (): T
+  effect: ReactiveEffect
+}
+
+export function effect<T = any>(
+  fn: () => T,
+  options?: ReactiveEffectOptions
+): ReactiveEffectRunner {
+  if ((fn as ReactiveEffectRunner).effect) {
+    fn = (fn as ReactiveEffectRunner).effect.fn
+  }
+
+  const _effect = new ReactiveEffect(fn)
+  if (options) {
+    extend(_effect, options)
+    if (options.scope) recordEffectScope(_effect, options.scope)
+  }
+  if (!options || !options.lazy) {
+    _effect.run()
+  }
+  const runner = _effect.run.bind(_effect) as ReactiveEffectRunner
+  runner.effect = _effect
+  return runner
+}
+```
+
+**核心要点总结**：
+
+1. **activeEffect**：全局变量，指向当前正在执行的 effect
+2. **_trackId**：用于分支切换 cleanup，每次执行递增
+3. **_depsLength**：记录当前依赖的数量，用于删除多余依赖
+4. **_running**：防止递归调用（effect 内部修改自身依赖）
+5. **_dirtyLevel**：五级脏标记，用于 computed 的精细化更新
+6. **preCleanupEffect / postCleanupEffect**：分支切换的核心机制
+7. **run()**：执行 effect 并收集依赖的核心方法
+
 ### 依赖收集与派发源码
 
 **文件路径**：`packages/reactivity/src/effect.ts`
 
 ```typescript
-// 全局 targetMap：三层依赖存储
-const targetMap = new WeakMap<any, DepsMap>()
+// 📚 知识点：全局 targetMap——三层依赖存储结构
+// WeakMap<target, Map<key, Dep>>
+const targetMap = new WeakMap<object, KeyToDepMap>()
 
+export type KeyToDepMap = Map<any, Dep>
+
+// 📚 知识点：track——依赖收集的核心实现
 export function track(target: object, type: TrackOpTypes, key: unknown) {
+  // 📚 知识点：只有在 shouldTrack && activeEffect 时才收集依赖
   if (shouldTrack && activeEffect) {
+    // 第一层：获取对象的依赖映射表
     let depsMap = targetMap.get(target)
     if (!depsMap) {
       targetMap.set(target, (depsMap = new Map()))
     }
+    
+    // 第二层：获取属性的依赖集合
     let dep = depsMap.get(key)
     if (!dep) {
-      depsMap.set(key, (dep = createDep(() => depsMap!.delete(key!))))
+      depsMap.set(key, (dep = createDep(() => depsMap!.delete(key))))
     }
-    trackEffect(activeEffect, dep, ...)
+    
+    // 第三层：将当前 effect 添加到依赖集合
+    const eventInfo = __DEV__
+      ? { effect: activeEffect, target, type, key }
+      : undefined
+    
+    trackEffect(activeEffect, dep, eventInfo)
   }
 }
 
+// 📚 知识点：trackEffect——双向记录 effect ↔ dep
+export function trackEffect(
+  effect: ReactiveEffect,
+  dep: Dep,
+  debuggerEventExtraInfo?: DebuggerEventExtraInfo
+) {
+  // 📚 知识点：如果上一次依赖项的追踪 ID 与当前追踪 ID 不同，则添加依赖项
+  if (dep.get(effect) !== effect._trackId) {
+    // 添加依赖项：dep → effect
+    dep.set(effect, effect._trackId)
+    
+    // 📚 知识点：双向记录，effect.deps 也要记录 dep
+    const oldDep = effect.deps[effect._depsLength]
+    if (oldDep !== dep) {
+      if (oldDep) {
+        cleanupDepEffect(oldDep, effect)
+      }
+      effect.deps[effect._depsLength++] = dep
+    } else {
+      effect._depsLength++
+    }
+    
+    if (__DEV__ && effect.onTrack) {
+      effect.onTrack({
+        effect,
+        ...debuggerEventExtraInfo!
+      })
+    }
+  }
+}
+
+// 📚 知识点：trigger——派发更新的核心实现
 export function trigger(
   target: object,
   type: TriggerOpTypes,
@@ -3271,39 +3850,137 @@ export function trigger(
 ) {
   const depsMap = targetMap.get(target)
   if (!depsMap) {
+    // 没有被追踪过，直接返回
     return
   }
-  
+
+  // 📚 知识点：收集需要触发的 dep
   let deps: (Dep | undefined)[] = []
+  
   if (type === TriggerOpTypes.CLEAR) {
-    // 收集所有依赖
+    // 📚 知识点：CLEAR 操作，收集所有依赖
     deps = [...depsMap.values()]
   } else if (key === 'length' && isArray(target)) {
     // 📚 知识点：数组 length 变化的特殊处理
+    const newLength = Number(newValue)
     depsMap.forEach((dep, key) => {
-      if (key === 'length' || key >= (newValue as number)) {
+      if (key === 'length' || (!isSymbol(key) && key >= newLength)) {
         deps.push(dep)
       }
     })
   } else {
+    // 📚 知识点：普通 SET | ADD | DELETE 操作
     if (key !== void 0) {
       deps.push(depsMap.get(key))
     }
+
+    // 📚 知识点：特殊情况的依赖收集
+    switch (type) {
+      case TriggerOpTypes.ADD:
+        if (!isArray(target)) {
+          deps.push(depsMap.get(ITERATE_KEY))
+          if (isMap(target)) {
+            deps.push(depsMap.get(MAP_KEY_ITERATE_KEY))
+          }
+        } else if (isIntegerKey(key)) {
+          // 数组新增元素，触发 length 依赖
+          deps.push(depsMap.get('length'))
+        }
+        break
+      case TriggerOpTypes.DELETE:
+        if (!isArray(target)) {
+          deps.push(depsMap.get(ITERATE_KEY))
+          if (isMap(target)) {
+            deps.push(depsMap.get(MAP_KEY_ITERATE_KEY))
+          }
+        }
+        break
+      case TriggerOpTypes.SET:
+        if (isMap(target)) {
+          deps.push(depsMap.get(ITERATE_KEY))
+        }
+        break
+    }
   }
-  
-  // 📚 知识点：遍历触发
-  for (const dep of deps) {
-    if (dep) {
-      triggerEffects(dep, ...)
+
+  // 📚 知识点：触发所有收集的依赖
+  const eventInfo = __DEV__
+    ? { target, type, key, newValue, oldValue, oldTarget }
+    : undefined
+
+  if (deps.length === 1) {
+    if (deps[0]) {
+      if (__DEV__) {
+        triggerEffects(deps[0], eventInfo)
+      } else {
+        triggerEffects(deps[0])
+      }
+    }
+  } else {
+    const effects: ReactiveEffect[] = []
+    for (const dep of deps) {
+      if (dep) {
+        effects.push(...dep.keys())
+      }
+    }
+    if (__DEV__) {
+      triggerEffects(createDep(() => {}, effects), eventInfo)
+    } else {
+      triggerEffects(createDep(() => {}, effects))
+    }
+  }
+}
+
+// 📚 知识点：triggerEffects——触发 effect 执行
+export function triggerEffects(
+  dep: Dep | ReactiveEffect[],
+  debuggerEventExtraInfo?: DebuggerEventExtraInfo
+) {
+  const effects = isArray(dep) ? dep : [...dep.keys()]
+
+  // 📚 知识点：computed effects 优先执行
+  for (const effect of effects) {
+    if (effect.computed) {
+      triggerEffect(effect, debuggerEventExtraInfo)
+    }
+  }
+  // 📚 知识点：普通 effects 后执行
+  for (const effect of effects) {
+    if (!effect.computed) {
+      triggerEffect(effect, debuggerEventExtraInfo)
+    }
+  }
+}
+
+// 📚 知识点：triggerEffect——触发单个 effect
+function triggerEffect(
+  effect: ReactiveEffect,
+  debuggerEventExtraInfo?: DebuggerEventExtraInfo
+) {
+  // 📚 知识点：当前的值是不脏的，触发更新需将值变脏
+  if (effect !== activeEffect || effect.allowRecurse) {
+    if (__DEV__ && effect.onTrigger) {
+      effect.onTrigger(extend({ effect }, debuggerEventExtraInfo))
+    }
+    
+    if (effect.scheduler) {
+      // 📚 知识点：如果有 scheduler，走调度器逻辑
+      effect.scheduler()
+    } else {
+      // 📚 知识点：否则直接执行 effect
+      effect.run()
     }
   }
 }
 ```
 
 **核心要点**：
-1. `track` 完整实现三层结构
-2. `trigger` 支持 `CLEAR` / `length` 等特殊类型
-3. 数组 `length` 变化会触发所有下标 >= 新长度的依赖
+1. **targetMap**：WeakMap<target, Map<key, Dep>>，三层依赖存储
+2. **track**：依赖收集，建立 target.key → effect 的映射
+3. **trigger**：派发更新，从 targetMap 找到对应 dep 并触发
+4. **trackEffect / triggerEffect**：双向记录和触发的核心逻辑
+5. **特殊类型处理**：CLEAR / length / ADD / DELETE / SET
+6. **computed effects 优先执行**：保证计算属性先更新
 
 ### computed 源码
 
@@ -3356,48 +4033,119 @@ export class ComputedRefImpl<T> {
 2. computed 的 effect 默认不激活(`active = false`),惰性执行
 3. 依赖变化时只标记 dirty,不立即计算
 
-### Collection 类型代理源码
+### Collection 类型代理源码（Map/Set/WeakMap/WeakSet）
 
 **文件路径**：`packages/reactivity/src/collectionHandlers.ts`
 
+> Collection 类型无法使用 Proxy 的 get/set 拦截器，因为 Map/Set 的操作是方法调用（如 `map.get(key)`），需要单独的 handler 实现。
+
 ```typescript
-function get(target: MapTypes, key: unknown, isReadonly = false, isShallow = false) {
-  // 📚 知识点：get 方法手动 track
+// 📚 知识点：Collection 类型的特殊标记 key
+const ITERATE_KEY = Symbol(__DEV__ ? 'iterate' : '')
+const MAP_KEY_ITERATE_KEY = Symbol(__DEV__ ? 'Map key iterate' : '')
+
+// 📚 知识点：获取原型方法的辅助函数
+function getProto<T extends CollectionTypes>(v: T): any {
+  return Reflect.getPrototypeOf(v)
+}
+
+// 📚 知识点：get 方法拦截器
+function get(
+  target: MapTypes,
+  key: unknown,
+  isReadonly = false,
+  isShallow = false
+) {
+  // 拦截响应式标记的访问
   if (key === ReactiveFlags.IS_REACTIVE) {
     return !isReadonly
+  } else if (key === ReactiveFlags.IS_READONLY) {
+    return isReadonly
+  } else if (key === ReactiveFlags.RAW) {
+    return target
   }
+
   target = target as any
   const rawTarget = toRaw(target)
   const rawKey = toRaw(key)
-  if (key !== rawKey) {
-    !isReadonly && track(rawTarget, TrackOpTypes.GET, key)
-  }
-  !isReadonly && track(rawTarget, TrackOpTypes.GET, rawKey)
   
+  // 📚 知识点：key 和 rawKey 都要 track（对象作为 key 的情况）
+  if (!isReadonly) {
+    if (key !== rawKey) {
+      track(rawTarget, TrackOpTypes.GET, key)
+    }
+    track(rawTarget, TrackOpTypes.GET, rawKey)
+  }
+
   const { has } = getProto(rawTarget)
   const wrap = isShallow ? toShallow : isReadonly ? toReadonly : toReactive
+  
+  // 📚 知识点：返回值也要响应式包装
   if (has.call(rawTarget, key)) {
     return wrap(target.get(key))
   } else if (has.call(rawTarget, rawKey)) {
     return wrap(target.get(rawKey))
+  } else if (target !== rawTarget) {
+    // 处理原型链上的值
+    target.get(key)
   }
 }
 
+// 📚 知识点：has 方法拦截器
+function has(this: CollectionTypes, key: unknown, isReadonly = false): boolean {
+  const target = (this as any)[ReactiveFlags.RAW]
+  const rawTarget = toRaw(target)
+  const rawKey = toRaw(key)
+  
+  if (!isReadonly) {
+    if (key !== rawKey) {
+      track(rawTarget, TrackOpTypes.HAS, key)
+    }
+    track(rawTarget, TrackOpTypes.HAS, rawKey)
+  }
+  return key === rawKey
+    ? target.has(key)
+    : target.has(key) || target.has(rawKey)
+}
+
+// 📚 知识点：size 属性拦截器
+function size(target: IterableCollections, isReadonly = false) {
+  target = (target as any)[ReactiveFlags.RAW]
+  !isReadonly && track(toRaw(target), TrackOpTypes.ITERATE, ITERATE_KEY)
+  return Reflect.get(target, 'size', target)
+}
+
+// 📚 知识点：add 方法拦截器（Set）
+function add(this: SetTypes, value: unknown) {
+  value = toRaw(value)
+  const target = toRaw(this)
+  const proto = getProto(target)
+  const hadKey = proto.has.call(target, value)
+  
+  if (!hadKey) {
+    target.add(value)
+    // 📚 知识点：新增元素触发 ADD 类型
+    trigger(target, TriggerOpTypes.ADD, value, value)
+  }
+  return this
+}
+
+// 📚 知识点：set 方法拦截器（Map）
 function set(this: MapTypes, key: unknown, value: unknown) {
-  const value = toRaw(value)
+  value = toRaw(value)
   const target = toRaw(this)
   const { has, get } = getProto(target)
-  
+
   let hadKey = has.call(target, key)
   if (!hadKey) {
     key = toRaw(key)
     hadKey = has.call(target, key)
   }
-  
+
   const oldValue = get.call(target, key)
   target.set(key, value)
   
-  // 📚 知识点：区分 ADD 和 SET,手动 trigger
+  // 📚 知识点：区分 ADD 和 SET，ADD 会触发 ITERATE_KEY
   if (!hadKey) {
     trigger(target, TriggerOpTypes.ADD, key, value)
   } else if (hasChanged(value, oldValue)) {
@@ -3406,7 +4154,8 @@ function set(this: MapTypes, key: unknown, value: unknown) {
   return this
 }
 
-function deleteEntry(this: MapTypes, key: unknown) {
+// 📚 知识点：delete 方法拦截器
+function deleteEntry(this: CollectionTypes, key: unknown) {
   const target = toRaw(this)
   const { has, get } = getProto(target)
   let hadKey = has.call(target, key)
@@ -3414,18 +4163,282 @@ function deleteEntry(this: MapTypes, key: unknown) {
     key = toRaw(key)
     hadKey = has.call(target, key)
   }
-  get ? get.call(target, key) : undefined
+
+  const oldValue = get ? get.call(target, key) : undefined
   const result = target.delete(key)
+  
+  // 📚 知识点：只有真正删除成功才 trigger
   if (hadKey) {
-    trigger(target, TriggerOpTypes.DELETE, key)
+    trigger(target, TriggerOpTypes.DELETE, key, undefined, oldValue)
   }
   return result
+}
+
+// 📚 知识点：clear 方法拦截器
+function clear(this: IterableCollections) {
+  const target = toRaw(this)
+  const hadItems = target.size !== 0
+  const oldTarget = __DEV__
+    ? isMap(target)
+      ? new Map(target)
+      : new Set(target)
+    : undefined
+  
+  const result = target.clear()
+  
+  // 📚 知识点：清空触发 CLEAR 类型
+  if (hadItems) {
+    trigger(target, TriggerOpTypes.CLEAR, undefined, undefined, oldTarget)
+  }
+  return result
+}
+
+// 📚 知识点：createForEach——forEach 方法拦截器
+function createForEach(isReadonly: boolean, isShallow: boolean) {
+  return function forEach(
+    this: IterableCollections,
+    callback: Function,
+    thisArg?: unknown
+  ) {
+    const observed = this as any
+    const target = observed[ReactiveFlags.RAW]
+    const rawTarget = toRaw(target)
+    const wrap = isShallow ? toShallow : isReadonly ? toReadonly : toReactive
+    
+    // 📚 知识点：forEach 会触发 ITERATE_KEY 依赖收集
+    !isReadonly && track(rawTarget, TrackOpTypes.ITERATE, ITERATE_KEY)
+    
+    return target.forEach((value: unknown, key: unknown) => {
+      // 📚 知识点：回调参数需要响应式包装
+      return callback.call(thisArg, wrap(value), wrap(key), observed)
+    })
+  }
+}
+
+// 📚 知识点：createIterableMethod——迭代器方法拦截器
+function createIterableMethod(
+  method: string | symbol,
+  isReadonly: boolean,
+  isShallow: boolean
+) {
+  return function (
+    this: IterableCollections,
+    ...args: unknown[]
+  ): Iterable & Iterator {
+    const target = (this as any)[ReactiveFlags.RAW]
+    const rawTarget = toRaw(target)
+    const targetIsMap = isMap(rawTarget)
+    const isPair =
+      method === 'entries' || (method === Symbol.iterator && targetIsMap)
+    const isKeyOnly = method === 'keys' && targetIsMap
+    const innerIterator = target[method](...args)
+    const wrap = isShallow ? toShallow : isReadonly ? toReadonly : toReactive
+    
+    // 📚 知识点：keys() 只追踪 MAP_KEY_ITERATE_KEY
+    !isReadonly &&
+      track(
+        rawTarget,
+        TrackOpTypes.ITERATE,
+        isKeyOnly ? MAP_KEY_ITERATE_KEY : ITERATE_KEY
+      )
+
+    // 📚 知识点：返回一个包装的迭代器
+    return {
+      next() {
+        const { value, done } = innerIterator.next()
+        return done
+          ? { value, done }
+          : {
+              value: isPair ? [wrap(value[0]), wrap(value[1])] : wrap(value),
+              done
+            }
+      },
+      [Symbol.iterator]() {
+        return this
+      }
+    }
+  }
+}
+
+// 📚 知识点：createReadonlyMethod——只读方法拦截器
+function createReadonlyMethod(type: TriggerOpTypes): Function {
+  return function (this: CollectionTypes, ...args: unknown[]) {
+    if (__DEV__) {
+      const key = args[0] ? `on key "${args[0]}" ` : ``
+      console.warn(
+        `${capitalize(type)} operation ${key}failed: target is readonly.`,
+        toRaw(this)
+      )
+    }
+    return type === TriggerOpTypes.DELETE ? false : this
+  }
+}
+
+// 📚 知识点：创建拦截器对象
+function createInstrumentations() {
+  const mutableInstrumentations: Record<string, Function> = {
+    get(this: MapTypes, key: unknown) {
+      return get(this, key)
+    },
+    get size() {
+      return size(this as unknown as IterableCollections)
+    },
+    has,
+    add,
+    set,
+    delete: deleteEntry,
+    clear,
+    forEach: createForEach(false, false)
+  }
+
+  const shallowInstrumentations: Record<string, Function> = {
+    get(this: MapTypes, key: unknown) {
+      return get(this, key, false, true)
+    },
+    get size() {
+      return size(this as unknown as IterableCollections)
+    },
+    has,
+    add,
+    set,
+    delete: deleteEntry,
+    clear,
+    forEach: createForEach(false, true)
+  }
+
+  const readonlyInstrumentations: Record<string, Function> = {
+    get(this: MapTypes, key: unknown) {
+      return get(this, key, true)
+    },
+    get size() {
+      return size(this as unknown as IterableCollections, true)
+    },
+    has(this: MapTypes, key: unknown) {
+      return has.call(this, key, true)
+    },
+    add: createReadonlyMethod(TriggerOpTypes.ADD),
+    set: createReadonlyMethod(TriggerOpTypes.SET),
+    delete: createReadonlyMethod(TriggerOpTypes.DELETE),
+    clear: createReadonlyMethod(TriggerOpTypes.CLEAR),
+    forEach: createForEach(true, false)
+  }
+
+  const shallowReadonlyInstrumentations: Record<string, Function> = {
+    get(this: MapTypes, key: unknown) {
+      return get(this, key, true, true)
+    },
+    get size() {
+      return size(this as unknown as IterableCollections, true)
+    },
+    has(this: MapTypes, key: unknown) {
+      return has.call(this, key, true)
+    },
+    add: createReadonlyMethod(TriggerOpTypes.ADD),
+    set: createReadonlyMethod(TriggerOpTypes.SET),
+    delete: createReadonlyMethod(TriggerOpTypes.DELETE),
+    clear: createReadonlyMethod(TriggerOpTypes.CLEAR),
+    forEach: createForEach(true, true)
+  }
+
+  // 📚 知识点：为每个 instrumentation 添加迭代器方法
+  const iteratorMethods = ['keys', 'values', 'entries', Symbol.iterator]
+  iteratorMethods.forEach(method => {
+    mutableInstrumentations[method as string] = createIterableMethod(
+      method,
+      false,
+      false
+    )
+    readonlyInstrumentations[method as string] = createIterableMethod(
+      method,
+      true,
+      false
+    )
+    shallowInstrumentations[method as string] = createIterableMethod(
+      method,
+      false,
+      true
+    )
+    shallowReadonlyInstrumentations[method as string] = createIterableMethod(
+      method,
+      true,
+      true
+    )
+  })
+
+  return [
+    mutableInstrumentations,
+    readonlyInstrumentations,
+    shallowInstrumentations,
+    shallowReadonlyInstrumentations
+  ]
+}
+
+const [
+  mutableInstrumentations,
+  readonlyInstrumentations,
+  shallowInstrumentations,
+  shallowReadonlyInstrumentations
+] = createInstrumentations()
+
+// 📚 知识点：collectionHandlers 的 get 拦截器
+function createInstrumentationGetter(isReadonly: boolean, shallow: boolean) {
+  const instrumentations = shallow
+    ? isReadonly
+      ? shallowReadonlyInstrumentations
+      : shallowInstrumentations
+    : isReadonly
+    ? readonlyInstrumentations
+    : mutableInstrumentations
+
+  return (
+    target: CollectionTypes,
+    key: string | symbol,
+    receiver: CollectionTypes
+  ) => {
+    if (key === ReactiveFlags.IS_REACTIVE) {
+      return !isReadonly
+    } else if (key === ReactiveFlags.IS_READONLY) {
+      return isReadonly
+    } else if (key === ReactiveFlags.RAW) {
+      return target
+    }
+
+    // 📚 知识点：返回拦截后的方法
+    return Reflect.get(
+      hasOwn(instrumentations, key) && key in target
+        ? instrumentations
+        : target,
+      key,
+      receiver
+    )
+  }
+}
+
+// 📚 知识点：导出四种 Collection Handlers
+export const mutableCollectionHandlers: ProxyHandler<CollectionTypes> = {
+  get: createInstrumentationGetter(false, false)
+}
+
+export const shallowCollectionHandlers: ProxyHandler<CollectionTypes> = {
+  get: createInstrumentationGetter(false, true)
+}
+
+export const readonlyCollectionHandlers: ProxyHandler<CollectionTypes> = {
+  get: createInstrumentationGetter(true, false)
+}
+
+export const shallowReadonlyCollectionHandlers: ProxyHandler<CollectionTypes> = {
+  get: createInstrumentationGetter(true, true)
 }
 ```
 
 **核心要点**：
-1. `get` 方法内手动 `track`,支持对象 key
-2. `set` 方法区分 `ADD` / `SET` 两种触发类型
+1. **get 方法手动 track**：支持对象作为 key（key 和 rawKey 都要 track）
+2. **set 方法区分 ADD/SET**：ADD 会触发 ITERATE_KEY，影响 for...of 循环
+3. **MAP_KEY_ITERATE_KEY**：Map.keys() 只追踪 key 的变化，不追踪 value
+4. **forEach 回调参数包装**：传给用户的 value/key 需要响应式包装
+5. **迭代器方法包装**：keys/values/entries/Symbol.iterator 返回包装的迭代器
+6. **四种 Handler**：mutable / shallow / readonly / shallowReadonly
 3. 返回的嵌套对象通过 `wrap` 转成响应式
 
 ### effectScope 源码
@@ -3494,6 +4507,314 @@ export function onScopeDispose(fn: () => void) {
 1. `run()` 中设置 `activeEffectScope`,effect 自动收集
 2. `stop()` 批量停止,替代手动逐个调用 unwatch
 3. `onScopeDispose` 注册清理函数,组件卸载时执行
+
+### watch 和 watchEffect 源码解析 ⭐
+
+> **对比 Vue2**：Vue2 的 `$watch` API 只能监听单个数据源,内部通过 Watcher 类实现。Vue3 的 `watch`/`watchEffect` 统一走 `doWatch` 函数,底层复用 ReactiveEffect,支持多数据源、deep、immediate 等选项,cleanup 机制更完善。
+
+**文件路径**：`packages/runtime-core/src/apiWatch.ts`
+
+#### doWatch 统一实现
+
+`watch` 和 `watchEffect` 底层都是 `doWatch`,只是参数不同：
+
+```typescript
+export type WatchEffect = (onCleanup: OnCleanup) => void
+export type WatchCallback<V = any, OV = any> = (value: V, oldValue: OV, onCleanup: OnCleanup) => any
+export type WatchSource<T = any> = Ref<T> | ComputedRef<T> | (() => T)
+
+// 📚 知识点：doWatch 是 watch/watchEffect 的统一底层实现
+function doWatch(
+  source: WatchSource | WatchSource[] | WatchEffect | object,
+  cb: WatchCallback | null, // watchEffect 传 null
+  { immediate, deep, flush, onTrack, onTrigger }: WatchOptions = {}
+): WatchStopHandle {
+  // 1. 构造 getter 函数
+  let getter: () => any
+  let forceTrigger = false
+  let isMultiSource = false
+
+  // 📚 知识点：根据 source 类型构造不同的 getter
+  if (isRef(source)) {
+    // ref 类型
+    getter = () => source.value
+    forceTrigger = isShallow(source)
+  } else if (isReactive(source)) {
+    // reactive 类型，默认 deep watch
+    getter = () => source
+    deep = true
+  } else if (isArray(source)) {
+    // 多数据源
+    isMultiSource = true
+    forceTrigger = source.some(s => isReactive(s) || isShallow(s))
+    getter = () =>
+      source.map(s => {
+        if (isRef(s)) {
+          return s.value
+        } else if (isReactive(s)) {
+          return traverse(s)
+        } else if (isFunction(s)) {
+          return s()
+        }
+      })
+  } else if (isFunction(source)) {
+    if (cb) {
+      // watch(fn, cb)
+      getter = () => source()
+    } else {
+      // watchEffect(fn)
+      getter = () => {
+        if (cleanup) {
+          cleanup() // 执行上一次的清理函数
+        }
+        return source(onCleanup)
+      }
+    }
+  } else {
+    getter = NOOP
+  }
+
+  // 2. deep watch 通过 traverse 递归遍历
+  if (cb && deep) {
+    const baseGetter = getter
+    getter = () => traverse(baseGetter())
+  }
+
+  // 3. cleanup 清理机制
+  let cleanup: (() => void) | undefined
+  let onCleanup: OnCleanup = (fn: () => void) => {
+    cleanup = effect.onStop = () => {
+      fn()
+      cleanup = effect.onStop = undefined
+    }
+  }
+
+  // 4. 旧值存储（用于 watch 的新旧值对比）
+  let oldValue: any = isMultiSource
+    ? new Array((source as []).length).fill(INITIAL_WATCHER_VALUE)
+    : INITIAL_WATCHER_VALUE
+
+  // 5. job 调度函数
+  const job: SchedulerJob = () => {
+    if (!effect.active) {
+      return
+    }
+    if (cb) {
+      // watch(source, cb)
+      const newValue = effect.run()
+      if (
+        deep ||
+        forceTrigger ||
+        (isMultiSource
+          ? (newValue as any[]).some((v, i) => hasChanged(v, oldValue[i]))
+          : hasChanged(newValue, oldValue))
+      ) {
+        // 📚 知识点：执行回调前先调用 cleanup
+        if (cleanup) {
+          cleanup()
+        }
+        cb(
+          newValue,
+          // 首次执行时 oldValue 是 undefined
+          oldValue === INITIAL_WATCHER_VALUE
+            ? undefined
+            : isMultiSource && oldValue[0] === INITIAL_WATCHER_VALUE
+            ? []
+            : oldValue,
+          onCleanup
+        )
+        oldValue = newValue
+      }
+    } else {
+      // watchEffect
+      effect.run()
+    }
+  }
+
+  // 6. flush 选项控制执行时机
+  let scheduler: EffectScheduler
+  if (flush === 'sync') {
+    scheduler = job as any // 同步执行
+  } else if (flush === 'post') {
+    scheduler = () => queuePostRenderEffect(job, instance && instance.suspense) // 组件更新后执行
+  } else {
+    // default: 'pre'
+    job.pre = true
+    if (instance) job.id = instance.uid
+    scheduler = () => queueJob(job) // 组件更新前执行
+  }
+
+  // 7. 创建 effect
+  const effect = new ReactiveEffect(getter, scheduler)
+
+  // 8. 初始执行逻辑
+  if (cb) {
+    if (immediate) {
+      job() // 立即执行一次
+    } else {
+      oldValue = effect.run() // 先收集依赖
+    }
+  } else if (flush === 'post') {
+    queuePostRenderEffect(effect.run.bind(effect), instance && instance.suspense)
+  } else {
+    effect.run() // watchEffect 立即执行
+  }
+
+  // 9. 返回停止函数
+  const unwatch: WatchStopHandle = () => {
+    effect.stop()
+    if (instance && instance.scope) {
+      remove(instance.scope.effects!, effect)
+    }
+  }
+
+  return unwatch
+}
+```
+
+#### watch 实现
+
+```typescript
+export function watch<T = any, Immediate extends Readonly<boolean> = false>(
+  source: T | WatchSource<T>,
+  cb: any,
+  options?: WatchOptions<Immediate>
+): WatchStopHandle {
+  return doWatch(source as any, cb, options)
+}
+```
+
+#### watchEffect 实现
+
+```typescript
+export function watchEffect(
+  effect: WatchEffect,
+  options?: WatchOptionsBase
+): WatchStopHandle {
+  return doWatch(effect, null, options)
+}
+```
+
+#### traverse 深度遍历
+
+```typescript
+// 📚 知识点：traverse 递归遍历对象，触发所有属性的 get，收集依赖
+export function traverse(value: unknown, depth: number = Infinity, seen?: Set<unknown>) {
+  if (depth <= 0 || !isObject(value) || (value as any)[ReactiveFlags.SKIP]) {
+    return value
+  }
+
+  seen = seen || new Set()
+  if (seen.has(value)) {
+    return value // 防止循环引用
+  }
+  seen.add(value)
+  depth--
+
+  if (isRef(value)) {
+    traverse(value.value, depth, seen)
+  } else if (isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      traverse(value[i], depth, seen)
+    }
+  } else if (isSet(value) || isMap(value)) {
+    value.forEach((v: any) => {
+      traverse(v, depth, seen)
+    })
+  } else if (isPlainObject(value)) {
+    for (const key in value) {
+      traverse(value[key], depth, seen)
+    }
+  }
+  return value
+}
+```
+
+**核心要点总结**：
+
+| 特性 | watch | watchEffect |
+|------|-------|-------------|
+| **回调参数** | `cb` 传入回调函数 | `cb` 为 null |
+| **依赖收集** | 显式声明 `source` | 自动收集依赖（执行时访问的响应式数据） |
+| **执行时机** | 默认惰性（首次不执行，除非 `immediate: true`） | 立即执行 |
+| **新旧值** | 可以访问 `newValue` 和 `oldValue` | 不能访问旧值 |
+| **deep 选项** | 支持 `deep` 递归遍历 | 不需要（自动依赖收集） |
+| **cleanup** | 通过 `onCleanup` 参数 | 通过 `onCleanup` 参数 |
+| **应用场景** | 需要明确依赖源、需要新旧值对比 | 依赖源不确定、只关心副作用 |
+
+**watch vs watchEffect 的依赖收集时机差异**：
+
+```typescript
+const state = reactive({ count: 0, flag: true })
+
+// watch：显式声明依赖，只有 count 变化才触发
+watch(() => state.count, (newVal, oldVal) => {
+  console.log(`count: ${oldVal} → ${newVal}`)
+})
+
+// watchEffect：自动收集依赖，count 或 flag 变化都会触发
+watchEffect(() => {
+  if (state.flag) {
+    console.log('count:', state.count)
+  }
+})
+```
+
+**医疗场景示例**：
+
+```typescript
+import { reactive, watch, watchEffect } from 'vue'
+
+const patient = reactive({
+  heartRate: 75,
+  bloodPressure: 120,
+  temperature: 36.5,
+  alarmEnabled: true
+})
+
+// watch：监听心率，需要新旧值对比
+watch(() => patient.heartRate, (newRate, oldRate) => {
+  console.log(`⚠️ 心率变化：${oldRate} → ${newRate}`)
+  if (newRate > 100 || newRate < 60) {
+    console.log('🚨 心率异常，触发告警')
+  }
+})
+
+// watchEffect：自动收集依赖，依赖 alarmEnabled 和 heartRate
+watchEffect((onCleanup) => {
+  if (patient.alarmEnabled) {
+    console.log('监控中...当前心率:', patient.heartRate)
+    
+    // cleanup：清理定时器
+    const timer = setInterval(() => {
+      console.log('实时监控:', patient.heartRate)
+    }, 5000)
+    
+    onCleanup(() => {
+      clearInterval(timer)
+      console.log('停止监控')
+    })
+  }
+})
+
+// deep watch：监听整个患者对象
+watch(patient, (newVal) => {
+  console.log('患者信息变化:', newVal)
+}, { deep: true })
+```
+
+**flush 选项的执行时机**：
+
+```typescript
+// flush: 'pre' (默认) — 组件更新前执行
+watch(source, callback, { flush: 'pre' })
+
+// flush: 'post' — 组件更新后执行，可以访问更新后的 DOM
+watch(source, callback, { flush: 'post' })
+
+// flush: 'sync' — 同步执行，性能开销大，慎用
+watch(source, callback, { flush: 'sync' })
+```
 
 ### 💬 面试官视角
 
@@ -5368,10 +6689,7 @@ pnpm dev
 
 ## 系列导航
 
-> 🔖 这是「Vue 3 全家桶深度拆解系列」第 2 篇。
-> 
-> - 上一篇：《Vue 3 设计思想与整体架构：Monorepo + Tree-shaking + Composition API 三大革新》
-> - 下一篇预告：《Vue 3 渲染原理与 Diff 算法：首次渲染/更新/卸载 + Block Tree + Patch Flags》
+> 🔖 这是「Vue 3 全家桶深度拆解系列」第 2 篇。上一篇：《Vue 3 设计思想与整体架构：Monorepo + Tree-shaking + Composition API 三大革新》。下一篇预告：《Vue 3 渲染原理与 Diff 算法：首次渲染/更新/卸载 + Block Tree + Patch Flags》
 
 ---
 
