@@ -30,7 +30,7 @@
 | 07 | Vue 3 编译优化与模板编译原理：parse → transform → generate 三步拆解 | 编译器 | ⬜ 待写 |
 | 08 | Pinia 原理与手写实现：为什么 Vuex 退场，Pinia 才是 Vue 3 的正确答案 | 状态管理 | ⬜ 待写 |
 | 09 | Vue Router 4 原理与实战：组合式 API 路由 + 导航守卫 + 权限动态路由 | 前端路由 | ⬜ 待写 |
-| 10 | Vue 3 性能优化全攻略：编译时优化 + 运行时优化的最优组合 | 性能 | ⬜ 待写 |
+| 10 | Vue 3 性能优化全攻略：编译时优化 + 运行时优化的最优组合 | 性能 | ✅ 已发布 |
 | 11 | Turborepo + pnpm workspace：Vue 3 前端 AI 组件库从零搭建 | 组件库工程化 | ⬜ 待写 |
 | 12 | Vite + Vue 3 通用后台管理系统从零搭建：目录结构设计 + 生产级脚手架 | 工程化 | ⬜ 待写 |
 
@@ -595,7 +595,7 @@
 （链接占位，写作时填入）
 
 #### 七、参考
-- https://cn.vuejs.org/guide/best-practices/performance.html
+- https://cn.vuejs.org/guide/best-practices/performance
 
 **面试核心问**：
 - `v-memo` 的使用场景和实现原理？和 React.memo 有什么类比关系？
