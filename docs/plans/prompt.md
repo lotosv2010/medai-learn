@@ -1,77 +1,66 @@
 # prompt
 
 ```text
-/publish 下面我们规划Vue3全家桶的第7篇文章，具体如下：
+/publish 下面我们规划Vue3全家桶的第8篇文章，具体如下：
 {{
 ## 知识点范围
 
 ### 标题（控制在 64个字以内，以（面试收藏级）结尾）
 
-- Vue 3 编译优化与模板编译原理
+- Pinia 原理与手写实现
 
-**副标题**：parse → transform → generate，模板到 render 函数的三步拆解
+**副标题**：Vuex 为什么退场？Pinia 才是 Vue 3 的正确答案
 
 #### 一、基本使用
-- `<template>` vs 手写 `render` 函数：`h()` 与 JSX 的选择
-- `v-if` / `v-for` 在 render 函数中的等价写法
-- 编译时宏：`<script setup>` 中 `defineProps / defineEmits` 为什么不需要 import
-- Vue 3 单文件组件编译产物的直观查看方式（Vue SFC Playground）
+- 三个核心概念：`state / getters / actions`（没有 Mutation！）
+- `defineStore` 两种写法：Options Store vs Setup Store
+- Store 的使用：`useXxxStore()` 在组件 `setup` 中调用
+- Store 间互相调用：直接 import 另一个 store 使用
 
 #### 二、原理
-- 编译入口：`compile()` 整合 parse → transform → generate 三个阶段，与 Vue 2 三阶段思路一致但引入了优化标记
-- 第一步 parse：状态机扫描模板字符串 → 构建 AST（相比 Vue 2 正则扫描，Vue 3 用有限状态机解析更严谨）
-- 第二步 transform：
-  - AST 遍历转换：`transformElement / transformText / vFor / vIf` 等一系列 transform 插件
-  - 静态提升标记（`hoistStatic`）：标记纯静态节点，提升到 render 函数外
-  - Patch Flags 标记：在 transform 阶段分析每个节点的动态绑定类型，生成对应的位标记
-  - Block 收集：`vFor` / 组件等节点作为 Block 边界，收集内部动态子节点到 `dynamicChildren`
-  - 缓存事件处理函数（`cacheHandlers`）：内联事件处理器包裹为 `_cache[n] || (_cache[n] = ...)`
-  - 本节讲的是这些优化标记在编译阶段如何**生成**；运行时如何消费这些标记做定向 Diff，见第 03 篇「渲染原理与 Diff 算法」
-- 第三步 generate：AST → render 函数代码字符串
-  - `_createElementVNode / _createTextVNode / _toDisplayString / _renderList` 等辅助函数的含义
-  - `v-if` 编译为三元表达式，`v-for` 编译为 `_renderList(list, fn)`
-  - `<script setup>` 编译产物：顶层变量自动暴露给模板作用域，`defineProps/defineEmits/defineModel` 编译为 `__props` 运行时选项，宏本身在编译阶段被擦除（`defineModel` 展开为一个 prop 声明 + 一个读写 ref，详见第 05 篇）
-- 编译器插件架构：`@vue/compiler-core` 提供平台无关的核心逻辑，`@vue/compiler-dom` 扩展 DOM 特定的 transform（如 v-html、v-model 指令转换）
-- `defineProps` 类型编译原理：`<script setup lang="ts">` 中 `defineProps<Props>()` 的纯类型声明，编译器在 `compileScript` 阶段静态分析类型字面量（接口/type alias），生成等价的运行时 `props` 选项对象（`{ type, required }`），使得类型声明和运行时校验合二为一
-- 泛型组件（Vue 3.3+）编译原理：`<script setup lang="ts" generic="T">` 会被编译为一个带类型参数的函数组件，`resolveType` 阶段解析泛型声明并保留到生成的 `.d.ts` 类型文件中，供使用处通过 TSX 或类型标注传入具体类型
+- Vuex 在 Vue 3 时代的问题：TypeScript 支持差、样板代码多（mutation 冗余）、模块 namespaced 设计繁琐
+- Pinia 的核心设计：Store 本质是一个特殊的 Composable，底层用 `reactive()` 包装 state，`computed()` 实现 getters
+- `defineStore` 实现：返回一个 `useStore` 函数，内部维护单例（基于当前激活的 pinia 实例做缓存，`store._s` Map）
+- Setup Store 写法：函数体直接调用 `ref/reactive/computed`，返回值即 store 的公开接口——本质与普通 Composable 完全一致
+- Actions 天然支持异步：不像 Vuex 需要区分 mutation（同步）和 action（异步），因为 Pinia 没有依赖同步快照做时间旅行的强约束
+- Store 间互相调用：无需 rootGetters/rootState，直接 `import` 另一个 Store 的 `useXxxStore()` 调用即可，因为都是单例
+- 插件系统：`pinia.use(plugin)`，插件函数接收 `{ store, options }`，可以给每个 store 扩展属性或方法；持久化插件原理——订阅 `store.$subscribe` 在 state 变化时写入 storage，初始化时从 storage 读取覆盖 state
+- Devtools 集成：基于 `$subscribe` 和 `$onAction` 订阅机制记录状态变更，实现时间旅行调试
+- Store 的完整类型推断原理：`defineStore` 是一个泛型函数，接收的 `state / getters / actions` 选项对象的字面量类型被 TypeScript 结构化推导，返回类型自动拼装为 `State & Getters & Actions` 的联合接口，因此 `useXxxStore()` 调用处无需手写任何类型声明即可获得完整的属性/方法类型提示
 
 #### 三、源码解析（重点代码，来源 GitHub 仓库）
-1. 编译入口：`packages/compiler-core/src/compile.ts`
-2. parse 阶段：`packages/compiler-core/src/parse.ts`（状态机扫描 → AST）
-3. transform 阶段：`packages/compiler-core/src/transform.ts`（`hoistStatic` / Patch Flags 标记 / Block 收集）
-4. generate 阶段：`packages/compiler-core/src/codegen.ts`（AST → render 字符串）
-5. `<script setup>` 编译：`packages/compiler-sfc/src/compileScript.ts`
-6. `defineProps` 类型编译：`packages/compiler-sfc/src/script/defineProps.ts`（类型字面量 → 运行时 props 选项）
-7. 泛型组件编译：`packages/compiler-sfc/src/script/resolveType.ts`
+1. `defineStore`：`packages/pinia/src/store.ts`（返回 `useStore`，单例缓存于 `pinia._s`）
+2. state 响应式化：`packages/pinia/src/store.ts`（`reactive()` 包装 state）
+3. getters computed 化：`packages/pinia/src/store.ts`（遍历 getters 生成 `computed`）
+4. Setup Store 处理：`packages/pinia/src/store.ts`（`createSetupStore`，直接执行 setup 函数收集返回值）
+5. 插件机制：`packages/pinia/src/store.ts`（`pinia.use` + `_p` 插件数组遍历执行）
 
 #### 四、生产级最佳实践
-- 构建时编译（`vue-loader` / `@vitejs/plugin-vue`）vs 运行时编译体积差：生产环境只用 runtime 版本
-- template vs render 的选择：template 可读性好且享受编译时优化，render 灵活性高（动态组件、条件渲染多分支场景）
-- 善用 `<script setup>` 减少样板代码，同时理解其编译产物避免踩坑（如顶层 await 的组件会自动变为异步组件）
-- 自定义指令的编译与运行时实现：五个钩子 `created/beforeMount/mounted/beforeUpdate/updated/beforeUnmount/unmounted`
-- v-for + v-if 同节点反模式：Vue 3 中 `v-if` 优先级高于 `v-for`（与 Vue 2 相反），需重新审视旧代码迁移
+- Options Store vs Setup Store 的选型：简单 CRUD 用 Options Store（结构清晰），复杂逻辑复用用 Setup Store（可调用其他 Composable）
+- `pinia-plugin-persistedstate` 持久化插件的使用与自定义存储策略
+- 大型项目模块化拆分规范：按业务域拆 Store（医疗：`useUserStore` / `useDrugStore` / `usePrescriptionStore`）
+- Store 的测试：`createTestingPinia` 隔离测试 action 调用
+- 与 Vuex 的对比表：Mutation 消失、模块化更简单、TypeScript 类型全自动推断
 
 #### 五、手写实现（可独立跑通）
-医疗场景：Vite + TypeScript 搭建环境，~200 行手写 parse + transform（静态提升 + Patch Flags）+ generate；药品说明书动态模板编译产物可视化对比（有无优化标记）
+医疗场景：Vite + TypeScript 搭建环境，手写极简 Pinia（`defineStore` + `reactive` + `computed` + 插件系统，~100 行）；`useDrugStore` 库存管理 + 持久化插件完整代码
 
 
 #### 六、手写实现源码 GitHub 地址
-- https://github.com/lotosv2010/g-vue-next
+- https://github.com/lotosv2010/g-pinia
 
 
 #### 七、参考
-- https://cn.vuejs.org/guide/extras/rendering-mechanism.html
-- https://cn.vuejs.org/api/sfc-script-setup.html
-- https://cn.vuejs.org/guide/typescript/overview.html
-- https://jonny-wei.github.io/blog/vue/vue3/components.html
+- https://pinia.vuejs.org/zh/
+- https://jonny-wei.github.io/blog/vue/vue3/pinia.html
 - https://github.com/wbccb/
 
 **面试核心问**：
-- 模板编译的三个阶段分别做了什么？和 Vue 2 相比核心区别是什么？
-- 静态提升是在编译的哪个阶段完成的？如何影响运行时性能？
-- `<script setup>` 的编译产物是什么样的？宏为什么不需要 import？
-- Vue 3 中 `v-if` 和 `v-for` 同节点的优先级和 Vue 2 有什么不同？
-- Block 是如何收集动态子节点的？为什么能减少 Diff 范围？
+- Pinia 和 Vuex 的核心区别是什么？为什么没有 Mutation？
+- Pinia 的 Store 是全局单例吗？底层响应式是怎么实现的？
+- Options Store 和 Setup Store 有什么区别？分别适合什么场景？
+- Pinia 如何实现持久化？插件系统的设计原理是什么？
+- Store 之间互相调用为什么不需要 rootState/rootGetters？
 
 
 ## 分析角度（每个子主题都按此展开）
@@ -87,11 +76,8 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 ## 已有笔记
 
 
-- @docs/notes/06 vue 3/29 编译优化.md
-- @docs/notes/06 vue 3/30 模板编译原理-初始化子包.md
-- @docs/notes/06 vue 3/31 模板编译原理-实现AST编译.md
-- @docs/notes/06 vue 3/32 模板编译原理-实现代码转换.md
-- @docs/notes/06 vue 3/33 模板编译原理-实现代码生成.md
+- @docs/notes/06 vue 3/34 pinia-开发环境搭建.md
+- @docs/notes/06 vue 3/35 pinia-实现pinia.md
 
 ## plans 地址
 
@@ -99,12 +85,12 @@ B · 概念四段式（适用于概念/架构/方法论篇章）
 
 ## 规则
 
-- 所有的源码解析都是vue 3.4 的版本，手写也是 3.4 的版本，仓库地址 https://github.com/vuejs/core
+- 所有的源码解析都是pinia 的版本，仓库地址 https://github.com/vuejs/pinia
 - 先阅读以上笔记，找出缺失或浅尝辄止的知识点
 - 笔记只关注 @docs/notes/06 vue 3 目录下的，其他目录禁止自行读取
 - 补全内容（保留原有内容，只增不删），保留图片
 - 将整理后的内容生成公众号文章，输出到 @docs/articles/06 vue 3
 - 文章结构：先出大纲等我确认，再逐节写作
 }}
-，注意⚠️：保留笔记完整代码和图片，样式格式保持一致和这篇@docs/articles/06 vue 3/2026-08-23-vue3-built-in-components.md，不读我没要求到的文件；可以根据你的经验和最佳实践查漏补缺；主线要明确清晰，不要遗漏源码解析章节；每个知识点都要由浅入深的彻底讲透，讲明白。vue 3系列的文章中每一篇的知识点讲解中都需要对比 vue 2中对应的知识点，讲清楚问什么要这样设计。手写实现，环境搭建已经再第一篇完了，这里直接接着上一遍和笔记中的手写实现的代码。手写源码仓库和参考只保留url。
+，注意⚠️：保留笔记完整代码和图片，样式格式保持一致和这篇@docs/articles/06 vue 3/2026-08-24-vue3-compiler.md，不读我没要求到的文件；可以根据你的经验和最佳实践查漏补缺；主线要明确清晰，不要遗漏源码解析章节；每个知识点都要由浅入深的彻底讲透，讲明白。vue 3系列的文章中每一篇的知识点讲解中都需要对比 vue 2中对应的知识点，讲清楚问什么要这样设计。手写实现，环境搭建已经再第一篇完了，这里直接接着上一遍和笔记中的手写实现的代码。手写源码仓库和参考只保留url。
 ```
