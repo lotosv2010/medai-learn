@@ -1,48 +1,48 @@
 # prompt
 
 ```text
-/publish 下面我们规划Vue3全家桶的第9篇文章，具体如下：
+/publish 下面我们规划Vue3全家桶的第11篇文章，具体如下：
 {{
 ## 知识点范围
 
 ### 标题（控制在 64个字以内，以（面试收藏级）结尾）
 
-- Vue Router 4 原理与实战
+- Vue 3 性能优化全攻略
 
-**副标题**：从 Options API 迁移到组合式路由，导航守卫链路怎么变了？
+**副标题**：编译时已经帮你做了很多，运行时还能做什么？
 
 #### 一、基本使用
-- 安装与配置：`createRouter({ history, routes })`
-- 组合式 API 路由钩子：`useRouter()` / `useRoute()` 替代 `this.$router / this.$route`
-- 路由模式：`createWebHistory` / `createWebHashHistory` / `createMemoryHistory`
-- 导航守卫的组合式写法：`onBeforeRouteLeave` / `onBeforeRouteUpdate`
-- 动态路由：`addRoute` / `removeRoute` + 路由懒加载
+- Vue Devtools 性能面板 + `onRenderTracked / onRenderTriggered` 调试钩子
+- `v-memo` / `v-once` 的基础用法
+- `shallowRef` / `shallowReactive` 的基础用法
+- `defineAsyncComponent` 懒加载组件的基础配置
 
 #### 二、原理
-- 前端路由本质延续 Vue 2：监听 URL 变化，局部更新视图；History 模式基于 `pushState/replaceState + popstate`，需服务端 fallback
-- `useRoute()` 返回响应式对象的原理：路由实例内部维护一个 `reactive` 的 `currentRoute`，`useRoute()` 直接返回该响应式引用，路由变化时自动触发依赖组件重渲染
-- `<RouterView>` 组件实现：通过 `inject` 获取当前匹配的路由记录（`route.matched`），按嵌套层级递归渲染对应组件，本质是一个基于 provide/inject 的特殊组件（与 Vue 2 `$route.matched` 思路一致，实现方式改为组合式）
-- 导航守卫完整执行顺序：组件内 `beforeRouteLeave` → 全局 `beforeEach` → 路由独享 `beforeEnter` → 组件内 `beforeRouteEnter` → 解析异步路由组件 → 全局 `beforeResolve` → 导航确认 → 全局 `afterEach` → DOM 更新 → `beforeRouteEnter` 的 `next(vm)` 回调
-- `addRoute` 动态添加路由原理：向路由匹配表（基于路径 Trie / 数组匹配器）插入新记录，需要手动触发 `router.replace(router.currentRoute.value.fullPath)` 才能让当前地址重新匹配
-- 路由懒加载：动态 `import()` 返回 Promise，Vite 基于 ES Module 动态导入自动做 chunk 拆分（相比 Vue 2 Webpack 需要 magic comment，Vite 开箱即用）
-- `scrollBehavior` 异步支持：返回 Promise 可等待过渡动画结束再滚动
+- Vue 3 内置优化回顾：静态提升 + Patch Flags + Block Tree + 事件处理函数缓存（编译时已完成的工作，见第 03/07 篇）
+- `v-memo` 原理：编译为对比依赖数组的条件判断，依赖不变则跳过该节点及子树的 Diff（类似 React.memo 但作用于模板节点）
+- `v-once` 原理：编译时标记节点只创建一次，运行时渲染后不再进入 Diff 流程
+- `shallowRef` / `shallowReactive` 原理：只代理第一层属性访问，不递归代理嵌套对象，减少 Proxy 创建开销，适合大型只读数据
+- 异步组件与代码分割：`defineAsyncComponent` 内部状态机（loading/error/resolved）+ 与 `<Suspense>` 协作调度多个异步依赖
+- 列表渲染性能瓶颈分析：Diff 算法本身已优化，瓶颈转移到真实 DOM 节点数量——虚拟列表（`@tanstack/vue-virtual`）通过只渲染可视区域节点解决
+- 响应式系统调试：`onTrack` / `onTrigger` 定位 computed/watch 意外触发的依赖来源
+- 构建时优化（Vite 视角）：路由懒加载 + Rollup `manualChunks` 手动分包；Tree Shaking 在 Vue 3 完全生效的前提（ESM + 无副作用标记）
 
 #### 三、源码解析（重点代码，来源 GitHub 仓库）
-1. `createRouter`：`packages/router/src/router.ts`（初始化 matcher + history + 响应式 currentRoute）
-2. `useRouter` / `useRoute`：`packages/router/src/useApi.ts`（基于 inject 获取路由实例）
-3. `RouterView` 组件：`packages/router/src/RouterView.ts`（递归渲染 matched 数组）
-4. 导航守卫队列：`packages/router/src/navigationGuards.ts`（`runGuardQueue` 串行执行）
-5. matcher 路由匹配：`packages/router/src/matcher/index.ts`
+1. `v-memo` 编译与运行时：`packages/compiler-core/src/transforms/vMemo.ts` + `packages/runtime-core/src/renderer.ts` 判断逻辑
+2. `shallowReactive`：`packages/reactivity/src/reactive.ts`（浅层 handlers）
+3. `defineAsyncComponent` 状态机：`packages/runtime-core/src/apiAsyncComponent.ts`
+4. `onTrack` / `onTrigger` 调试钩子：`packages/reactivity/src/effect.ts`
+5. Vite 分包配置：`vite.config.ts` 中 `build.rollupOptions.output.manualChunks` 实际项目示例
 
 #### 四、生产级最佳实践
-- 动态路由参数变化组件不重渲染：`watch(() => route.params.id, ...)` 或 `onBeforeRouteUpdate`
-- 权限路由动态注册：登录后按角色 `addRoute`（医疗：医生/护士/管理员角色）+ 重新匹配当前地址
-- 路由懒加载 + Vite 的 chunk 命名策略：按业务模块划分 chunk
-- 路由元信息 `meta` 的 TypeScript 类型扩展：模块增强 `RouteMeta` 接口
-- 路由过渡动画：`<Transition>` + `name` 动态绑定实现前进/后退方向动画
+- 组件设计优化：`v-memo` 用于大列表中依赖稳定的行组件；`v-once` 用于纯静态展示内容
+- `shallowRef` 使用时机：大型第三方数据结构（图表实例、地图实例）避免不必要的深度代理
+- 虚拟列表实战：医疗场景 10000 条药品目录的虚拟滚动优化（结合 `@tanstack/vue-virtual`）
+- 内存管理：Composable 中 `onUnmounted` 的清理职责（定时器、事件监听、WebSocket 连接）
+- 构建优化组合拳：路由懒加载 + `manualChunks` + `build.cssCodeSplit` + Gzip/Brotli 压缩
 
 #### 五、手写实现（可独立跑通）
-医疗场景：Vite + TypeScript 搭建环境，手写 createRouter + 响应式 currentRoute + RouterView + useRouter/useRoute + 导航守卫队列；多角色权限路由 + 动态 addRoute 完整演示
+医疗场景：Vite + TypeScript 搭建环境，手写虚拟列表核心（~100 行）+ 简化版 `v-memo` 效果演示 + `shallowRef` 对比测试；药品目录 10000 条数据渲染优化完整代码
 
 
 #### 六、手写实现源码 GitHub 地址
@@ -50,16 +50,14 @@
 
 
 #### 七、参考
-- https://router.vuejs.org/
-- https://jonny-wei.github.io/blog/vue/vue3/vue-router4.html
-- https://github.com/wbccb/
+- https://cn.vuejs.org/guide/best-practices/performance
 
 **面试核心问**：
-- Pinia 和 Vuex 的核心区别是什么？为什么没有 Mutation？
-- Pinia 的 Store 是全局单例吗？底层响应式是怎么实现的？
-- Options Store 和 Setup Store 有什么区别？分别适合什么场景？
-- Pinia 如何实现持久化？插件系统的设计原理是什么？
-- Store 之间互相调用为什么不需要 rootState/rootGetters？
+- `v-memo` 的使用场景和实现原理？和 React.memo 有什么类比关系？
+- `shallowRef` 和 `ref` 什么时候该用 shallow？
+- Vue 3 的 Tree Shaking 为什么比 Vue 2 好？前提条件是什么？
+- 虚拟列表的核心原理是什么？和 Vue 3 的 Diff 优化是互补关系还是替代关系？
+- `onTrack` / `onTrigger` 能帮助排查什么问题
 
 
 ## 分析角度（每个子主题都按此展开）
