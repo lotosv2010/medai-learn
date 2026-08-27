@@ -6,6 +6,8 @@
 
 > 这是「Vue 3 全家桶深度拆解」系列第 11 篇。前 10 篇拆的是 Vue 3 内部怎么实现——响应式、渲染、组件、Composition API、编译优化、Pinia、Vue Router、性能优化。这一篇换个视角：不看 Vue 怎么实现，看**用 Vue 3 从零搭一个能真正发布到 npm 的 AI 组件库**这件事，从 0 到 1 要踩哪些工程化的坑——pnpm workspace 怎么组织包、Turborepo 怎么管任务依赖和缓存、Vue 组件库为什么不能照搬 React 生态常用的 tsup 打包方案、changesets 怎么做版本发布。这条主线参考了 React AI 组件库 [g-ai-ui](https://github.com/lotosv2010/g-ai-ui) 的工程结构，组件选型参考了 [Ant Design X](https://x.ant.design/components/introduce-cn/) 的分类体系。
 
+> 📌 说明：本文重点讲的是搭建思路和每个工程化决策背后要解决的问题，文中代码片段都是**参考实现**，用来说明设计思路。实际搭建时的具体写法、配置项和目录细节，要以你自己项目的运行环境和各工具库的版本为准——比如 pnpm、Turborepo、Vite 的大版本不同，命令和配置字段都可能有差异，遇到跑不通的地方先检查版本号。
+
 ---
 
 ## 🎯 这篇文章解决什么问题
