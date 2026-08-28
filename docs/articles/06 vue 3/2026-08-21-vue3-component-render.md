@@ -938,6 +938,35 @@ function flushJobs() {
 
 `queueJob` 用 `queue.includes(job)` 去重，保证同一个组件在一轮同步代码里被多次触发更新，最终也只会执行一次 `componentUpdateFn`；`resolvePromise.then(flushJobs)` 是把刷新动作丢进微任务队列，等当前宏任务的所有同步代码跑完再统一执行——这就是为什么 `setTimeout` 里连续改两次响应式数据，页面只会重新渲染一次的原因。
 
+**`nextTick()` 是同一套机制的另一半：把用户的回调接到刷新队列的尾部**
+
+`queueJob`/`flushJobs` 解决的是"怎么合并多次更新只渲染一次"，但业务代码里常问的是"我改完数据，怎么等 DOM 真的更新完了再拿最新的 DOM"——这正是 `nextTick(fn)` 要解决的问题，本质是让用户的回调排在同一个微任务队列里、`flushJobs` 之后执行：
+
+```typescript
+let currentFlushPromise: Promise<void> | null = null
+
+// 📚 知识点：flushJobs 执行期间会把 currentFlushPromise 指向当前这一轮的刷新 Promise
+//           这样 nextTick 在"刷新进行中"调用时，也能挂到同一轮刷新后面，而不是提前于它 resolve
+function flushJobs() {
+  isFlushing = false
+  let job
+  while (job = queue.shift()) {
+    job()
+  }
+}
+
+export function nextTick<T = void>(this: T, fn?: () => void): Promise<void> {
+  const p = currentFlushPromise || resolvePromise
+  return fn ? p.then(this ? fn.bind(this) : fn) : p
+}
+```
+
+`await nextTick()` 之后能拿到更新后的 DOM，原因就是它 `.then` 挂在 `resolvePromise`（或当前正在进行的刷新 Promise）后面——微任务队列里，`flushJobs`（把 vnode patch 到真实 DOM）先执行，`nextTick` 传入的回调排在它后面执行，天然保证读到的是更新后的状态。不传 `fn` 直接 `await nextTick()`，效果等价于 `.then()` 一个空函数。
+
+> 💬 **面试官**：`nextTick` 内部是怎么保证在 DOM 更新之后才执行的？
+>
+> ✅ 标准答案：组件更新走的是同一个基于 `Promise.resolve()` 的微任务队列——`queueJob` 把渲染任务塞进队列，`nextTick` 把用户回调通过 `.then()` 挂在这个队列对应的 Promise 后面。微任务按入队顺序执行，只要 `nextTick` 调用发生在响应式数据修改之后，渲染任务必然先于用户回调被消费，所以读到的 DOM 一定是更新后的。
+
 ---
 
 ## 🧩 四、生产级最佳实践
@@ -1534,12 +1563,19 @@ function queueFlush() {
   }
 }
 
+let currentFlushPromise: Promise<void> | null = null
+
 function flushJobs() {
   isFlushing = false
   let job
   while (job = queue.shift()) {
     job()
   }
+}
+
+export function nextTick<T = void>(this: T, fn?: () => void): Promise<void> {
+  const p = currentFlushPromise || resolvePromise
+  return fn ? p.then(this ? fn.bind(this) : fn) : p
 }
 ```
 

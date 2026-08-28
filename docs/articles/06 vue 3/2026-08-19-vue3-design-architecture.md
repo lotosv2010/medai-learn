@@ -108,6 +108,14 @@ const vnode = {
 >
 > 🎁 加分答案：手写一个能达到虚拟 DOM 效果的组件（比如只更新一个字段）确实可以比通用 diff 更快，但代价是要为每个组件手写更新逻辑，维护成本极高。虚拟 DOM 用少量运行时开销换来了开发效率和可维护性，这是权衡（tradeoff）而不是单纯的性能技巧。
 
+**前沿延伸：Vapor Mode——如果连虚拟 DOM 这层都不要了呢？**
+
+虚拟 DOM 的代价是"运行时始终要构造 vnode 对象、跑一遍 diff 才能知道哪里变了"——即使编译时已经通过 Patch Flags 告诉了运行时"只有这个属性会变"，运行时依然要走一遍创建 vnode、对比 vnode 的流程，这一层中间表示本身就是开销。Vue 团队目前在 3.6 探索的 **Vapor Mode** 正是冲着这一点：编译阶段直接分析出"哪个 DOM 节点的哪个属性绑定了哪个响应式数据"，生成的不再是"返回 vnode 的渲染函数"，而是"直接操作真实 DOM 的更新函数"——响应式数据变化时，effect 直接调用这个更新函数改 DOM，中间完全不经过 vnode 创建和 diff 这一层。这和 SolidJS 的编译期精确绑定思路是同一个方向。Vapor Mode 目前是与现有 vdom 模式并存的可选编译目标，不是替换，普通的 `<template>` 默认还是走 vdom 编译产物。
+
+> 💬 **面试官**：了解 Vue 最近在探索的新方向吗？
+>
+> ✅ 标准答案：Vapor Mode，跳过虚拟 DOM 这层中间表示，编译时直接生成操作真实 DOM 的更新函数，响应式数据变化时直接触发 DOM 更新，减少运行时 diff 的开销，是对"采用虚拟 DOM"这一设计决策的进一步优化探索。
+
 ### 区分编译时和运行时
 
 我们需要有一个虚拟 DOM，调用渲染方法将虚拟 DOM 渲染成真实 DOM（缺点就是虚拟 DOM 编写麻烦）。专门写个编译时，可以将模板编译成虚拟 DOM——在构建的时候进行编译性能更高，不需要在运行时进行编译，而且 Vue3 在编译中做了很多优化。
@@ -1115,6 +1123,73 @@ pnpm preview
 > ✅ 标准答案：`reactivity` 包通过 `workspace:^` 协议依赖 `shared`，但完全不依赖 `vue` 包或任何 DOM 相关代码，打包产物可以被 `examples/reactivity/reactive.html` 直接单独引入使用——这就是「模块解耦、职责单一、可独立使用」在工程上的真实体现，而不只是文档里的一句口号。
 >
 > 🎁 加分答案：`buildOptions.formats` 里给每个包配置了 `esm-bundler / esm / cjs / global` 多种格式，对应 Vue3 真实源码里也是这么做的——`esm-bundler` 格式给 webpack/Vite 这类打包工具用（保留 `process.env.NODE_ENV` 之类的写法，交给下游打包工具处理），`global` 格式给 `<script>` 标签直接引入用，`cjs` 给 Node.js 环境用。一个包同时产出多种格式，就是为了让「独立使用」在不同消费场景下都能落地。
+
+### 手写一个最小自定义渲染器：把「六」讲的解耦设计跑起来
+
+「六、`createRenderer` 渲染器工厂」讲的是设计原理——`runtime-core` 不关心平台，只依赖调用方传入的一组 host 操作接口。这里用一份不依赖真实 DOM 的最小实现，把这个抽象落地成可运行代码：渲染目标不是浏览器 DOM，而是一棵普通的 JS 对象树（可以理解成"渲染到内存里的一个自定义数据结构"，比 Canvas 更聚焦在"解耦"这个知识点本身，不引入额外的绘图 API 细节）。
+
+```typescript
+// 📚 知识点：host 节点只是普通对象，不是真实 DOM——证明 runtime-core 的 diff/组件调度逻辑与平台无关
+interface HostNode {
+  type: string
+  props: Record<string, any>
+  children: HostNode[]
+  text?: string
+  parent?: HostNode
+}
+
+// 自定义平台操作：对应 createRenderer(options) 需要注入的 7 个核心接口
+const customNodeOps = {
+  createElement(type: string): HostNode {
+    return { type, props: {}, children: [] }
+  },
+  createText(text: string): HostNode {
+    return { type: '#text', props: {}, children: [], text }
+  },
+  setText(node: HostNode, text: string) {
+    node.text = text
+  },
+  insert(child: HostNode, parent: HostNode, anchor?: HostNode) {
+    const index = anchor ? parent.children.indexOf(anchor) : -1
+    if (index > -1) parent.children.splice(index, 0, child)
+    else parent.children.push(child)
+    child.parent = parent
+  },
+  remove(child: HostNode) {
+    const parent = child.parent
+    if (!parent) return
+    const index = parent.children.indexOf(child)
+    if (index > -1) parent.children.splice(index, 1)
+  },
+  patchProp(el: HostNode, key: string, _prevValue: any, nextValue: any) {
+    el.props[key] = nextValue
+  },
+}
+```
+
+```typescript
+// 使用官方 react-reconciler 同款思路：Vue3 也导出了 createRenderer 供自定义渲染器场景使用
+import { createRenderer } from '@vue/runtime-core'
+
+const { createApp } = createRenderer<HostNode, HostNode>(customNodeOps)
+
+const rootContainer: HostNode = { type: 'root', props: {}, children: [] }
+
+createApp({
+  render() {
+    // 📚 知识点：组件的 render/diff/调度逻辑完全没有改变，变化的只是最终落地的操作对象
+    return { type: 'div', props: { class: 'patient-card' }, children: [] } as any
+  },
+}).mount(rootContainer as any)
+
+console.log(JSON.stringify(rootContainer, null, 2))
+```
+
+跑起来能看到 `rootContainer` 被填充成一棵结构化的对象树，而不是真实 DOM 节点——`diff`、组件实例创建、`setup` 执行、响应式更新触发重渲染，这些逻辑全部来自 `runtime-core`，一行都没有改动。这就是「六」里"扩展更方便"这条设计思想的可运行证明：把 `customNodeOps` 换成操作 Canvas 上下文或小程序原生组件的实现，其余部分原样复用。
+
+> 💬 **面试官**：你说 Vue3 的渲染逻辑和平台无关，能证明给我看吗？
+>
+> ✅ 标准答案：`createRenderer(options)` 接收一组 host 操作（`createElement`/`insert`/`patchProp` 等），内部的组件系统、响应式触发更新、diff 算法全部只调用这组接口，不直接操作 DOM API。把这组接口换成操作任意数据结构（比如一棵普通 JS 对象树）的实现，传给 `createRenderer` 就能得到一个功能完整但不依赖浏览器的渲染器，能实际跑起来渲染出结果。
 
 ---
 
