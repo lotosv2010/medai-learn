@@ -1,7 +1,7 @@
 # React 18 全家桶系列公众号文章大纲（重构版）
 
 > 所属系列：React 18 深度拆解
-> 写作原则：基本使用 → 原理 → 源码解析（重点代码，来源 GitHub 仓库）→ 生产级最佳实践 → 手写实现 → GitHub → 参考
+> 写作原则：使用与实践 → 设计与原理 → 源码解析（重点代码，来源 GitHub 仓库）→ 手写实现 → GitHub → 参考
 > 目标读者：5-10 年前端经验、有 Vue 全家桶背景、正在转型或补齐 React 技术栈、备战面试或寻求晋升为 AI 应用工程师的工程师
 > 与 Vue 3 系列关系：结构对称，涉及响应式/渲染/组件通信等可对照的知识点会显式标注「对比 Vue 3」
 
@@ -20,7 +20,8 @@
   3. 状态管理生态原四篇（Redux/MobX/dva/umi）合并为一篇：Redux Toolkit 为主线，MobX/Zustand 降级为对比小节，dva 降级为"历史方案"小节，umi 的约定式路由内容降级并入 Router 篇
   4. 原 ahooks 独立篇降级为后台管理系统篇里的"自定义 Hook 设计模式"小节
   5. 补齐面试高频源码缺口：Class 组件 Update 机制、beginWork 的 bailout 复用判断、effect 执行顺序原则、useInsertionEffect、useSyncExternalStore 与 tearing、事件类型与 Lane 的绑定关系、优先级饿死与兜底、自定义渲染器实战、源码调试环境搭建
-- 内容结构：延续七段式（基本使用 → 原理 → 源码解析 → 生产级最佳实践 → 手写实现 → GitHub → 参考）
+  6. 手写实现改为统一的增量式 monorepo：不再是每篇各自孤立的"玩具级" demo，第 01 篇从零搭建一个仿官方 React 18 目录结构的 pnpm + Turborepo + Rollup monorepo（对应 GitHub 仓库 `lotosv2010/react-source`，含 `shared`/`react`/`scheduler`/`react-reconciler`/`react-dom` 五个包，`FiberNode`/`createWorkInProgress`/`beginWork`/`completeWork`/`commitRoot`/`scheduleUpdateOnFiber` 等关键结构和函数先按官方源码 1:1 对照搭好骨架），第 02~09 篇（状态更新/渲染原理/Diff/commit/Hooks/并发/事件/Context）在这同一个仓库的 `react-reconciler`、`react-dom` 包基础上持续填入真实实现，逐篇替换上一篇留下的简化逻辑（例如 02 篇补全 Update 队列与 Lane 计算、03 篇补全 mount/update/bailout、04 篇补全多节点 Diff、05 篇补全三阶段 commit 与 effect 链表），后续篇章不再重新起一个孤立 demo；第 10~14 篇的生态/工程化实战仍基于官方 React 18 本身单独搭建 demo
+- 内容结构：六段式（使用与实践 → 设计与原理 → 源码解析 → 手写实现 → GitHub → 参考）
 - 特色：每篇 3-5 个「面试官会问」；示例沿用医疗场景命名（药品/处方/患者）；涉及可与 Vue 3 对照的知识点显式标注「对比 Vue 3」
 - 不设独立 TypeScript 篇：类型系统内容按场景拆分到 Hooks 篇（自定义 Hook 类型设计）、状态管理篇（RTK 类型推导）、Router 篇（loader/action 类型）、后台管理系统篇（类型消费实战）
 
@@ -30,38 +31,69 @@
 
 | 编号 | 标题 | 核心主题 | 状态 |
 |------|------|----------|------|
-| 01 | React 18 设计思想与整体架构：从 Stack Reconciler 到 Fiber，附源码调试环境搭建 | 架构全景 | ⬜ 待写 |
-| 02 | React 18 状态更新机制与批处理：Update/UpdateQueue、Class 与 Hook 双轨更新链表、Lane 模型 | 状态更新 | ⬜ 待写 |
-| 03 | React 18 Fiber 渲染原理：mount/update/unmount 全流程与 bailout 复用机制 | 渲染原理 | ⬜ 待写 |
-| 04 | React 18 Diff 算法源码精读：单节点 Diff 与多节点 Diff | Diff 算法 | ⬜ 待写 |
-| 05 | React 18 commit 阶段与副作用系统：三个子阶段与 effect 执行顺序 | commit 阶段 | ⬜ 待写 |
-| 06 | React 18 Hooks 全解析：设计哲学、基本使用与 dispatcher/Hook 链表源码 | Hooks | ⬜ 待写 |
-| 07 | React 18 并发特性与调度器源码解析：Scheduler、Lane、事件优先级与 Suspense | 并发原理 | ⬜ 待写 |
-| 08 | React 18 事件系统与批处理原理：合成事件、事件委托、Automatic Batching | 事件系统 | ⬜ 待写 |
-| 09 | React 18 Context 原理与手写实现 | Context | ⬜ 待写 |
-| 10 | React Router 6/7 原理与实战 | 路由 | ⬜ 待写 |
-| 11 | React 状态管理选型：Redux Toolkit 源码与生产实践，对比 MobX/Zustand，兼历史方案 dva | 状态管理 | ⬜ 待写 |
-| 12 | React 18 SSR 与 RSC 原理与实战 | SSR/RSC | ⬜ 待写 |
-| 13 | React 18 性能优化全攻略 | 性能 | ⬜ 待写 |
-| 14 | Turborepo + pnpm + Vite + React 18 通用后台管理系统从零搭建 | 工程化 | ⬜ 待写 |
+| 01 | React 18 架构全景: 从 Stack 到 Fiber 的演进与源码调试环境搭建（面试收藏级） | 架构全景 | ⬜ 待写 |
+| 02 | React 18 状态更新: Update 双轨链表与 Lane 优先级模型深度拆解（面试收藏级） | 状态更新 | ⬜ 待写 |
+| 03 | React 18 渲染原理: mount/update/unmount 全流程与 bailout 复用机制（面试收藏级） | 渲染原理 | ⬜ 待写 |
+| 04 | React 18 Diff 算法: 单节点与多节点 Diff 源码精读（面试收藏级） | Diff 算法 | ⬜ 待写 |
+| 05 | React 18 commit 阶段: 三个子阶段与 effect 执行顺序原理（面试收藏级） | commit 阶段 | ⬜ 待写 |
+| 06 | React 18 Hooks 深度: 设计哲学、dispatcher 切换与 Hook 链表源码（面试收藏级） | Hooks | ⬜ 待写 |
+| 07 | React 18 并发渲染: Scheduler 时间切片、Lane 模型与 Suspense 原理（面试收藏级） | 并发原理 | ⬜ 待写 |
+| 08 | React 18 事件系统: 合成事件、事件委托与自动批处理原理（面试收藏级） | 事件系统 | ⬜ 待写 |
+| 09 | React 18 Context: 依赖传播机制与手写实现（面试收藏级） | Context | ⬜ 待写 |
+| 10 | React Router 6/7: Data Router 预取数据范式与权限路由实战（生产收藏级） | 路由 | ⬜ 待写 |
+| 11 | React 状态管理: Redux Toolkit 源码解析与 MobX/Zustand 选型对比（生产收藏级） | 状态管理 | ⬜ 待写 |
+| 12 | React 18 服务端渲染: 流式 SSR 与 Server Components 原理实战（生产收藏级） | SSR/RSC | ⬜ 待写 |
+| 13 | React 18 性能优化: memo/useMemo/虚拟列表与 Compiler 未来方向（生产收藏级） | 性能 | ⬜ 待写 |
+| 14 | React 18 Monorepo 实战: Turborepo + pnpm + 自定义 Hook 插件化设计（生产收藏级） | 工程化 | ⬜ 待写 |
 
 ---
 
 ## 各篇详细大纲
 
-### 第 01 篇：React 18 设计思想与整体架构
+### 第 01 篇：React 18 架构全景: 从 Stack 到 Fiber 的演进与源码调试环境搭建（面试收藏级）
 
-**副标题**：从 Stack Reconciler 到 Fiber，并发模式为什么这样设计？附源码调试环境搭建
+**副标题**：Stack Reconciler 的局限、Fiber 链表如何实现可中断渲染、并发模式设计思想
 
-#### 一、基本使用
+#### 一、使用与实践
+
+**JSX 编译与 React Element 结构（前置知识）**：
+- JSX 语法糖：`<div className="box">{content}</div>` 经 Babel 转换为 `React.createElement(type, props, ...children)`
+- React Element 对象结构：`{ type, props, key, ref }` 普通 JS 对象（描述），Fiber 节点是运行时实例（工作单元）
+- 对比 Vue 3：Vue 模板编译为 `createVNode`，可做静态分析（PatchFlag）；JSX 完全动态无法编译优化
+
+**基本使用**：
 - `ReactDOM.render(<App />, container)` → `createRoot(container).render(<App />)`：Legacy 模式与 Concurrent 模式的入口切换
 - `createRoot` 后自动批处理（automatic batching）：不论在事件回调、Promise、setTimeout 中调用 `setState`，都会被合并为一次渲染
 - `<StrictMode>` 在开发环境下对函数组件、`useState` initializer、`useReducer` 等故意执行两次，用来暴露不纯的渲染逻辑
 - `startTransition(() => setFilterKeyword(value))`：把非紧急更新标记为可中断的低优先级任务
 - `React.lazy(() => import('./PrescriptionForm'))` + `<Suspense fallback={...}>`：按路由/模块拆分代码
-- **本地调试 React 源码环境搭建**（新增）：`git clone facebook/react` → `pnpm i` → `yarn build react,react-dom,scheduler,react-reconciler --type=NODE_DEV` 打出本地开发版包 → 业务项目里用 `pnpm link` 或 Vite `resolve.alias` 把 `react`/`react-dom` 指向本地构建产物 → 在 VSCode 里对 `beginWork`/`dispatchSetState` 打断点，触发一次 `setState` 观察真实调用栈，为后续每一篇的源码阅读打好工具基础
 
-#### 二、原理
+**本地调试 React 源码环境搭建**：
+1. `git clone facebook/react` → `pnpm i`
+2. `yarn build react,react-dom,scheduler,react-reconciler --type=NODE_DEV` 打出本地开发版包
+3. 业务项目里用 `pnpm link` 或 Vite `resolve.alias` 把 `react`/`react-dom` 指向本地构建产物
+4. 在 VSCode 里对 `beginWork`/`dispatchSetState` 打断点，触发一次 `setState` 观察真实调用栈
+
+**场景实战**：
+- HIS 系统首页存在大量指标卡片 + 患者列表时，用 `createRoot` 开启并发特性，避免全局检索输入时主线程被长时间占用
+- 用 `startTransition` 包裹处方列表的筛选/排序逻辑，保证筛选输入框始终响应，列表更新可以被打断
+- 按"问诊模块 / 处方模块 / 检验报告模块"用 `React.lazy` 做路由级代码分割，减小 HIS 系统首屏包体积
+- 用 `StrictMode` 在开发环境暴露医嘱录入表单组件的副作用不纯问题
+- 用 `useSyncExternalStore` 订阅医生排班这类外部数据源，避免手写 `useEffect + useState` 组合带来的并发渲染撕裂问题
+
+#### 二、设计与原理
+
+**FiberNode 数据结构速览**（先建立第一印象，逐字段详解留给第 03 篇）：
+  - `type`：组件类型（函数/类）或宿主标签字符串（`'div'` 等）
+  - `key`：列表渲染唯一标识，diff 时用于判断节点能否复用
+  - `return`/`child`/`sibling`：父、第一个子、下一个兄弟三个指针，把组件树组织成链表结构
+  - `alternate`：指向双缓存树中"另一棵树"的对应节点（`current` ↔ `workInProgress`）
+  - `flags`：副作用标记位（Placement / Update / Deletion 等），commit 阶段据此执行真实 DOM 操作
+  - `lanes`：该 Fiber 上待处理的更新优先级（详见第 02 篇 Lane 模型）
+  - `memoizedProps`/`pendingProps`：上次已提交的 props / 本次处理中的 props
+  - `memoizedState`：上次渲染的状态——Class 组件是 state 对象，函数组件是 Hook 链表的头节点
+  - `updateQueue`：更新队列（详见第 02 篇）
+  - `stateNode`：对应的宿主实例（DOM 元素）或组件实例
 - Stack Reconciler（React 15 及之前）用递归方式深度遍历组件树，JS 调用栈一旦开始无法中途让出主线程；医疗场景中"患者列表 + 全局检索"一旦触发大范围重渲染，会造成输入卡顿甚至掉帧
 - Fiber 把组件树从"递归调用栈"改造成"链表结构"（`return / child / sibling`），遍历逻辑从递归变成循环（work loop），使渲染过程可以在任意 Fiber 节点处暂停、把控制权交还浏览器、之后再恢复
 - Lane 模型：用 31 位二进制位表示更新优先级，相比 React 16 的 `expirationTime` 数值模型，位运算可以做"多个优先级合并成一批处理"这种表达式运算，精度和灵活性都更高（详细的位运算规则和源码留给第 02 篇状态更新篇展开，这里只建立"为什么需要它"的直觉）
@@ -76,21 +108,15 @@
 4. 渲染入口分发：`packages/react-reconciler/src/ReactFiberWorkLoop.js` — `performSyncWorkOnRoot`（同步不可中断）与 `performConcurrentWorkOnRoot`（并发可中断）两条渲染路径
 5. 自定义渲染器 Host Config 约定：`packages/react-reconciler/src/forks/ReactFiberReconciler.js` 与 `react-reconciler` 包对外暴露的 `createReconciler(hostConfig)` — 只要实现 `createInstance`/`appendChild`/`commitUpdate` 等一组约定方法就能接入协调算法，不依赖具体渲染平台
 
-#### 四、生产级最佳实践
-- HIS 系统首页存在大量指标卡片 + 患者列表时，用 `createRoot` 开启并发特性，避免全局检索输入时主线程被长时间占用
-- 用 `startTransition` 包裹处方列表的筛选/排序逻辑，保证筛选输入框始终响应，列表更新可以被打断
-- 按"问诊模块 / 处方模块 / 检验报告模块"用 `React.lazy` 做路由级代码分割，减小 HIS 系统首屏包体积
-- 用 `StrictMode` 在开发环境暴露医嘱录入表单组件的副作用不纯问题
-- 用 `useSyncExternalStore` 订阅医生排班这类外部数据源（原理详见第 06 篇），避免手写 `useEffect + useState` 组合带来的并发渲染撕裂问题
+#### 四、手写实现（可独立跑通，系列统一 monorepo 的起点）
+1. **搭建仿官方目录结构的 pnpm + Turborepo + Rollup monorepo**（对应 GitHub 仓库 `lotosv2010/react-source`）：`packages/shared`（`ReactSymbols`/`ReactTypes` 等跨包共享的类型与常量）、`packages/react`（`createElement`/`jsx`/`jsxDEV`，只定义公共 API，不含任何渲染逻辑）、`packages/scheduler`（基于 `MessageChannel` 的 `shouldYieldToHost`/`scheduleCallback`/`flushWork` 时间切片调度器）、`packages/react-reconciler`（`FiberNode`/`createWorkInProgress` 双缓存创建逻辑——这里先照官方结构把代码写出来，不深入解释 `alternate` 的复用判断逻辑，完整原理见第 03 篇；`scheduleUpdateOnFiber`/`performConcurrentWorkOnRoot`/`workLoopConcurrent`/`performUnitOfWork`/`completeUnitOfWork` 组成的 work loop，`beginWork`/`completeWork`/`commitRoot` 先按官方源码签名搭好骨架、内部逻辑本篇简化占位——函数签名里包含 `renderLanes` 等参数，先按官方签名占位保留，Lane 的含义见第 02 篇）、`packages/react-dom`（`createRoot`/`updateContainer`，对接 `react-reconciler` 触发调度）
+2. 用一个 `examples/prescription.html`（Vite 驱动）跑通"处方单药品清单"渲染 demo：`root.render` 首次渲染两条药品，`setTimeout` 3 秒后新增第三条触发一次完整的 `createRoot → updateContainer → scheduleUpdateOnFiber → performConcurrentWorkOnRoot → workLoopConcurrent → beginWork/completeWork → commitRoot` 主链路，配合 Chrome DevTools Performance 面板录制验证 `performConcurrentWorkOnRoot` 确实以约 5ms 为单位分片执行
+3. 这一步的目的是把"系列统一的手写仓库骨架"搭起来，`beginWork`/`completeWork`/Diff/effect 链表等真实实现留给后续篇章逐篇填入（见下方"面试核心问"后的说明）
 
-#### 五、手写实现（可独立跑通）
-1. 用 Node.js 脚本对比"递归遍历"与"链表遍历"两种方式处理同一棵"处方单渲染树"：递归版模拟 Stack Reconciler，一旦开始无法中断；链表版把节点组织成 `child/sibling/return` 结构，用 `setTimeout` 或 `MessageChannel` 模拟时间切片，每处理若干节点后主动让出执行权，通过日志打印证明遍历可以被打断和恢复
-2. **自定义渲染器实战**（新增）：基于真实的 `react-reconciler` 包（不是手写协调算法，是调用官方包）实现一个渲染到终端命令行的极简渲染器——实现 `HostConfig` 里的 `createInstance`（创建一个内存中的"节点对象"而非真实 DOM）、`appendChild`、`commitUpdate`、`removeChild` 等必需方法，把"处方单药品清单"用树状文本结构打印到终端，每次数据变化后重新打印，直观证明"协调算法（Fiber/Diff/调度）与渲染平台完全解耦"这个架构设计的价值——同一套 `react-reconciler` 既能渲染 DOM，也能渲染终端文本
+#### 五、手写实现源码 GitHub 地址
+https://github.com/lotosv2010/react-source
 
-#### 六、手写实现源码 GitHub 地址
-（占位，写作时填入实际仓库链接）
-
-#### 七、参考
+#### 六、参考
 - https://zh-hans.react.dev/
 - https://jonny-wei.github.io/blog/react/
 - https://react.iamkasong.com
@@ -102,20 +128,31 @@
 - `react-reconciler` 为什么要独立成一个不依赖具体渲染平台的包？如果让你给 React 写一个 Canvas 渲染器，大致需要实现哪些接口？
 - 本地怎么调试 React 源码？为什么业务项目里直接改 `node_modules` 里的 React 源码不是一个好的调试方式？
 
+> **手写实现仓库递增说明**：本篇搭好的 `lotosv2010/react-source` monorepo 骨架是后续 02~09 篇共用的同一份代码，不再另起 demo——02 篇在 `react-reconciler` 包里补全 Update 队列（Class 双轨 + Hook 双轨）和 Lane 计算，03 篇补全 `beginWork`/`completeWork` 的 mount/update/unmount 与 bailout 判断，04 篇补全多节点 Diff 算法，05 篇补全三阶段 commit 与 effect 链表收集，06~09 篇依次补 Hooks 链表/Scheduler 优先级映射/事件系统/Context。每篇的"手写实现"小节只描述本篇新增或改造的那部分逻辑，不重复贴无关代码。
+
 ---
 
-### 第 02 篇：React 18 状态更新机制与批处理
+### 第 02 篇：React 18 状态更新: Update 双轨链表与 Lane 优先级模型深度拆解（面试收藏级）
 
-**副标题**：一次 `setState` 是怎么变成一次渲染的？Class 与 Hook 两条更新链表 + Lane 优先级模型全链路拆解
+**副标题**：setState 到重渲染的完整链路、Class/Hook 双轨更新队列、Lane 位运算与优先级饿死兜底
 
-#### 一、基本使用
+#### 一、使用与实践
+
+**基本使用**：
 - `this.setState({ count: 1 })` 与 `this.setState(prev => ({ count: prev.count + 1 }))`：对象式更新与函数式更新的区别，函数式更新可以安全地基于"上一次排队中的状态"计算
-- 同一个事件处理函数里连续调用多次 `setState`，无论是 Class 组件的 `this.setState` 还是 Hook 的 `dispatch`，都只会触发一次重渲染（批处理现象，原理见下）
+- 同一个事件处理函数里连续调用多次 `setState`，无论是 Class 组件的 `this.setState` 还是 Hook 的 `dispatch`，都只会触发一次重渲染（批处理现象）
 - `ReactDOM.render` 走的是 Legacy 模式，内部产生的更新固定是 `SyncLane`（同步优先级）；`createRoot` 挂载的应用则会根据触发场景（点击/输入/过渡态）分配不同优先级的 Lane
 - `flushSync(() => setState(...))` 强制跳出批处理，立刻同步渲染并反映到真实 DOM
-- 医疗场景示例：处方单表单里"数量加减按钮"连续点击三次，只触发一次重渲染而不是三次
 
-#### 二、原理
+**场景实战**：
+- 处方单表单里"数量加减按钮"连续点击三次，只触发一次重渲染而不是三次
+- 需要"基于上一次状态计算"的场景（如数量加减、多选框批量勾选）统一用函数式更新（`setCount(c => c + 1)`），避免闭包里读到的是过期的 state 快照
+- 理解"Update 是排队处理"的心智模型后，不要写"`setState` 后立即读取最新 state"的代码
+- 复杂的处方审核状态机优先用 `useReducer`（Hook 场景）或拆分成更小的 Class 组件（遗留系统场景），避免手工维护多个字段之间的一致性
+- 排查"点击按钮但界面没有立刻更新"类问题时，先确认是否处于批处理上下文中，是否需要 `flushSync`
+- 遗留系统里同时存在 Class 组件和函数组件时，理解两者更新队列结构相似但代码独立，不要假设修复一处 bug 会同时影响另一套实现
+
+#### 二、设计与原理
 - Update 的心智模型：不管是 `this.setState` 还是 Hook 的 `dispatch`，本质都是"往一个队列里追加一个描述本次变化的 Update 对象，然后调度一次重新渲染，渲染时再统一处理队列里的所有 Update 得出最终状态"——这是理解 React 状态更新的第一个关键认知：**状态不是被"立即修改"，而是被"排队等待处理"**
 - **Class 组件的 UpdateQueue**（新增）：每个 Class 组件对应的 Fiber 上有一个 `updateQueue`，包含 `baseState`（上一次跳过 bail out 后的基准状态）、`firstBaseUpdate`/`lastBaseUpdate`（一条基准 Update 链表）、`shared.pending`（一个环形链表，本次渲染新增的 Update 先临时挂在这里）；`processUpdateQueue` 会把 `shared.pending` 剪开接到 `baseState` 对应的链表后面，再从头遍历依次执行每个 Update 的 `payload`（可能是对象也可能是函数）得到最终 `memoizedState`
 - **Hook 的 Update 链表**（对照）：`useState`/`useReducer` 的每个 Hook 对象上也有一个结构几乎一样的 `queue`（`pending` 环形链表 + `baseState` + `baseQueue`），`updateReducer` 遍历这条链表依次执行 reducer 得出新状态——**这是一个常被误解的点：很多人以为 Class 的更新队列和 Hook 的更新队列是同一套代码，实际上分别独立实现在 `ReactFiberClassUpdateQueue.js` 和 `ReactFiberHooks.js` 里，只是设计思路高度相似（都是"pending 环形链表 + baseState 兜底 + 遍历执行"），这是 React 团队刻意复用的一套通用模式，而不是共享的同一份代码**
@@ -135,20 +172,13 @@
 4. Lane 常量与位运算：`packages/react-reconciler/src/ReactFiberLane.js` — Lane 常量定义、`mergeLanes`、`getNextLanes`、`markStarvedLanesAsExpired`
 5. 调度入口：`packages/react-reconciler/src/ReactFiberWorkLoop.js` — `scheduleUpdateOnFiber` 如何根据当前上下文（是否在批处理中）决定立即调度还是加入队列
 
-#### 四、生产级最佳实践
-- 需要"基于上一次状态计算"的场景（如数量加减、多选框批量勾选）统一用函数式更新（`setCount(c => c + 1)`），避免闭包里读到的是过期的 state 快照
-- 理解"Update 是排队处理"的心智模型后，不要写"`setState` 后立即读取最新 state"的代码
-- 复杂的处方审核状态机优先用 `useReducer`（Hook 场景）或拆分成更小的 Class 组件（遗留系统场景），避免手工维护多个字段之间的一致性
-- 排查"点击按钮但界面没有立刻更新"类问题时，先确认是否处于批处理上下文中，是否需要 `flushSync`
-- 遗留系统里同时存在 Class 组件和函数组件时，理解两者更新队列结构相似但代码独立，不要假设修复一处 bug 会同时影响另一套实现
+#### 四、手写实现（延续第 01 篇 `lotosv2010/react-source` monorepo，本篇改造 `react-reconciler` 包）
+在第 01 篇搭好的骨架基础上，往 `packages/react-reconciler` 里补全真正的更新机制（不再另起 demo）：新增 `ReactFiberClassUpdateQueue.ts` 实现"Class 风格"更新队列（`baseState` + `pending` 环形链表 + `processUpdateQueue` 遍历执行 `payload`），新增 `ReactFiberHooks.ts` 里 `useState`/`useReducer` 对应的"Hook 风格"更新队列（游标 + `queue.pending` + `updateReducer` 遍历执行 reducer），两者结构对照但独立实现；再往 `packages/react-reconciler` 新增 `ReactFiberLane.ts`，用数字位运算实现 `SyncLane`/`DefaultLane`/`TransitionLane` 等车道常量与 `mergeLanes`/`getNextLanes`，并实现一个简化版 `markStarvedLanesAsExpired`，验证高优先级更新能被优先处理、低优先级更新超过设定"过期时间"后会被强制提前处理。原本第 01 篇里 `scheduleUpdateOnFiber` 只是"直接触发调度"的占位逻辑，本篇改造成"先调用 `enqueueUpdate` 把 Update 塞进队列，再调度"的真实链路。场景用"处方单审核状态流转"演示，跑法延续第 01 篇的 `examples/prescription.html`。
 
-#### 五、手写实现（可独立跑通）
-用纯 TypeScript 手写一个简化版"双轨更新队列"系统（不依赖 React 本身）：实现一个 `createUpdateQueue()` 工厂函数，分别演示"Class 风格"（`baseState` + `pending` 环形链表 + `processUpdateQueue` 遍历执行 `payload`）和"Hook 风格"（游标 + `queue.pending` + `updateReducer` 遍历执行 reducer）两套结构几乎一样但独立维护的实现；再实现一个极简的"Lane 优先级队列"：用普通数字位运算模拟几个优先级车道，多次触发不同优先级的"更新"后，验证高优先级更新能被优先处理、低优先级更新超过设定的"过期时间"后会被强制提前处理（模拟 `markStarvedLanesAsExpired`）。场景用"处方单审核状态流转"演示，可在 Node.js 环境直接运行。
+#### 五、手写实现源码 GitHub 地址
+https://github.com/lotosv2010/react-source
 
-#### 六、手写实现源码 GitHub 地址
-（占位，写作时填入实际仓库链接）
-
-#### 七、参考
+#### 六、参考
 - https://zh-hans.react.dev/
 - https://jonny-wei.github.io/blog/react/
 - https://react.iamkasong.com
@@ -162,18 +192,18 @@
 
 ---
 
-### 第 03 篇：React 18 Fiber 渲染原理
+### 第 03 篇：React 18 渲染原理: mount/update/unmount 全流程与 bailout 复用机制（面试收藏级）
 
-**副标题**：mount、update、unmount 全流程拆解，以及 React 怎么判断"这个组件不用重新渲染"
+**副标题**：mount/update/unmount 完整流程、bailout 复用判断、双缓存机制
 
-#### 一、基本使用
+#### 一、使用与实践
 - `key` 的正确使用对 diff 结果的直接影响：复现"患者列表用数组 index 作 key"在增删排序时导致展开状态/输入框内容错位的 bug
 - `React.memo`/`PureComponent` 包裹组件后，父组件重渲染但 props 不变时子组件不会重新渲染的现象——这正是本篇要讲透的 bailout 机制在应用层的直观体现
 - React DevTools Profiler 里观察 Fiber 树和各阶段耗时
 - `StrictMode` 下 effect 被执行两次的现象，和 Fiber `alternate` 树切换、mount/unmount 模拟之间的关系
 - 组件从 DOM 树中移除（如 Tab 切换隐藏某个模块）对应的卸载流程，以及 `useEffect` 清理函数被调用的时机
 
-#### 二、原理
+#### 二、设计与原理
 - Fiber 节点数据结构逐字段讲解：`type`、`key`、`pendingProps`/`memoizedProps`、`stateNode`、`return`/`child`/`sibling`、`index`、`alternate`、`flags`、`lanes`
 - 双缓存机制：`current` 树表示当前屏幕上显示的内容，`workInProgress` 树是内存中正在构建的新树，两者通过 `alternate` 互相指向；commit 阶段完成后只需要把 root 的 `current` 指针整体切换到新树
 - **mount 流程**：首次渲染时不存在 `current` 树，`beginWork` 处理每个 Fiber 时走的是 `mountXxx` 系列逻辑（如 Hooks 的 `HooksDispatcherOnMount`），`completeWork` 阶段需要为每个 Host 类型节点真正创建 DOM 实例（`createInstance`）并挂载 props
@@ -192,20 +222,13 @@
 5. unmount 递归清理：`packages/react-reconciler/src/ReactFiberCommitWork.js` — `commitDeletion`/`unmountHostComponents` 自底向上执行清理逻辑
 6. 工作循环驱动：`packages/react-reconciler/src/ReactFiberWorkLoop.js` — `workLoopConcurrent`/`workLoopSync`
 
-#### 四、生产级最佳实践
-- 患者列表统一用稳定的患者 ID 作为 `key`，禁止用数组 `index`
-- 给纯展示型的子组件（如药品列表行）包裹 `React.memo`，并配合 `useCallback`/`useMemo` 保持传入 props 的引用稳定，让 bailout 机制真正生效，而不是"包了 memo 但 props 每次都是新对象/新函数，等于没包"
-- 避免渲染函数里根据条件返回不同的标签类型，`type` 变化会导致整棵子树被销毁重建而不是复用
-- 检验报告历史这类大列表用虚拟滚动，减少同时存在的 Fiber 节点数量
-- Tab 切换场景注意选择"卸载重建"还是"CSS 隐藏保留组件树"，前者会触发完整的 unmount 清理（丢失内部状态和已建立的订阅），后者不会，根据业务场景（是否需要保留表单已填内容）选择
+#### 四、手写实现（延续第 01/02 篇 `lotosv2010/react-source` monorepo，本篇把 `beginWork`/`completeWork`/`commitRoot` 从占位补成真实实现）
+第 01 篇搭骨架时，`beginWork`/`completeWork`/`commitRoot` 都是简化占位（`beginWork` 直接返回 `fiber.child`，`completeWork`/`commitMutationEffects` 是空实现）。本篇在 `packages/react-reconciler` 里正式补全：`ReactFiber.ts` 的 `createWorkInProgress` 已经具备 mount/update 两条分支（第 01 篇已写），本篇在 `ReactFiberBeginWork.ts` 里按 `fiber.tag` 分发处理 `HostRoot`/`HostComponent`/`FunctionComponent`，并加入 bailout 判断（`oldProps === newProps` 时调用 `bailoutOnAlreadyFinishedWork` 直接克隆子 Fiber，跳过渲染）；在 `ReactFiberCompleteWork.ts` 里补上 mount 阶段调用 `document.createElement` 真正创建 DOM 实例、update 阶段做属性 diff（`prepareUpdate`）、并把 `flags` 冒泡到父节点 `subtreeFlags`；`packages/react-dom` 的 Host Config（`createInstance`/`appendChild`/`commitUpdate`/`removeChild`）也在本篇补齐真实的 DOM 操作实现，替换第 01 篇 `commitMutationEffects` 的空函数。用 `examples/prescription.html` 里"添加/删除/原地不变刷新"三种药品项操作验证 mount/update（含 bailout 命中）/unmount 三条路径都正确工作。
 
-#### 五、手写实现（可独立跑通）
-参考 Didact（`pomb.us/build-your-own-react`）思路，用纯 JS + DOM API 手写一个极简 Fiber 协调器，场景是"处方单药品项"的增删渲染：实现 `createElement` 构造虚拟节点；实现带 `workLoop` 的渲染循环；实现 `beginWork`（先判断能否 bailout 复用，不能复用则 diff 子节点并打上 flags）和 `commitRoot`（遍历 effect 链表执行真实 DOM 增删改，删除节点时递归执行清理回调）。用一个"添加/删除/原地不变刷新"三种操作的按钮组验证 mount/update（含 bailout 命中）/unmount 三条路径都能正确工作，可在浏览器直接运行观察效果。
+#### 五、手写实现源码 GitHub 地址
+https://github.com/lotosv2010/react-source
 
-#### 六、手写实现源码 GitHub 地址
-（占位，写作时填入实际仓库链接）
-
-#### 七、参考
+#### 六、参考
 - https://react.iamkasong.com
 - https://jonny-wei.github.io/blog/react/
 - https://pomb.us/build-your-own-react/
@@ -219,16 +242,16 @@
 
 ---
 
-### 第 04 篇：React 18 Diff 算法源码精读
+### 第 04 篇：React 18 Diff 算法: 单节点与多节点 Diff 源码精读（面试收藏级）
 
-**副标题**：单节点 Diff 与多节点 Diff，`key` 到底在算法里扮演什么角色
+**副标题**：单节点 Diff、多节点两轮遍历、lastPlacedIndex 移动判断、key 的真正作用
 
-#### 一、基本使用
+#### 一、使用与实践
 - 复现"患者列表用数组 index 作 key"在增删排序时展开状态/输入框内容错位的 bug（承接 03 篇，本篇专门拆解背后的算法原因）
 - 数组渲染时给每一项显式声明稳定 `key` 的正确写法，对比"不写 key 时 React 报警告但仍会渲染"的默认行为
 - React DevTools Profiler 观察一次列表重排后，哪些 DOM 节点被移动、哪些被重新创建
 
-#### 二、原理
+#### 二、设计与原理
 - Diff 算法的前提：只对同一层级的节点进行比较（不会跨层级搬移节点），且只在"新旧 `type` 相同"的前提下才可能复用节点——这是 Diff 算法为了把复杂度从 O(n³) 降到 O(n) 所做的两个关键简化假设
 - 单节点 Diff（`reconcileSingleElement`）：对比新 `element` 的 `key`/`type` 和旧 Fiber 链表逐个比较——如果 `key` 相同但 `type` 不同，当前节点及其兄弟全部标记删除；如果 `key` 和 `type` 都相同，复用该 Fiber 并删除其余的旧兄弟节点
 - 多节点 Diff（`reconcileChildrenArray`）分两轮遍历：
@@ -244,19 +267,13 @@
 3. Diff 入口分发：`packages/react-reconciler/src/ReactChildFiber.js` — `reconcileChildFibers` 根据新 children 是单个元素/数组/文本等类型分发到不同处理函数
 4. `key` 提取与警告：`packages/react-reconciler/src/ReactChildFiber.js` — `warnOnInvalidKey`，未显式声明 key 时的默认行为
 
-#### 四、生产级最佳实践
-- 患者列表、处方药品项统一用稳定的业务 ID 作为 `key`，禁止用数组 `index`
-- 涉及频繁增删排序的列表（如处方单动态添加药品项）优先保证 `key` 稳定，必要时给列表项数据本身补充一个唯一 ID 字段而不是依赖数组下标
-- 明确知道列表"只会在末尾追加、不会中间插入删除排序"这种简单场景，用 index 作 key 的风险可以接受，但仍建议养成用业务 ID 的习惯，避免未来需求变化后忘记改
-- 大列表整体重排（如按价格/时间重新排序）会导致大量节点被标记移动，评估是否可以用虚拟滚动 + 数据层排序取代真实 DOM 层面的大规模重排
+#### 四、手写实现（延续 `lotosv2010/react-source` monorepo，本篇往 `react-reconciler` 补上真正的子节点 Diff）
+第 03 篇的 `beginWork` 处理子节点时暂时只支持单个子节点场景，本篇在 `packages/react-reconciler` 新增 `ReactChildFiber.ts`，实现 `reconcileSingleElement`（单节点 Diff：对比 `key`/`type` 决定复用或删除重建）和 `reconcileChildrenArray`（多节点 Diff 的两轮遍历 + `lastPlacedIndex` 判断移动，输出带 `Placement`/`ChildDeletion` 标记的 Fiber 链表），并在 `beginWork` 里接入 `reconcileChildFibers` 作为子节点 Diff 的统一入口，替换掉之前"直接返回 `fiber.child`"的占位逻辑。用 `examples/prescription.html` 里"处方单药品项重排"（把第 3 项拖到第 1 位）验证"相对顺序没变的节点不会被错误标记为移动"，并额外加一组"index 作 key"的对比场景，观察错误的复用行为在真实 DOM 操作日志里的体现。
 
-#### 五、手写实现（可独立跑通）
-用纯 JS（不依赖 React）实现一个简化版多节点 Diff 函数：输入旧数组和新数组（元素形如 `{ key, type, text }`），输出一组"patch 指令"（`INSERT`/`DELETE`/`MOVE`/`UPDATE`），按照 React 的两轮遍历思路实现——第一轮按位置比较直到 `key` 不匹配跳出，第二轮用 Map 查找剩余节点并用 `lastPlacedIndex` 判断是否需要移动。用"处方单药品项重排"（如把第 3 项拖到第 1 位）作为测试用例，打印出的 patch 指令要能验证"相对顺序没变的节点不会被错误标记为移动"，并额外用一组"index 作 key" 的对比测试，打印出的 patch 指令直观展示错误的复用行为。
+#### 五、手写实现源码 GitHub 地址
+https://github.com/lotosv2010/react-source
 
-#### 六、手写实现源码 GitHub 地址
-（占位，写作时填入实际仓库链接）
-
-#### 七、参考
+#### 六、参考
 - https://react.iamkasong.com
 - https://jonny-wei.github.io/blog/react/
 
@@ -269,17 +286,17 @@
 
 ---
 
-### 第 05 篇：React 18 commit 阶段与副作用系统
+### 第 05 篇：React 18 commit 阶段: 三个子阶段与 effect 执行顺序原理（面试收藏级）
 
-**副标题**：before mutation / mutation / layout 三个子阶段，以及 effect 链表的收集与执行顺序
+**副标题**：before mutation/mutation/layout 三阶段、effect 链表收集、useInsertionEffect/useLayoutEffect/useEffect 执行时机
 
-#### 一、基本使用
+#### 一、使用与实践
 - `useLayoutEffect` 在浏览器绘制前同步执行，`useEffect` 在绘制后异步执行——通过"处方单弹窗需要先测量 DOM 再定位"这个场景直观感受两者时机差异
 - `getSnapshotBeforeUpdate`（Class 组件生命周期）在 DOM 变更前读取快照，比如聊天记录列表更新前记录当前滚动位置，更新后在 `componentDidUpdate` 里用这个快照恢复滚动位置
 - 父子组件都写了 `useEffect` 时，实际打印日志观察谁先执行——验证"子组件的 effect 先于父组件执行"这个顺序规律
 - `useRef` 关联的 DOM ref 在 mutation 阶段之后才被赋值，layout 阶段读取 `ref.current` 已经能拿到真实 DOM
 
-#### 二、原理
+#### 二、设计与原理
 - commit 阶段为什么整体同步不可中断：render 阶段只在内存中操作 Fiber 对象，可以被打断丢弃重来；commit 阶段是真正操作真实 DOM 的阶段，一旦开始必须保证同步跑完，否则用户会看到不完整的、DOM 结构和状态不一致的中间态界面
 - **before mutation 阶段**：此时 DOM 还没有任何变更，用于读取变更前的状态——`getSnapshotBeforeUpdate` 在这里被调用（必须在 DOM 变更前读取，所以不能放在 mutation 或 layout 阶段）
 - **mutation 阶段**：真正执行 DOM 的增删改（`commitPlacement`/`commitDeletion`/`commitUpdate`），`useLayoutEffect` 的销毁函数（上一次的 cleanup）也在这个阶段被调用（先清理旧的再挂载新的）
@@ -298,20 +315,13 @@
 5. passive effect 异步调度：`packages/react-reconciler/src/ReactFiberWorkLoop.js` — `flushPassiveEffects`/`commitPassiveMountEffects`，`useEffect` 如何被异步调度执行
 6. `useInsertionEffect` 调用点：`packages/react-reconciler/src/ReactFiberCommitWork.js` — `commitHookEffectListMount` 中 `HookInsertion` 标记对应的执行时机（在 mutation 之前）
 
-#### 四、生产级最佳实践
-- 处方单弹窗需要"先测量 DOM 尺寸再定位"的场景必须用 `useLayoutEffect`，用 `useEffect` 会导致弹窗先出现在错误位置、再"跳"到正确位置
-- 聊天记录列表/检验报告时间线更新前用 `getSnapshotBeforeUpdate` 记录滚动位置，`componentDidUpdate` 里恢复，避免新增内容导致视觉跳动
-- 理解 effect 执行顺序后，父组件 `useEffect` 里安全地调用子组件通过 `useImperativeHandle` 暴露的方法，不需要额外加时序判断
-- 自建的 CSS-in-JS 方案或需要在 DOM 变更前插入动态样式的场景使用 `useInsertionEffect`，业务代码日常开发中一般不需要主动使用
-- 排查"effect 里读到的 DOM 尺寸不对"类问题，先确认用的是 `useEffect` 还是 `useLayoutEffect`，是否存在绘制后才执行导致的时序问题
+#### 四、手写实现（延续 `lotosv2010/react-source` monorepo，本篇把 `commitRoot` 从单一函数拆成三阶段真实实现）
+第 01 篇的 `commitRoot` 只是"遍历树执行 DOM 操作"的单一简化函数，本篇在 `packages/react-reconciler` 里改造成 `commitBeforeMutationEffects`/`commitMutationEffects`/`commitLayoutEffects` 三个子阶段，并在 `completeWork` 阶段补上 effect 环形链表的收集逻辑（挂在 `fiber.updateQueue` 上，区分 `HookInsertion`/`HookLayout`/`HookPassive` 三种标记）；`commitMutationEffects` 里补全真实的 `commitPlacement`/`commitDeletion`/`commitUpdate` 调用 `packages/react-dom` 的 Host Config；passive effect（`useEffect`）通过 `packages/scheduler` 的 `scheduleCallback` 异步调度执行，替换掉之前"同步跑完”的占位处理。用 `examples/prescription.html` 里"父组件包含两个子组件"的结构验证：三种 effect 各自在正确阶段被调用、子组件 effect 先于父组件执行、`useEffect` 确实在整个同步 commit 流程走完之后才执行。
 
-#### 五、手写实现（可独立跑通）
-用纯 JS + DOM API 手写一个极简的三阶段 commit 系统（承接 03/04 篇的手写协调器）：实现一个 `commitRoot` 函数，按顺序执行 `beforeMutation`（模拟读取"变更前快照"）→`mutation`（真实执行 DOM 增删改）→`layout`（同步执行"布局副作用"回调）三个阶段；再实现一个简化的 effect 收集机制——组件对象上可以声明 `insertionEffect`/`layoutEffect`/`passiveEffect` 三种回调，渲染一棵"父组件包含两个子组件"的树，验证：三种 effect 各自在正确的阶应该阶段被调用；子组件的 effect 始终先于父组件执行；`passiveEffect` 用 `Promise.resolve().then` 模拟异步调度，验证它在整个同步 commit 流程走完之后才执行。
+#### 五、手写实现源码 GitHub 地址
+https://github.com/lotosv2010/react-source
 
-#### 六、手写实现源码 GitHub 地址
-（占位，写作时填入实际仓库链接）
-
-#### 七、参考
+#### 六、参考
 - https://react.iamkasong.com
 - https://jonny-wei.github.io/blog/react/
 - https://zh-hans.react.dev/
@@ -325,13 +335,13 @@
 
 ---
 
-### 第 06 篇：React 18 Hooks 全解析
+### 第 06 篇：React 18 Hooks 深度: 设计哲学、dispatcher 切换与 Hook 链表源码（面试收藏级）
 
-**副标题**：设计哲学、核心 Hook 用法，与 dispatcher 切换、Hook 链表、useSyncExternalStore 源码全打通
+**副标题**：Hooks 设计哲学、dispatcher 机制、Hook 链表、useSyncExternalStore 防撕裂原理
 
 > 说明：本篇合并原大纲中拆开的「Hooks 基本使用」与「Hooks 源码解析」两篇——同一个 Hook 的"怎么用"和"为什么这样设计"放在一起讲，避免中间被架构/渲染篇打断主线。
 
-#### 一、基本使用
+#### 一、使用与实践
 - `useState`：基本用法与函数式更新，区分"直接传值"与"传函数"两种更新方式的适用场景；惰性初始化 `useState(() => computeExpensiveInitialState())` 只在首次渲染执行一次
 - `useEffect`：依赖数组的三种写法与清理函数时机
 - `useLayoutEffect`：处方单弹窗先测量 DOM 再定位，避免闪烁
@@ -345,9 +355,10 @@
 - `forwardRef` + `useImperativeHandle`：父组件命令式调用子组件方法的标准写法
 - `createPortal`：脱离父组件 CSS 层级限制渲染到 `document.body`，但事件冒泡仍沿 React 组件树传播
 - `useId`：生成跨服务端/客户端渲染一致的唯一 ID
+- **Fragment 内置组件**（新增）：`<></>`（短语法）与 `<React.Fragment key={...}>` 的区别——Fragment 允许返回多个子节点而不额外包裹 DOM 元素；短语法 `<>` 不支持 `key` 属性，列表渲染需要 key 时必须用显式 `<React.Fragment key={...}>`；在 Fiber 树中 `fiber.tag === Fragment`，Diff 时直接处理其子节点数组、不产生额外宿主节点；对比 Vue 3 的 `<template>` 在编译后同样被优化掉、不产生额外 VNode
 - Error Boundary：类组件通过 `static getDerivedStateFromError` + `componentDidCatch` 捕获子树渲染期间的异常
 
-#### 二、原理
+#### 二、设计与原理
 - Hooks 本质是"用函数组件 + 闭包"复用状态逻辑，替代 Class 组件生命周期方法里拼接不相关逻辑的问题
 - 调用顺序依赖模型：Hook 的状态是按"调用顺序"对应存储位置的，条件语句或循环会导致某次渲染多调用或少调用某个 Hook，从而让状态和 Hook 调用错位
 - 自定义 Hook 不是新语法，只是"调用其他 Hook 的普通函数"，多个组件使用同一个自定义 Hook 时各自拥有独立的闭包和状态实例
@@ -374,22 +385,13 @@
 7. `useSyncExternalStore` 实现：`packages/react-reconciler/src/ReactFiberHooks.js` — `mountSyncExternalStore`/`updateSyncExternalStore`，`checkIfSnapshotChanged` 的比较逻辑
 8. effect 链表执行：`packages/react-reconciler/src/ReactFiberCommitWork.js` — `commitHookEffectListMount`/`commitHookEffectListUnmount`
 
-#### 四、生产级最佳实践
-- 复杂的处方表单用 `useReducer` 代替多个零散 `useState`
-- 把患者数据请求 + loading + error 状态封装进 `usePatientRecord` 自定义 Hook
-- 给传入药品列表虚拟滚动子组件的事件回调用 `useCallback` 包裹，配合 `React.memo` 减少不必要的子组件重渲染
-- 在 `useEffect` 清理函数中取消医嘱轮询请求，避免竞态更新或内存泄漏
-- 医生排班这类模块级单例数据源用 `useSyncExternalStore` 订阅，而不是手写 `useEffect + useState` 组合（后者在并发模式下有 tearing 风险）
-- "处方单表单"组件用 `forwardRef` + `useImperativeHandle` 只暴露 `validate()`/`getValues()` 两个方法给父组件
-- 问诊表单的多个字段用 `useId` 生成 `label`/`input` 关联 ID
+#### 四、手写实现（延续 `lotosv2010/react-source` monorepo，本篇给 `react-reconciler` 补上完整的 Hooks 体系）
+在 `packages/react-reconciler` 的 `ReactFiberHooks.ts` 里正式实现 `renderWithHooks`（渲染函数组件前切换 `ReactCurrentDispatcher.current`）与 `HooksDispatcherOnMount`/`HooksDispatcherOnUpdate` 两套 dispatcher，`mountState`/`updateState` 在 Fiber 上维护 Hook 链表（`fiber.memoizedState` 指向链表头），`mountEffect`/`updateEffect` 把 Effect 对象追加进第 05 篇已经搭好的 effect 环形链表（区分 `HookLayout`/`HookPassive`/`HookInsertion` 标记）；故意在 demo 里把 `useState` 放进 `if` 制造状态错位的 bug，验证"顶层调用"规则存在的必要性。再补上 `mountSyncExternalStore`/`updateSyncExternalStore`（含 `checkIfSnapshotChanged` 比较逻辑），用医生排班 store 模拟"渲染中途外部 store 变化"场景，对比有无快照比较时 tearing 是否发生；`packages/react` 补充 `ReactHooks.ts` 转发到当前 dispatcher 的机制。全部改动跑在同一个 `examples/prescription.html` demo 上。
 
-#### 五、手写实现（可独立跑通）
-用原生 JS（不依赖 React）实现一个 `createHookedComponent` 函数：内部维护一个 `hooks` 数组和游标 `cursor`，暴露简化版 `useState`/`useEffect` API，验证"顶层调用"规则存在的必要性（故意把 `useState` 放进 `if` 制造状态错位的 bug 作对比）；补充一个极简版 `ErrorBoundary`；再手写一个基于树路径编码的极简 `useId` 实现。在此基础上新增：手写一个简化版 `useSyncExternalStore`——内部维护一个"渲染前快照"和"渲染后快照"，在模拟的"渲染中途外部 store 发生变化"场景下，验证不加保护的手写订阅会读到不一致的值（tearing），而加上快照比较逻辑后能检测到变化并强制重新读取。整个 Demo 可在 Node.js 环境直接运行。
+#### 五、手写实现源码 GitHub 地址
+https://github.com/lotosv2010/react-source
 
-#### 六、手写实现源码 GitHub 地址
-（占位，写作时填入实际仓库链接）
-
-#### 七、参考
+#### 六、参考
 - https://zh-hans.react.dev/
 - https://ahooks.js.org/
 - https://github.com/bvaughn/react-error-boundary
@@ -404,11 +406,11 @@
 
 ---
 
-### 第 07 篇：React 18 并发特性与调度器源码解析
+### 第 07 篇：React 18 并发渲染: Scheduler 时间切片、Lane 模型与 Suspense 原理（面试收藏级）
 
-**副标题**：MessageChannel 时间切片、事件优先级如何映射到 Lane、startTransition 与 Suspense 的协作
+**副标题**：MessageChannel 时间切片、事件优先级到 Lane 映射、startTransition 与 Suspense 协作
 
-#### 一、基本使用
+#### 一、使用与实践
 - `useTransition`：将非紧急更新标记为可中断的过渡态
 - `startTransition`：不需要 pending 状态时的轻量版 API
 - `useDeferredValue`：让某个值"延迟跟随"最新值更新
@@ -416,7 +418,7 @@
 - `Suspense` 配合数据请求：结合支持 Suspense 的数据源实现"读取即挂起"模式
 - 并发模式下 `ReactDOM.createRoot` 是开启一切并发特性的前提
 
-#### 二、原理
+#### 二、设计与原理
 - 时间切片的本质：把渲染工作拆成不超过 5ms 的"工作单元"，每跑完一个时间片就把控制权交还浏览器
 - 为什么用 `MessageChannel` 而不是 `setTimeout(fn, 0)`：`setTimeout` 有浏览器最小延迟 clamp 限制且不稳定，`MessageChannel` 的宏任务延迟更稳定可控；不支持时降级为 `setTimeout`
 - Scheduler 的任务队列：内部维护两个小顶堆（`taskQueue`、`timerQueue`），按 `expirationTime` 排序
@@ -436,21 +438,13 @@
 6. `startTransition` 实现：`packages/react-reconciler/src/ReactFiberHooks.js` — 通过 `requestUpdateLane` 获取 `TransitionLane`
 7. Suspense 挂起处理：`packages/react-reconciler/src/ReactFiberThrow.js` — `throwException` 捕获 thenable，`attachPingListener` 注册 resolve 后的重渲染回调
 
-#### 四、生产级最佳实践
-- HIS 系统的"患者列表切换科室筛选"用 `useTransition` 包裹筛选逻辑
-- 处方药品检索输入框用 `useDeferredValue` 让搜索结果列表滞后于输入本身
-- 非关键的联动校验（药品相互作用提示）用 `startTransition` 标记为低优先级
-- 避免滥用 `startTransition` 包裹涉及受控输入本身的 `setState`
-- 长列表配合 `Suspense` 做代码分割懒加载，`fallback` 使用与 HIS 系统视觉规范一致的骨架屏
-- 排查"为什么这次更新没有被打断"类问题时，先确认触发来源对应的事件优先级，是否被误判为高优先级同步更新
+#### 四、手写实现（延续 `lotosv2010/react-source` monorepo，本篇给 `scheduler`/`react-reconciler` 补上优先级调度与 Suspense）
+第 01 篇的 `packages/scheduler` 只有单一优先级的任务队列，本篇补成真正的小顶堆任务队列（`taskQueue`/`timerQueue`），验证高优先级任务可以插队打断正在执行的低优先级任务；在 `packages/react-reconciler` 里实现 `requestUpdateLane`，补一个简化版"事件优先级映射表"（`click → SyncLane`、`scroll → InputContinuousLane`、`setTimeout → DefaultLane`），`startTransition` 内部更新强制打上 `TransitionLane`；再实现最小化的 Suspense：组件渲染阶段 `throw` 一个 Promise，`ReactFiberThrow.ts` 捕获后向上找最近的 Suspense 边界渲染 `fallback`，Promise resolve 后通过 `pingLanes` 重新调度。用 `examples/prescription.html` 新增一个"1000 条患者档案列表 + 检索输入框"的场景，验证高优先级的输入框更新能打断正在进行的低优先级列表渲染，并用 Chrome DevTools Performance 面板观察分片。
 
-#### 五、手写实现（可独立跑通）
-用纯 Node.js（不依赖 React 本身）搭建一个最小化的"时间切片调度器"沙盘：用 `MessageChannel` 实现宏任务循环，模拟将"渲染 1000 个患者档案节点"拆成多个不超过 5ms 的小任务分片执行，加入一个简化版的优先级队列（数组模拟小顶堆），验证高优先级任务可以插队打断正在执行的低优先级任务。在此基础上新增：一个简化版"事件优先级映射表"（`click → sync`、`scroll → continuous`、`setTimeout → default`），根据模拟触发来源查表得到优先级再决定任务的调度顺序，验证同一批任务在不同触发来源下的执行顺序符合预期。用 Vite + TypeScript 搭建可在浏览器打开的 demo 页面，用 `performance.now()` 打点可视化展示。
+#### 五、手写实现源码 GitHub 地址
+https://github.com/lotosv2010/react-source
 
-#### 六、手写实现源码 GitHub 地址
-（写作时填入）
-
-#### 七、参考
+#### 六、参考
 - https://zh-hans.react.dev/
 - https://jonny-wei.github.io/blog/react/
 - https://react.iamkasong.com
@@ -464,11 +458,11 @@
 
 ---
 
-### 第 08 篇：React 18 事件系统与批处理原理
+### 第 08 篇：React 18 事件系统: 合成事件、事件委托与自动批处理原理（面试收藏级）
 
-**副标题**：从"挂在 document 上"到"挂在 root 容器"，从"仅合成事件内批处理"到"处处自动批处理"
+**副标题**：合成事件设计、事件委托从 document 到 root、Automatic Batching 演进
 
-#### 一、基本使用
+#### 一、使用与实践
 - 合成事件绑定：`<button onClick={handleClick}>` 中的 `onClick` 是 React 封装的 `SyntheticEvent`
 - `e.nativeEvent` 访问原始浏览器事件对象
 - `e.stopPropagation()` 只阻止合成事件在 React 事件系统内的传播，不等价于原生 `stopPropagation`
@@ -476,7 +470,7 @@
 - `flushSync(() => setState(...))` 强制让某次更新同步执行并立刻反映到 DOM
 - 事件委托是自动生效的：React 内部把所有事件统一委托到 root 容器上监听
 
-#### 二、原理
+#### 二、设计与原理
 - 合成事件为什么要自己实现一套：抹平浏览器事件模型的跨浏览器差异，并让事件调度接入 React 自己的优先级和批处理机制（与第 07 篇事件优先级映射联动）
 - 事件委托机制：React 在 root 容器上对每一种事件类型委托监听一次，触发时通过 `event.target` 结合 Fiber 树向上收集所有相关的合成事件处理函数
 - React 17 之前事件绑定在 `document` 上、React 17+ 改为绑定在 root 容器上：避免多版本 React 共存（渐进式迁移、微前端场景）时事件系统互相干扰
@@ -491,19 +485,13 @@
 4. 批处理调度路径：`packages/react-reconciler/src/ReactFiberWorkLoop.js` — `scheduleUpdateOnFiber` 统一走批处理调度
 5. `flushSync` 实现：`packages/react-reconciler/src/ReactFiberWorkLoop.js` — `flushSync` 临时切换执行上下文并立刻触发 `flushSyncCallbackQueue`
 
-#### 四、生产级最佳实践
-- 医生工作站"批量勾选患者列表 + 一键批量转诊"操作，多个 `setState` 天然享受自动批处理
-- 药品库存扫码枪触发的原生事件回调中更新多个状态，React 18 下不再需要手动调用 `unstable_batchedUpdates`
-- 需要在状态更新后立刻读取 DOM 布局信息的场景（处方单打印前测量内容高度分页）用 `flushSync`
-- 排查"点击后页面没反应"类问题，先确认是否误用了原生 `addEventListener` 而不是 JSX 属性绑定
+#### 四、手写实现（延续 `lotosv2010/react-source` monorepo，本篇给 `react-dom` 补上事件系统）
+在 `packages/react-dom` 新增事件模块：在 root 容器上对每种事件类型只挂一个原生监听器（`listenToAllSupportedEvents`），维护一份"虚拟事件注册表"，触发时通过 `event.target` 结合 Fiber 树的 `return` 指针向上收集所有相关的合成事件处理函数并模拟冒泡阶段依次调用（`accumulateSinglePhaseListeners`）；`packages/react-reconciler` 的 `scheduleUpdateOnFiber` 改造成统一走批处理调度（不再区分事件来源），并补上 `flushSync`（临时把这次更新标记为 `SyncLane` 并立刻同步渲染）。用 `examples/prescription.html` 里"处方单药品列表"验证：点击列表项能正确冒泡；原生事件回调、`setTimeout`、`Promise.then` 里连续多次 `setState` 都只触发一次渲染。
 
-#### 五、手写实现（可独立跑通）
-用 Vite + TypeScript 搭建一个不依赖 React 的最小事件委托系统：在"患者列表"容器上只挂一个原生 `click` 监听器，维护一份"虚拟事件注册表"，点击列表项时通过 `event.target` 向上遍历 DOM 树查找注册的处理函数并模拟冒泡阶段依次调用；再实现一个极简的"批处理"机制，用页面上的渲染次数计数器展示批处理前后的差异。
+#### 五、手写实现源码 GitHub 地址
+https://github.com/lotosv2010/react-source
 
-#### 六、手写实现源码 GitHub 地址
-（写作时填入）
-
-#### 七、参考
+#### 六、参考
 - https://zh-hans.react.dev/
 - https://jonny-wei.github.io/blog/react/
 - https://react.iamkasong.com
@@ -517,18 +505,18 @@
 
 ---
 
-### 第 09 篇：React 18 Context 原理与手写实现
+### 第 09 篇：React 18 Context: 依赖传播机制与手写实现（面试收藏级）
 
 **副标题**：Context 值挂在 Fiber 节点上，Provider 变化时如何精确标记需要更新的子树
 
-#### 一、基本使用
+#### 一、使用与实践
 - `createContext(defaultValue)` 创建 Context 对象
 - `<XxxContext.Provider value={...}>` 提供值，`value` 变化（`Object.is` 比较）会触发消费该 Context 的组件重渲染
 - `useContext(XxxContext)` 读取最近一层匹配的 `Provider` 提供的值
 - 类组件通过 `static contextType` 或 `<XxxContext.Consumer>` 读取
 - 多个 Context 嵌套时，`useContext` 只会匹配组件树上"最近"的同一个 Context 的 `Provider`
 
-#### 二、原理
+#### 二、设计与原理
 - Context 值存储位置：`Provider` 对应 Fiber 的 `memoizedProps.value`，Context 对象本身维护 `_currentValue` 字段
 - Provider 变化如何标记依赖子树更新：`propagateContextChange` 从 `Provider` 节点向下遍历整个子树，检查每个节点的 `dependencies`，匹配上就打更新标记
 - 为什么被 `memo` 包裹也无法完全规避重渲染：`propagateContextChange` 的扫描不会被 `memo` 挡住
@@ -544,19 +532,13 @@
 4. Context 读取：`packages/react-reconciler/src/ReactFiberNewContext.js` — `readContext`
 5. `useContext` Hook 入口：`packages/react-reconciler/src/ReactFiberHooks.js`
 
-#### 四、生产级最佳实践
-- HIS 系统"当前登录医生信息"和"当前诊室待诊患者队列"拆成两个独立 Context
-- "药品字典数据"和"当前处方单编辑状态"分离成不同 Context
-- 消费 Context 的深层组件优先只订阅需要的字段
-- 高频更新 + 大范围消费场景优先考虑 `zustand` 等基于订阅而非 Context 广播的方案（与第 11 篇联动）
+#### 四、手写实现（延续 `lotosv2010/react-source` monorepo，本篇作为 02~09 篇 `react-reconciler` 递增实现的收尾）
+在 `packages/react` 新增 `ReactContext.ts` 实现 `createContext`（维护 `_currentValue` 字段）；在 `packages/react-reconciler` 的 `ReactFiberBeginWork.ts` 补上 `updateContextProvider` 处理 Provider 渲染，新增 `ReactFiberNewContext.ts` 实现 `propagateContextChange`（从 Provider 节点向下遍历子树、检查每个 Fiber 的 `dependencies` 并打更新标记）与 `readContext`；`useContext` 接入第 06 篇已经搭好的 dispatcher 体系。用"医生工作站患者队列广播"场景验证多消费者重渲染现象，并额外实现一个 `createContextSelector` 用重渲染次数计数器对比两种方案的差异。至此第 01 篇搭的 monorepo 骨架里 `beginWork`/`completeWork`/`commitRoot`/Diff/Hooks/调度/事件/Context 均已从占位替换为真实实现，形成一份可完整跑通、覆盖 React 18 核心链路的手写版本。
 
-#### 五、手写实现（可独立跑通）
-用 Vite + TypeScript 手写一个极简版 Context 系统：`createContext`（维护 `_currentValue` 和订阅者集合）、`Provider`、`useContext`；用"医生工作站患者队列广播"演示多消费者重渲染现象；再手写一个 `createContextSelector`，用重渲染次数计数器对比两种方案的差异。
+#### 五、手写实现源码 GitHub 地址
+https://github.com/lotosv2010/react-source
 
-#### 六、手写实现源码 GitHub 地址
-（写作时填入）
-
-#### 七、参考
+#### 六、参考
 - https://zh-hans.react.dev/
 - https://jonny-wei.github.io/blog/react/
 - https://react.iamkasong.com
@@ -570,11 +552,11 @@
 
 ---
 
-### 第 10 篇：React Router 6/7 原理与实战
+### 第 10 篇：React Router 6/7: Data Router 预取数据范式与权限路由实战（生产收藏级）
 
-**副标题**：从"组件里 useEffect 请求数据"到"路由跳转前预取数据"的范式转变，兼谈约定式路由的取舍
+**副标题**：loader/action 数据预取、嵌套路由与 Outlet、约定式 vs 显式配置路由
 
-#### 一、基本使用
+#### 一、使用与实践
 - `createBrowserRouter` 创建 Data Router 实例，配合 `<RouterProvider router={router} />` 渲染
 - `loader` 字段：导航到该路由前触发，预取该页面所需数据
 - `action` 字段：处理表单提交/数据变更，配合 `<Form method="post">`
@@ -582,7 +564,7 @@
 - 嵌套路由 + `<Outlet />`
 - `useParams()`、`useNavigate()`、`useRevalidator()`
 
-#### 二、原理
+#### 二、设计与原理
 - Data Router 与"组件内 `useEffect` 请求数据"方式的本质区别：把数据获取提升到路由匹配层面，父子路由的 `loader` 并行执行，解决请求瀑布和"渲染与请求脱节"的问题
 - 对比 Vue Router 4 的导航守卫：`beforeEnter` 只是一个时机钩子，开发者自己决定数据放哪；React Router 的 `loader` 是路由配置的一等公民，形成"路由即数据依赖声明"范式
 - 嵌套路由与组件树的对应关系：路由树驱动 UI 组件树，`<Outlet />` 是子路由内容的插槽
@@ -599,20 +581,13 @@
 5. `Outlet` 渲染子路由：`packages/react-router/lib/hooks.tsx`
 6. `useLoaderData` 读取数据：`packages/react-router/lib/hooks.tsx`
 
-#### 四、生产级最佳实践
-- HIS 系统"患者详情"页面用 `loader` 预取患者档案 + 最近处方记录
-- "新建处方"表单用 `<Form method="post">` + `action` 声明式提交
-- 权限路由：登录后根据角色动态过滤路由配置数组
-- 关键业务路由在对应 `loader` 中做二次权限校验并 `throw redirect('/403')`
-- 长列表页切换分页/筛选时用 `useRevalidator`，避免整页重新挂载
-
-#### 五、手写实现（可独立跑通）
+#### 四、手写实现（可独立跑通）
 用 Vite + TypeScript 搭建一个不依赖 react-router 的极简客户端路由：`history.pushState` + 监听 `popstate`；简化版路径匹配函数（把 `/patients/:id` 转成正则并提取参数），支持嵌套路由和 `Outlet` 占位渲染；手写极简的 `loader` 机制。用"医生工作站 -> 患者列表 -> 患者详情"这条路径演示完整流程。
 
-#### 六、手写实现源码 GitHub 地址
-（写作时填入）
+#### 五、手写实现源码 GitHub 地址
+https://github.com/lotosv2010/react-source
 
-#### 七、参考
+#### 六、参考
 - https://reactrouter.com/
 - https://zh-hans.react.dev/
 - https://umijs.org/
@@ -626,13 +601,13 @@
 
 ---
 
-### 第 11 篇：React 状态管理选型：Redux Toolkit 源码与生产实践
+### 第 11 篇：React 状态管理: Redux Toolkit 源码解析与 MobX/Zustand 选型对比（生产收藏级）
 
-**副标题**：从 `createStore` 的发布订阅到 RTK 的 Immer 加持，兼谈 MobX/Zustand 怎么选，dva 为什么退出主流
+**副标题**：Redux 发布订阅与 Immer、RTK Query、Zustand 极简订阅、MobX 响应式、dva 历史方案
 
 > 说明：本篇合并原大纲中并列的 Redux/MobX/dva/umi 四篇——Redux Toolkit 是主线（篇幅占比最大），MobX 与 Zustand 降级为对比小节，dva 降级为"历史方案"小节，umi 的路由部分已并入第 10 篇。
 
-#### 一、基本使用
+#### 一、使用与实践
 - `createStore(reducer)`（或 RTK 的 `configureStore`）、`store.getState()`、`store.dispatch(action)`、`store.subscribe(listener)`
 - reducer 纯函数约定：`(state, action) => newState`
 - `react-redux` 的 `<Provider store={store}>`、`useSelector`、`useDispatch()`
@@ -642,7 +617,7 @@
 - **Zustand 基本用法**（新增）：`create((set) => ({ count: 0, inc: () => set(s => ({ count: s.count + 1 })) }))`，不需要 `Provider` 包裹，直接在组件里调用返回的 hook 读取状态
 - **MobX 基本用法**（保留自原 10 篇，压缩篇幅）：`observable`/`computed`/`action`/`makeAutoObservable`/`observer`
 
-#### 二、原理
+#### 二、设计与原理
 - 发布订阅模式的核心：`createStore` 内部维护 `currentState` 和监听器数组，`dispatch` 调用 `reducer` 得到新 state 再遍历执行监听器
 - `applyMiddleware` 的柯里化链条：三层柯里化函数串联成"洋葱模型"
 - `combineReducers` 的分治思想：只有字段真正变化才返回新的顶层对象引用
@@ -663,23 +638,13 @@
 6. Zustand 核心实现：`zustand/src/vanilla.ts`（极简 store）与 `zustand/src/react.ts`（`useSyncExternalStore` 绑定）
 7. MobX Proxy 拦截：`mobx/src/types/observableobject.ts`
 
-#### 四、生产级最佳实践
-- 医院管理系统的处方审核流程用 `createSlice` 管理"处方单状态机"
-- 处方提交、审核通过等异步操作统一用 `createAsyncThunk` 封装
-- 患者列表、药品目录等只读为主的数据获取用 RTK Query
-- 大团队协作场景优先 Redux Toolkit（可追溯、DevTools 时间旅行调试）
-- 中小型模块或独立工具组件、快速原型优先考虑 Zustand（无 Provider、包体积小）
-- 患者体征监测大屏这类"状态天然是对象、逻辑偏面向对象"的场景可以考虑 MobX，但需要更强的团队规范配合其隐式响应式
-- 新项目不建议再引入 dva，存量项目维护阶段理解其设计思路即可
-- 避免把频繁变化的局部 UI 状态也塞进全局 store
-
-#### 五、手写实现（可独立跑通）
+#### 四、手写实现（可独立跑通）
 用纯 TypeScript 实现一个约 100 行的 mini-Redux（`createStore`/`applyMiddleware`/`combineReducers`），用"处方单状态机"演示；在此基础上新增一个约 30 行的 mini-Zustand（`create` 函数返回一个基于订阅者集合的 hook，直接对接一个简化版 `useSyncExternalStore` 用法），对比两者在同一个"处方单状态机"场景下的代码量和使用方式差异。
 
-#### 六、手写实现源码 GitHub 地址
-（写作时填入）
+#### 五、手写实现源码 GitHub 地址
+https://github.com/lotosv2010/react-source
 
-#### 七、参考
+#### 六、参考
 - https://redux.js.org/
 - https://react-redux.js.org/
 - https://redux-toolkit.js.org/
@@ -696,13 +661,13 @@
 
 ---
 
-### 第 12 篇：React 18 SSR 与 RSC 原理与实战
+### 第 12 篇：React 18 服务端渲染: 流式 SSR 与 Server Components 原理实战（生产收藏级）
 
-**副标题**：从 `renderToString` 到 `renderToPipeableStream`，再到 Server Components 把"组件"本身搬到服务端
+**副标题**：renderToPipeableStream 流式渲染、Selective Hydration、RSC 与传统 SSR 的本质区别
 
 > 说明：内容承接原大纲第 13 篇，编号顺移，正文内容不变。
 
-#### 一、基本使用
+#### 一、使用与实践
 - `renderToString`：同步把组件树渲染为 HTML 字符串
 - `renderToPipeableStream`（Node.js）/ `renderToReadableStream`（Web Streams）：React 18 推荐的流式 SSR API
 - `<Suspense fallback={...}>` 在 SSR 场景下的作用
@@ -712,7 +677,7 @@
 - Server Component 中可以直接 `await` 数据库查询/接口请求
 - Server Component 可以直接把 Client Component 作为子节点渲染，但反过来不行
 
-#### 二、原理
+#### 二、设计与原理
 - `renderToString` 的局限：同步阻塞，必须等所有组件渲染完毕才能拿到最终字符串
 - Fizz 渲染器与流式渲染：遇到 `Suspense` 边界包裹的挂起内容不阻塞整体输出，先写入 `fallback`，真实内容准备好后通过内联 `<script>` 补丁流式替换
 - Selective Hydration：为每个 `Suspense` 边界独立调度 hydration 任务，用户交互可以提升该区域的 hydration 优先级
@@ -730,21 +695,13 @@
 4. Selective Hydration 调度：`packages/react-reconciler/src/ReactFiberHydrationContext.js`
 5. RSC 序列化与解析：`packages/react-server/src/ReactFlightServer.js`；`packages/react-client/src/ReactFlightClient.js`
 
-#### 四、生产级最佳实践
-- 医生工作台首页用 `renderToPipeableStream`，核心内容作为 shell 优先渲染
-- 涉及患者隐私数据的接口不在 SSR 阶段暴露在 HTML 源码注释或调试信息里
-- 涉及 `Date.now()`、`Math.random()` 等逻辑明确区分"仅客户端执行"的代码路径
-- 对 SEO 有强需求的页面优先保证 `onShellReady` 尽快触发
-- 患者档案、药品目录这类详情展示页尽量写成 Server Component 直接查询数据
-- 涉及患者隐私数据的查询逻辑放在 Server Component 里执行
-
-#### 五、手写实现（可独立跑通）
+#### 四、手写实现（可独立跑通）
 用 Express + React 18 + TypeScript 搭建"医生工作台"SSR demo：`renderToPipeableStream` 渲染，"待诊患者列表"作为 shell 立即输出，"最近处方统计图表"包裹在 `Suspense` 中并模拟延迟；客户端用 `hydrateRoot` 接管。RSC 部分用最小化的 Next.js App Router demo 演示 Server/Client Component 边界与客户端 JS 体积对比。
 
-#### 六、手写实现源码 GitHub 地址
-（写作时填入）
+#### 五、手写实现源码 GitHub 地址
+https://github.com/lotosv2010/react-source
 
-#### 七、参考
+#### 六、参考
 - https://zh-hans.react.dev/
 - https://jonny-wei.github.io/blog/react/
 - https://nextjs.org/docs/app/building-your-application/rendering/server-components
@@ -758,46 +715,40 @@
 
 ---
 
-### 第 13 篇：React 18 性能优化全攻略
+### 第 13 篇：React 18 性能优化: memo/useMemo/虚拟列表与 React Compiler（生产收藏级）
 
-**副标题**：从 `memo`/`useMemo` 到虚拟列表和 Transition Lane 调优，一套系统化的性能问题排查方法论
+**副标题**：bailout 机制应用、虚拟列表原理、系统化排查方法论、React Compiler 未来方向
 
 > 说明：内容承接原大纲第 14 篇，编号顺移；`memo`/bailout 的源码细节已在第 03 篇讲透，本篇聚焦"怎么系统化排查和应用"。
 
-#### 一、基本使用
+#### 一、使用与实践
 - `React.memo(Component)`、`useMemo`、`useCallback`
 - 虚拟列表（`react-window`/`@tanstack/react-virtual`）
 - `React.lazy` + `Suspense`
 - `useTransition`/`useDeferredValue`
 - React DevTools Profiler
 
-#### 二、原理
+#### 二、设计与原理
 - `memo` 的浅比较机制与 bailout 的关系（详见第 03 篇，这里回顾结论）
 - `useMemo`/`useCallback` 的依赖比较：`Object.is` 逐项比较
 - 虚拟列表的核心原理：只渲染可视区域内的列表项
 - `React.lazy` 的实现：惰性初始化的 thenable，配合 Suspense 挂起机制
 - `useTransition`/`useDeferredValue` 的调优原理（详见第 07 篇，这里聚焦应用场景）
 - 性能优化的系统化排查方法论：先用 Profiler 定位"谁在重渲染、耗时多少"，区分"渲染次数过多"和"单次渲染耗时过长"两类问题分别用不同手段解决
+- **React Compiler（原 React Forget）的未来方向**（新增）：编译器在编译期自动分析组件函数体内"哪些变量影响了 JSX 输出"，自动在必要位置插入 `memo`/`useMemo`/`useCallback` 等价物，把开发者从"这里要不要手动加 `useCallback`"的决策负担中解放出来——它要解决的历史包袱正是第 03 篇讲的"bailout 依赖 props 引用稳定、需要开发者主动配合"。与 Vue 3 编译优化的方向对比：Vue 3 模板编译生成 PatchFlag 静态标记、静态提升、Block Tree，运行时只 diff 动态节点；React 的 JSX 完全动态无法做静态节点分析，只能在编译期做"自动依赖分析 + 自动插入 memo"。当前（2026 年）仍是实验性特性，Meta 内部已在部分产品线落地，社区可通过 `babel-plugin-react-compiler` 试用，正式 GA 预计随 React 19+ 逐步成熟；短期仍需手动优化并理解本篇原理，长期大部分优化会下沉到编译器
 
 #### 三、源码解析（重点代码，来源 GitHub 仓库）
 1. `memo` 的比较逻辑：`packages/react/src/ReactMemo.js` 与 `packages/shared/src/shallowEqual.js`
 2. `useMemo`/`useCallback` 依赖比较：`packages/react-reconciler/src/ReactFiberHooks.js` — `areHookInputsEqual`
 3. `React.lazy` 挂起机制：`packages/react/src/ReactLazy.js`
 
-#### 四、生产级最佳实践
-- 万级药品目录列表用虚拟列表方案
-- 大表单中展示型子组件用 `memo` 包裹，配合 `useCallback` 稳定回调引用
-- 药品说明书详情页、统计报表页用 `React.lazy` 做代码分割
-- 处方检索输入框结合 `useDeferredValue`
-- 优化前先用 Profiler 量化问题，避免凭直觉到处套用 `memo`/`useMemo`
-
-#### 五、手写实现（可独立跑通）
+#### 四、手写实现（可独立跑通）
 用 Vite + TypeScript + React 18 实现一个固定高度虚拟列表组件，用"万级药品目录"模拟数据演示流畅滚动效果，并和"不做虚拟化直接渲染全部万级节点"的版本做 Profiler 录制对比。
 
-#### 六、手写实现源码 GitHub 地址
-（写作时填入）
+#### 五、手写实现源码 GitHub 地址
+https://github.com/lotosv2010/react-source
 
-#### 七、参考
+#### 六、参考
 - https://zh-hans.react.dev/
 - https://github.com/bvaughn/react-window
 - https://tanstack.com/virtual
@@ -811,13 +762,13 @@
 
 ---
 
-### 第 14 篇：Turborepo + pnpm + Vite + React 18 通用后台管理系统从零搭建
+### 第 14 篇：React 18 工程化实战: Turborepo + Monorepo 后台管理系统从零搭建（生产收藏级）
 
-**副标题**：把前 13 篇的知识点串起来，搭一套可以直接拿去用的医院管理系统脚手架，兼谈自定义 Hook 的插件化设计模式
+**副标题**：Monorepo 架构设计、自定义 Hook 插件化设计、前13篇知识点工程化落地
 
 > 说明：内容承接原大纲第 16 篇，编号顺移；原独立成篇的「第 15 篇 ahooks 源码解析」降级为本篇的第五小节「自定义 Hook 设计模式」。
 
-#### 一、基本使用
+#### 一、使用与实践
 - 目录结构规划：`apps/`、`packages/` 的 Monorepo 布局
 - `pnpm-workspace.yaml` 声明工作区范围，`turbo.json` 声明任务依赖图
 - Vite 创建 React 18 + TypeScript 项目模板
@@ -825,7 +776,7 @@
 - 集成 React Router 6/7 + 状态管理方案（第 10/11 篇结论）
 - **`useRequest` 基本用法**（原 ahooks 篇内容）：自动请求、`manual: true` 手动模式、`onSuccess`/`onError`、防抖节流配置、`pollingInterval` 轮询、`cacheKey` 缓存与 SWR 策略
 
-#### 二、原理
+#### 二、设计与原理
 - Turborepo 的任务图与缓存机制：基于内容哈希判断任务是否需要重新执行
 - pnpm workspace 的依赖管理原理：内容寻址存储 + 符号链接，避免幽灵依赖
 - Vite 的开发体验优化原理：原生 ESM 按需编译 + esbuild 预构建
@@ -842,21 +793,13 @@
 
 > 说明：本篇聚焦"工程化整合与选型落地"，Turborepo/pnpm/Vite 源码解析部分以理解核心机制为主，重点仍是前 13 篇已深入讲解的 React 生态自身源码。
 
-#### 四、生产级最佳实践
-- Monorepo 中 `packages/ui`、`packages/request`、`packages/utils` 独立版本管理
-- `turbo.json` 中合理声明任务的 `inputs`/`outputs`
-- CI 流水线中启用 Turborepo 远程缓存
-- 处方列表查询用 `useRequest` 自动请求 + `refreshDeps`，提交类操作用 `manual: true`
-- 患者搜索输入框配置 `debounceWait` 直接声明式防抖
-- 药房库存看板用 `pollingInterval` 声明式轮询
-
-#### 五、手写实现（可独立跑通）
+#### 四、手写实现（可独立跑通）
 搭建一个完整可运行的 Monorepo 脚手架：`pnpm-workspace.yaml` + `turbo.json`；`packages/ui` 提供基础组件；`packages/request` 封装统一请求实例；`apps/admin` 用 Vite + React 18 + TypeScript + React Router 6/7 + Redux Toolkit + RTK Query + Ant Design 搭建"医院管理系统"后台（登录页、患者列表页、处方审核页）。额外新增：用 TypeScript 手写一个简化版 `useRequest`（`Fetch` 类 + 竞态处理 + 一个防抖插件 + 一个简单缓存插件），验证插件化架构可以正常工作。
 
-#### 六、手写实现源码 GitHub 地址
-（写作时填入）
+#### 五、手写实现源码 GitHub 地址
+https://github.com/lotosv2010/react-source
 
-#### 七、参考
+#### 六、参考
 - https://turbo.build/repo/docs
 - https://pnpm.io/
 - https://vitejs.dev/
@@ -888,6 +831,7 @@ https://mobx.js.org/README.html
 https://github.com/dvajs/dva
 https://umijs.org/
 https://ahooks.js.org/
+https://github.com/lotosv2010/react-source
 ```
 
 - `react.dev`（中文站）：官方文档，Hooks 基本用法、并发特性说明，覆盖第 01/02/06/07/08/13 篇
@@ -902,6 +846,7 @@ https://ahooks.js.org/
 - `github.com/dvajs/dva`：第 11 篇 dva 历史方案小节参照
 - `umijs.org`：第 10 篇约定式路由对比小节参照
 - `ahooks.js.org`：第 14 篇自定义 Hook 设计模式小节参照
+- `github.com/lotosv2010/react-source`：各篇「手写实现源码 GitHub 地址」统一指向此仓库（React 18 源码 1:1 复刻重写，按 shared/react/react-reconciler/react-dom/scheduler 分包，用于对照官方源码结构验证手写实现）
 
 > 引用要求延续 Vue 3 系列规范：正文中不出现具体博主名/账号名/人名，仅在文末参考池中列 URL；源码解析章节标注的源文件路径以 React 官方仓库（`facebook/react`）目录结构为准，与上述博客的版本号如有差异需在写作时核对当前 React 版本（18.x）。
 
