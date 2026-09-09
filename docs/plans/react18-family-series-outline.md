@@ -162,6 +162,9 @@ https://github.com/lotosv2010/react-source
   - `mergeLanes(a, b)`：`a | b`，把多个更新的 lane 合并进 Fiber 的 `lanes` 字段和 root 的 `pendingLanes`
   - `getNextLanes`：从 `pendingLanes` 里找出本次该处理的一组 lane（同一个"优先级层级"的 lane 会被合并处理，这也是"多个同优先级更新合并成一批"的位运算基础）
   - `includesBlockingLane`：判断本次要处理的 lane 是否包含同步/阻塞性更新，决定这次渲染能不能被中断
+- **为什么是 31 位，不是 32 位**（新增）：JS 的位运算（`|`/`&`/`~`）把数字当作 32 位**有符号**整数处理，最高位是符号位——一旦被置 1，数字就会被解释成负数，导致位运算的语义（"某一位代表某种优先级"）彻底错乱；React 只能安全使用低 31 位，这也是"Lane 最多只能有 31 条"这个硬性上限的真正来源，不是随便定的数字
+- **位运算相比数值优先级模型解决的本质问题**（新增，重点）：React 16 的 `expirationTime` 是一个单一数值，本质上只能表达"这一个任务的优先级是多少"，一次只能做大小比较；而 Lane 用二进制位表示优先级，`lanes` 字段可以同时置上多个位——`|`（或运算）表达的是**集合的并集**：一个 Fiber 或 root 上完全可能同时挂着好几个不同优先级的待处理更新（比如一个 `SyncLane` 的点击更新和一个 `TransitionLane` 的过渡更新同时排队），这在单一数值模型里无法同时表达；`&`（与运算）则用来表达**集合的交集/包含判断**——判断某个具体 lane 是否属于某一组 lane（如 `includesBlockingLane`、`includesSomeLane` 的实现原理都是 `&` 之后判断结果是否为 0）。这种"多个优先级可以共存 + 可以按位筛选出任意子集"的能力，是并发渲染"高优先级先处理、其余的继续留在 `pendingLanes` 排队"这套机制的地基，单一数值优先级模型做不到
+  - 具体位运算技巧：`getHighestPriorityLane(lanes)` 用 `lanes & -lanes` 取出最低有效位（即数值上最小的那一位、对应实际最紧急的优先级——Lane 常量按"数值越小优先级越高"的约定排列），这是源码里出现频率很高、面试常考的一个二进制技巧；`-lanes` 在补码表示下等于"按位取反再加一"，`lanes & -lanes` 的结果恰好是 `lanes` 中最低的那个为 1 的位，这是位运算里提取"最低设置位"的通用技巧，不是 React 专属
 - **优先级饿死与兜底机制**（新增）：如果一直有新的高优先级更新插队，理论上低优先级的 Update 可能永远排不到——React 用 `markStarvedLanesAsExpired` 兜底：每个 Lane 在被创建时会计算一个"过期时间"（`computeExpirationTime`），如果一个 lane 排队超过这个时间还没被处理，会被强制标记为"过期"，下一次 `getNextLanes` 会优先处理过期的 lane 甚至提升为同步优先级处理，保证"低优先级更新最终一定会被执行"，不会无限延后
 - 对比 Vue 3：Vue 3 的响应式更新没有"优先级"概念，`trigger` 触发的副作用统一走微任务队列去重合并（`nextTick`），本质是"同一 tick 内的多次触发合并成一次"；React 的 Update 队列除了合并去重，还叠加了一层"优先级排队"，这是并发模式下"高优先级插队打断低优先级"这个能力的地基，Vue 3 的调度模型里没有对应机制
 
@@ -169,11 +172,11 @@ https://github.com/lotosv2010/react-source
 1. Class 组件更新入口：`packages/react-reconciler/src/ReactFiberClassComponent.js` — `classComponentUpdater.enqueueSetState` 创建 Update 对象并调用 `scheduleUpdateOnFiber`
 2. Class 组件更新队列：`packages/react-reconciler/src/ReactFiberClassUpdateQueue.js` — `createUpdate`/`enqueueUpdate`/`processUpdateQueue` 完整实现
 3. Hook 更新队列（对照阅读）：`packages/react-reconciler/src/ReactFiberHooks.js` — `dispatchSetState`/`updateReducer` 中结构相似但独立实现的 pending 链表处理
-4. Lane 常量与位运算：`packages/react-reconciler/src/ReactFiberLane.js` — Lane 常量定义、`mergeLanes`、`getNextLanes`、`markStarvedLanesAsExpired`
+4. Lane 常量与位运算：`packages/react-reconciler/src/ReactFiberLane.js` — Lane 常量定义、`mergeLanes`、`getNextLanes`、`getHighestPriorityLane`（`lanes & -lanes` 取最低有效位）、`markStarvedLanesAsExpired`
 5. 调度入口：`packages/react-reconciler/src/ReactFiberWorkLoop.js` — `scheduleUpdateOnFiber` 如何根据当前上下文（是否在批处理中）决定立即调度还是加入队列
 
 #### 四、手写实现（延续第 01 篇 `lotosv2010/react-source` monorepo，本篇改造 `react-reconciler` 包）
-在第 01 篇搭好的骨架基础上，往 `packages/react-reconciler` 里补全真正的更新机制（不再另起 demo）：新增 `ReactFiberClassUpdateQueue.ts` 实现"Class 风格"更新队列（`baseState` + `pending` 环形链表 + `processUpdateQueue` 遍历执行 `payload`），新增 `ReactFiberHooks.ts` 里 `useState`/`useReducer` 对应的"Hook 风格"更新队列（游标 + `queue.pending` + `updateReducer` 遍历执行 reducer），两者结构对照但独立实现；再往 `packages/react-reconciler` 新增 `ReactFiberLane.ts`，用数字位运算实现 `SyncLane`/`DefaultLane`/`TransitionLane` 等车道常量与 `mergeLanes`/`getNextLanes`，并实现一个简化版 `markStarvedLanesAsExpired`，验证高优先级更新能被优先处理、低优先级更新超过设定"过期时间"后会被强制提前处理。原本第 01 篇里 `scheduleUpdateOnFiber` 只是"直接触发调度"的占位逻辑，本篇改造成"先调用 `enqueueUpdate` 把 Update 塞进队列，再调度"的真实链路。场景用"处方单审核状态流转"演示，跑法延续第 01 篇的 `examples/prescription.html`。
+在第 01 篇搭好的骨架基础上，往 `packages/react-reconciler` 里补全真正的更新机制（不再另起 demo）：新增 `ReactFiberClassUpdateQueue.ts` 实现"Class 风格"更新队列（`baseState` + `pending` 环形链表 + `processUpdateQueue` 遍历执行 `payload`），新增 `ReactFiberHooks.ts` 里 `useState`/`useReducer` 对应的"Hook 风格"更新队列（游标 + `queue.pending` + `updateReducer` 遍历执行 reducer），两者结构对照但独立实现；再往 `packages/react-reconciler` 新增 `ReactFiberLane.ts`，用数字位运算实现 `SyncLane`/`DefaultLane`/`TransitionLane` 等车道常量（数值越小优先级越高，约束在低 31 位内）与 `mergeLanes`/`getNextLanes`，实现 `getHighestPriorityLane`（`lanes & -lanes` 提取最低有效位）验证"多个优先级同时排队时能正确取出最紧急的那一个"，并实现一个简化版 `markStarvedLanesAsExpired`，验证高优先级更新能被优先处理、低优先级更新超过设定"过期时间"后会被强制提前处理。原本第 01 篇里 `scheduleUpdateOnFiber` 只是"直接触发调度"的占位逻辑，本篇改造成"先调用 `enqueueUpdate` 把 Update 塞进队列，再调度"的真实链路。场景用"处方单审核状态流转"演示，跑法延续第 01 篇的 `examples/prescription.html`。
 
 #### 五、手写实现源码 GitHub 地址
 https://github.com/lotosv2010/react-source
@@ -188,6 +191,8 @@ https://github.com/lotosv2010/react-source
 - Class 组件的 `UpdateQueue` 和 Hook 的更新队列是同一套实现吗？两者的相似之处和本质区别是什么？
 - 为什么被跳过（bail out）的 Update 不能直接丢弃，必须留在 `baseQueue` 里？
 - Lane 模型相比 React 16 的 `expirationTime` 数值模型有什么优势？为什么用二进制位运算表示优先级？
+- 为什么 Lane 最多只能有 31 条而不是 32 条？这个限制的根源是什么？
+- `lanes & -lanes` 这个位运算是在做什么？为什么能取出最高优先级的 lane？
 - 如果 Lane 模型没有"过期"兜底机制，会出现什么现象？React 是怎么解决优先级饿死问题的？
 
 ---
@@ -420,6 +425,9 @@ https://github.com/lotosv2010/react-source
 
 #### 二、设计与原理
 - 时间切片的本质：把渲染工作拆成不超过 5ms 的"工作单元"，每跑完一个时间片就把控制权交还浏览器
+- **协作式调度 vs 抢占式调度**（新增，重点）：React Scheduler 本质是**协作式调度（cooperative scheduling）**，不是真正的**抢占式调度（preemptive scheduling）**——JS 是单线程的，运行时没有能力像操作系统调度线程那样在任意一条指令处强行打断正在执行的函数；React 所谓的"可中断渲染"，实际上是把 Fiber 树的遍历拆成一个个"工作单元"（每个工作单元对应一个 Fiber 节点的 `beginWork`/`completeWork`），每处理完一个工作单元后，`workLoopConcurrent` 主动调用一次 `shouldYieldToHost()` 检查时间片是否用完——这是任务"自己选择在约定好的检查点让步"，属于协作式；真正的抢占式调度（如操作系统线程调度、Go 的 goroutine 早期版本）是由调度器/运行时在任意时刻强行剥夺执行权，不需要任务配合
+  - 这个区别解释了一个常见误解："并发渲染能让任意耗时的渲染都不卡顿"——不对：如果单个组件的渲染函数本身写了一个耗时很长的同步循环（比如函数组件体内直接跑一个大计算），React 只能在**工作单元之间**的检查点让步，无法打断**正在执行中的某一个工作单元**本身，这个组件仍然会阻塞主线程直到这次渲染函数跑完
+  - 对比 Vue 3：Vue 3 的响应式更新调度同样运行在 JS 单线程环境里，`nextTick` 走的是微任务队列合并再统一执行，本身没有时间切片和"渲染中途让步"的概念，也就不存在协作式/抢占式调度的取舍问题——这一层调度能力是 React Fiber 架构特有的
 - 为什么用 `MessageChannel` 而不是 `setTimeout(fn, 0)`：`setTimeout` 有浏览器最小延迟 clamp 限制且不稳定，`MessageChannel` 的宏任务延迟更稳定可控；不支持时降级为 `setTimeout`
 - Scheduler 的任务队列：内部维护两个小顶堆（`taskQueue`、`timerQueue`），按 `expirationTime` 排序
 - Lane 模型的位运算细节承接第 02 篇，这里聚焦"触发场景怎么映射到具体 Lane"
@@ -451,6 +459,8 @@ https://github.com/lotosv2010/react-source
 
 **面试核心问**：
 - 时间切片的本质是什么？为什么一定要把渲染过程拆成小任务？
+- React 的并发渲染是"抢占式调度"吗？为什么？协作式和抢占式调度的本质区别是什么？
+- 如果某个组件的渲染函数本身包含一个耗时很长的同步循环，`startTransition` 或时间切片能让它不阻塞主线程吗？为什么？
 - 为什么 Scheduler 选择 `MessageChannel` 而不是 `setTimeout(fn, 0)`？
 - 点击事件里直接 `setState` 和用 `startTransition` 包裹 `setState`，分别会被分配到哪个 Lane？为什么表现不同？
 - `startTransition` 和 `useTransition` 的区别是什么？分别在什么场景用？
