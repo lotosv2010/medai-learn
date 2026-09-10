@@ -273,6 +273,7 @@
 - `fs.createReadStream`/`fs.createWriteStream`：大文件（如患者体检报告 PDF）读写不占用大量内存
 - `stream.pipe()`：把读取流、转换流（如 gzip 压缩）、写入流串联起来
 - `path.join`/`path.resolve`/`path.extname` 等跨平台路径处理
+- **静态资源服务器最小实现**（前置知识，落地本篇 fs/stream/path 三者的综合练习）：按请求路径读取对应文件、根据扩展名映射 `Content-Type`、用 `fs.createReadStream` + `pipe` 返回文件内容而不是一次性 `readFile` 进内存——用医院 HIS 系统"药品说明书 PDF/图片"静态资源场景演示
 
 #### 二、设计与原理
 
@@ -294,6 +295,7 @@
 
 1. 搭建 `packages/mini-stream`：手写一个简化版 Readable + Writable + 手写 `pipe` 函数，正确实现背压（监听 `write` 返回值、`drain` 事件驱动暂停/恢复），用"生成 10 万行模拟患者数据 → 写入慢速目标（如加了 `setTimeout` 模拟延迟的 Writable）"验证内存占用不会无限增长
 2. 用 `packages/mini-stream` 额外实现一个 Transform 流（如"逐行转大写"）串进管道验证三段式管道正常工作
+3. 搭建 `packages/mini-static-server`：手写一个基于原生 `http`/`fs`/`path` 的静态资源服务器——① 路径安全校验（对请求路径做 `path.normalize` 后校验是否逃出根目录，防止 `../` 目录穿越）；② 按扩展名映射 `Content-Type`（`.pdf`/`.png`/`.js`/`.css` 等常见类型的映射表）；③ 用 `fs.createReadStream` + `pipe` 返回文件内容，避免大文件一次性读入内存；④ 可选支持 `Range` 请求头做断点续传（解析 `bytes=start-end`，返回 `206 Partial Content` 与 `Content-Range` 响应头，配合 `fs.createReadStream(path, { start, end })` 只读取指定字节区间）；⑤ 正确设置 `ETag`/`Cache-Control` 响应头（协议原理见《网络原理》系列第 07 篇，本篇只讲怎么在 Node.js 里落地）。用"药品说明书 PDF/图片"静态资源场景验证
 
 #### 五、手写实现源码 GitHub 地址
 （新建仓库，待补充地址）
@@ -309,6 +311,8 @@
 - 什么是背压？如果没有背压控制会出现什么问题？
 - `pipe()` 内部是怎么实现背压的？`highWaterMark` 具体控制什么？
 - 什么场景下应该用同步 fs API，什么场景绝对不能用？
+- 手写一个静态资源服务器，怎么防止目录穿越攻击（请求 `../../etc/passwd` 这类路径）？
+- `Range` 请求断点续传涉及哪些请求头/响应头？服务端该怎么处理？
 
 ---
 
