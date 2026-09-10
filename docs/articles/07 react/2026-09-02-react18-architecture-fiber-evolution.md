@@ -553,6 +553,177 @@ dispatchSetState                        // 👈 Hook 的更新入口
 
 后续每一篇讲到具体函数，都可以照着这个方法在对应函数上打断点验证。
 
+#### 第五步（进阶）：官方 `examples/source-debug` —— 免打包直接编译源码
+
+前面「第二步 ~ 第三步」的做法有个前置成本：每次都要 `yarn build` 出一份 `NODE_DEV` 产物，再 `alias` 到业务项目。React 官方仓库其实还自带一个更"直接"的调试入口——`examples/source-debug/`，它用 webpack 把 `packages/*/src` 里的源码直接编成浏览器可跑的 bundle，**完全绕过 Rollup 构建**，断点打在的就是 `src` 下的原始文件，改源码即热更新。
+
+`react/package.json` 里已经预置了这条命令：
+
+```json
+{
+  "scripts": {
+    "debug-source": "node node_modules/webpack-dev-server/bin/webpack-dev-server.js --config examples/source-debug/webpack.config.js"
+  }
+}
+```
+
+在 `react` 仓库根目录执行 `yarn debug-source`，就会启动 webpack-dev-server（默认 `http://localhost:3001`），实时编译 `examples/source-debug/app.js`。
+
+**为什么这条命令能直接跑源码？关键在于 `webpack.config.js` 里做了几件事：**
+
+```javascript
+// examples/source-debug/webpack.config.js
+'use strict';
+const path = require('path');
+const webpack = require('webpack');
+
+module.exports = {
+  mode: 'development',
+  devtool: 'cheap-module-source-map',   // 👈 生成 source-map，断点映射回源码
+  entry: path.resolve(__dirname, 'app.js'),
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'bundle.js',
+    // 📚 知识点：webpack 5 默认用 md4 做 chunk 哈希，而 OpenSSL 3（Node 17+）
+    // 已移除 md4，会导致构建报错。改用 sha256 可兼容任意 Node 版本。
+    hashFunction: 'sha256',
+  },
+  resolve: {
+    alias: {
+      // 📚 知识点：react 包内部导入 shared/ReactSharedInternals 时，必须换成
+      // react/src/ReactSharedInternalsClient（直接构造对象、不自引用 react 包），
+      // 否则会经 react 包自引用形成循环依赖，导致 ReactCurrentDispatcher 为 undefined。
+      'shared/ReactSharedInternals': path.resolve(
+        __dirname,
+        '../../packages/react/src/ReactSharedInternalsClient.js'
+      ),
+    },
+  },
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        exclude: /node_modules/,
+        // 📚 知识点：React 源码是 Flow 写的，不是 TypeScript。部分新 Flow 语法
+        // 超出了 Babel 自带 Flow 解析器的能力，直接 babel-loader 会报语法错误，
+        // 所以用自定义的 hermes-loader（下面单独解释）。
+        use: path.resolve(__dirname, 'hermes-loader.js'),
+      },
+    ],
+  },
+  plugins: [
+    new webpack.DefinePlugin({
+      // 📚 知识点：React 源码里遍布 __DEV__ / __PROFILE__ / __EXPERIMENTAL__ 这些
+      // 编译期常量，靠构建工具在编译时替换成 true/false。直接跑源码必须手动注入。
+      __DEV__: JSON.stringify(true),
+      __PROFILE__: JSON.stringify(true),
+      __EXPERIMENTAL__: JSON.stringify(true),
+      __VARIANT__: JSON.stringify(false),
+      __UMD__: JSON.stringify(false),
+      __EXTENSION__: JSON.stringify(false),
+      'process.env.NODE_ENV': JSON.stringify('development'),
+    }),
+    // 📚 知识点：正式构建时 Rollup 会按渲染器把 ReactFiberConfig.js 替换成对应的
+    // fork 实现（见 scripts/rollup/forks.js）；ReactFiberConfig.js 本身只会 throw
+    //（提示"必须被具体渲染器 shim 替换"）。直接调试源码不经过 Rollup，所以手动用
+    // NormalModuleReplacementPlugin 做同样的替换，换成 DOM 渲染器的 fork 实现。
+    // 这正是「Host Config 解耦」在构建层的物理体现。
+    new webpack.NormalModuleReplacementPlugin(
+      /react-reconciler[\\/]src[\\/]ReactFiberConfig\.js$/,
+      path.resolve(
+        __dirname,
+        '../../packages/react-reconciler/src/forks/ReactFiberConfig.dom.js'
+      )
+    ),
+  ],
+  // 只过滤这条"已知无害"的警告，不隐藏其它警告
+  ignoreWarnings: [
+    /export '(log|unstable_setDisableYieldValue)'.*was not found in 'scheduler'/,
+  ],
+  devServer: {
+    static: path.resolve(__dirname),  // webpack-dev-server 4.x 把 contentBase 改名成 static
+    port: 3001,
+  },
+};
+```
+
+**`hermes-loader.js`：React 源码是 Flow，需要先经 Hermes 解析再交给 Babel**
+
+```javascript
+// examples/source-debug/hermes-loader.js
+'use strict';
+const babel = require('@babel/core');
+const hermesParser = require('hermes-parser');
+
+module.exports = function hermesLoader(source) {
+  const filename = this.resourcePath;
+  // 第 1 步：用 hermes-parser 解析，把 Babel 解析不了的新 Flow 语法（如 predicate 类型）
+  // 转换成 Babel 认识的等价 AST（此时类型标注还在，并没有被去掉）
+  const ast = hermesParser.parse(source, {babel: true, sourceFilename: filename});
+  // 第 2 步：交给 Babel，做「去掉类型标注」+「JSX -> React.createElement」两件事
+  const {code, map} = babel.transformFromAstSync(ast, source, {
+    filename,
+    babelrc: false,
+    configFile: false,
+    sourceMaps: true,
+    plugins: [
+      require.resolve('@babel/plugin-transform-flow-strip-types'),
+      [require.resolve('@babel/plugin-transform-react-jsx'), {runtime: 'classic'}],
+    ],
+  });
+  this.callback(null, code, map);
+};
+```
+
+这段 loader 复刻的是 React 官方真实测试流程（见 `scripts/jest/preprocessor.js`）的两步做法：Hermes 负责"解析 Babel 啃不动的 Flow 语法"，Babel 负责"剥离类型 + 转 JSX"。这也是很多同学第一次知道 **React 源码不是 TypeScript、而是 Flow** 的地方。
+
+**入口示例 `app.js` 和 `index.html`**
+
+```javascript
+// examples/source-debug/app.js
+import * as React from 'react';
+import {useState} from 'react';
+import {createRoot} from 'react-dom/client';
+
+function App() {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount(count + 1)}>count is {count}</button>;
+}
+
+const root = createRoot(document.getElementById('root'));
+root.render(<App />);
+```
+
+```html
+<!-- examples/source-debug/index.html -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>React source debug (webpack -> packages/*/src)</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="/bundle.js"></script>
+  </body>
+</html>
+```
+
+**两种调试方案怎么选？**
+
+| 方案 | 前置成本 | 断点对象 | 适合场景 |
+|------|---------|---------|---------|
+| `yarn build` + `resolve.alias`（第二 ~ 四步） | 要构建一次 | 构建产物 `build/node_modules/` | 把源码接到**自己的业务项目**里验证 |
+| `yarn debug-source`（webpack） | 零构建 | 源码 `packages/*/src/` | 纯研究 React 本身，改源码即时生效 |
+
+> 💬 **面试官会问**：React 源码是 TypeScript 写的吗？为什么要用 hermes-parser？
+>
+> ✅ **标准答案**：React 源码是 **Flow** 写的，不是 TypeScript。部分新 Flow 语法（如 predicate 类型）超出了 Babel 自带 Flow 解析器的能力，直接交给 Babel 会报语法错误，所以官方调试流程先用 hermes-parser（Hermes 是 Meta 的 JS 引擎）解析成 Babel 兼容的 AST，再交给 Babel 做"剥离类型 + JSX 转 `React.createElement`"。这套两步走和官方测试脚本 `scripts/jest/preprocessor.js` 的做法一致。
+
+> 🎁 **加分答案**：`webpack.config.js` 里的 `NormalModuleReplacementPlugin` 把 `ReactFiberConfig.js` 替换成 `forks/ReactFiberConfig.dom.js`，其实暴露了 React 的「Host Config 解耦」——同一份 reconciler 源码，在正式构建时由 Rollup 按渲染器替换成 dom/native 等不同 fork，调试环境绕过了 Rollup，所以要手动做同样替换。这也是 `react-reconciler` 能被 `react-dom`/`react-native` 共用的物理证据。
+
+---
+
 > 💬 **面试官会问**：本地怎么调试 React 源码？为什么直接改 `node_modules` 里的源码不是个好方式？
 >
 > ✅ **标准答案**：clone 官方仓库，用 `yarn build <包名> --type=NODE_DEV` 打出本地开发版构建产物，再通过 `resolve.alias` 把业务项目的 `react`/`react-dom` 指向这份本地构建产物，就能在 VSCode 里对源码打断点调试。直接改 `node_modules` 风险很大——重新 `install` 会被覆盖清空，改动无法被 git 追踪，团队其他人也拉不到你的调试改动。
@@ -2513,7 +2684,7 @@ const bundles = [
 > 💬 **面试官**：这份手写实现和真实 React 18 源码的主要区别在哪？
 >
 > ✅ **标准答案**：主链路（Fiber 结构、双缓存、Lane 模型、beginWork/completeWork/commit 三阶段、Host Config 解耦）逐文件对齐官方 React 18 源码，包结构、数据结构、函数签名、关键算法都是 1:1 还原，能直接在 Vite fixtures 里断点调试验证。当前边界是：单/多节点 diff 已实现但 Suspense/错误边界未接入，Hooks 只完成 `renderWithHooks` 骨架（尚未接入真正的 Hook 链表），Class 组件、事件系统、`hydrateRoot`、DevTools 协议等尚未搭建。
->
+
 > 🎁 **加分答案**：官方源码里有大量"向后兼容旧版特性"的分支判断（Legacy Context、字符串 ref 自动转换等），这份实现按渲染链路的自然顺序（`createElement → Fiber 树构建 → 调度 → commit → hooks`）渐进搭建、不提前铺抽象，CLAUDE.md 里明确写了"不做官方没有的抽象"的开发约定，这也是为什么读这份代码比读官方仓库更容易抓住"React 18 主线到底长什么样"。
 
 ---
