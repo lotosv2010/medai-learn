@@ -1,336 +1,252 @@
-# 前端工程化系统大纲
+# 前端全栈系列文章总大纲
 
-> 基于 2024-2025 年市场最佳实践整理，覆盖从工程初始化到生产交付的完整链路。
-
----
-
-## 一、模块系统与包管理
-
-### 1.1 JavaScript 模块规范
-- CommonJS / AMD / UMD 历史演进
-- ES Modules：静态分析、Tree Shaking 基础、import.meta
-- 模块解析算法（Node 与浏览器差异）
-
-### 1.2 包管理器
-- npm / yarn / pnpm 对比：存储机制、安装速度、幽灵依赖
-- pnpm workspace：symlink 原理、catalog 特性
-- lock 文件的意义与 CI 强制校验
-
-### 1.3 Monorepo 架构
-- 何时选 Monorepo vs Polyrepo
-- Turborepo：task graph、本地缓存、Remote Cache
-- Nx：项目图、Affected 命令、代码生成器
-- 跨包依赖管理：tsconfig paths、package.json exports 字段
-- 版本发布：Changesets 工作流
+> 10 年医疗电商前端经验晋升 AI 应用工程师的完整知识体系，共规划 16 个系列。
 
 ---
 
-## 二、构建工具原理
+## 系列总览
 
-### 2.1 Webpack 5
-- 核心概念：Entry / Output / Loader / Plugin / Module Graph
-- Tapable 插件体系：SyncHook / AsyncHook 原理
-- Loader 执行链：pitch 阶段、资源转换管道
-- SplitChunks 策略：async chunks / vendor 分离
-- Module Federation：跨应用共享模块，微前端基础
-
-### 2.2 Vite
-- 开发态：ESM Dev Server + esbuild 预构建
-- HMR 机制：模块热替换协议
-- 生产态：Rollup 打包 + 插件体系
-- Plugin API：transformIndexHtml / resolveId / load 钩子
-
-### 2.3 Rollup / esbuild / SWC / Oxc
-- Rollup：库打包标准，output.format 对比
-- esbuild：Go 实现，极速 transform，适用场景与限制
-- SWC：Rust 实现，Babel 替代方案
-- Oxc：下一代工具链（parser + linter + transformer 一体化）
-
-### 2.4 构建优化通用策略
-- Tree Shaking：sideEffects 配置、ESM 静态分析边界
-- Code Splitting：动态 import、路由懒加载、预加载（preload/prefetch）
-- 持久化缓存：contenthash、长效缓存策略
-- Bundle 分析：webpack-bundle-analyzer、rollup-visualizer、vite-bundle-visualizer
+| # | 系列名称 | 状态 | 文章数 |
+|---|---------|------|--------|
+| 00 | AI 工具与职业发展 | ✅ 完成 | 4 |
+| 01 | JavaScript 深度 | ✅ 完成 | 3 |
+| 02 | TypeScript | ✅ 完成 | 5 |
+| 03 | 工程化与构建工具 | ✅ 完成 | 8 |
+| 04 | 性能与前端监控 | ✅ 完成 | 13 |
+| 05 | Vue 2 源码 | ✅ 完成 | 13 |
+| 06 | Vue 3 源码 | ✅ 完成 | 12 |
+| 07 | React 18 | 🚧 进行中 | 1 |
+| 08 | Node.js 全栈 | 📋 规划中 | — |
+| 09 | 泛客户端（小程序） | 📋 规划中 | — |
+| 10 | 网络原理 | 📋 规划中 | — |
+| 11 | 数据结构与算法 | 📋 规划中 | — |
+| 12 | 设计模式 | 📋 规划中 | — |
+| 13 | 前端运维 | 📋 规划中 | — |
+| 14 | AI 工程（应用开发） | 📋 规划中 | — |
+| 15 | 测试体系 | 📋 规划中 | — |
 
 ---
 
-## 三、TypeScript 工程化
+## 00 AI 工具与职业发展（✅ 4 篇）
 
-### 3.1 项目配置
-- tsconfig.json 关键字段：strict、moduleResolution、paths、composite
-- Project References：Monorepo 增量编译
-- 类型声明文件：.d.ts 生成策略、@types 管理
-
-### 3.2 类型安全全链路
-- 运行时校验：Zod / Valibot 与 TS 类型联动
-- Branded Types：防止原始类型滥用
-- 端到端类型安全：tRPC / GraphQL Code Generator
-
-### 3.3 构建集成
-- tsc vs transpile-only（esbuild/swc）的取舍
-- 类型检查与 CI 的集成策略（typecheck 独立 job）
+- Vibing Code 完全指南：AI 辅助编程新范式
+- 从 Prompt 到 Loop：AI 工程化思维
+- OpenClaw 完整指南
+- FDE 职业方向：前端工程师转型 AI 应用工程师路径
 
 ---
 
-## 四、代码质量与规范
+## 01 JavaScript 深度（✅ 3 篇）
 
-### 4.1 静态分析
-- ESLint Flat Config（v9+）：规则分层、共享配置设计
-- 常用规则集：eslint-plugin-react / @typescript-eslint / import
-- 自定义规则：AST 遍历基础
-
-### 4.2 代码格式化
-- Prettier：printWidth / 分号 / 引号约定
-- EditorConfig：跨编辑器基础统一
-
-### 4.3 Git 工作流规范
-- Husky：Git Hooks 安装与管理
-- lint-staged：只检查暂存文件，保证提交速度
-- Commitlint：Conventional Commits 规范
-- Commitizen：交互式提交辅助
-
-### 4.4 测试体系
-- 测试金字塔：Unit / Integration / E2E 比例策略
-- Vitest：与 Vite 同配置、原生 ESM、并发执行
-- React Testing Library：以用户行为为中心的组件测试
-- Playwright：E2E 测试、多浏览器、网络拦截
-- MSW：Service Worker 级别的 API Mock
+- JS 异步演进：回调 → Promise → async/await → 调度器
+- 函数式编程：纯函数 / 柯里化 / Monad 与前端实战
+- ECMAScript 演进：ES6 → ES2025 核心特性全梳理
 
 ---
 
-## 五、CSS 工程化
+## 02 TypeScript（✅ 5 篇）
 
-### 5.1 方案对比
-- CSS Modules：局部作用域原理
-- CSS-in-JS（Styled Components / Emotion）：运行时 vs 零运行时
-- Tailwind CSS：原子化、JIT 编译、设计 Token 集成
-- Vanilla Extract：TypeScript 驱动的零运行时 CSS
-
-### 5.2 设计系统工程化
-- CSS Variables（自定义属性）：主题切换实现
-- Design Token：Style Dictionary 管理 Token，多平台输出
-- Storybook：组件文档、视觉测试（Chromatic）
+- TypeScript 完整指南（合集）
+- Part 1 入门：基础类型与接口
+- Part 2 进阶：泛型 / 工具类型 / 类型体操
+- Part 3 高级：条件类型 / infer / 模板字面量类型
+- Axios 完全指南：基于 TS 的 HTTP 客户端封装
 
 ---
 
-## 六、性能工程化
+## 03 工程化与构建工具（✅ 8 篇）
 
-### 6.1 加载性能
-- Core Web Vitals：LCP / CLS / INP 定义与优化手段
-- 资源优先级：preload / prefetch / dns-prefetch / preconnect
-- 图片优化：WebP/AVIF、lazy loading、srcset 响应式图片
-- 字体优化：font-display: swap、子集化、可变字体
-
-### 6.2 运行时性能
-- Chrome DevTools：Performance 面板、火焰图解读
-- 长任务拆分：scheduler.postTask / requestIdleCallback
-- 虚拟列表：TanStack Virtual 原理与实现
-- Web Worker：CPU 密集任务迁移
-
-### 6.3 监控与度量
-- Lighthouse CI：PR 门禁集成
-- Web Vitals 上报：PerformanceObserver API
-- 错误监控：Sentry 接入、Source Map 管理
-- RUM（真实用户监控）vs 合成监控对比
+- JS 模块规范全解：CommonJS / ESM / 模块解析算法
+- Git 深度指南：原理 / 工作流 / 高频命令实战
+- npm / yarn / pnpm 深度对比：存储机制 / 幽灵依赖 / workspace
+- Monorepo 架构：Turborepo + pnpm workspace 工程化实战
+- Webpack 5 完全指南：Module Graph / Tapable / Federation
+- CSS 工程化完全指南：Modules / Tailwind / Design Token / Storybook
+- Rollup 完全指南：库打包标准 / output.format / 插件体系
+- Vite 完全指南：ESM Dev Server / HMR / 插件 API / 生产构建
 
 ---
 
-## 七、CI/CD 与自动化
+## 04 性能与前端监控（✅ 13 篇）
 
-### 7.1 GitHub Actions
-- 工作流语法：jobs / steps / matrix strategy
-- 缓存策略：actions/cache + pnpm store
-- 环境变量与 Secrets 管理
-- Reusable Workflows：跨仓库复用
-
-### 7.2 质量门禁
-- PR 必检：typecheck + lint + test + build
-- 覆盖率门禁：Codecov / Coveralls
-- Bundle Size 门禁：bundlesize / size-limit
-- 视觉回归：Chromatic / Percy
-
-### 7.3 部署策略
-- 预览部署：Vercel Preview / Netlify Deploy Previews
-- 蓝绿部署 / 金丝雀发布原理
-- Feature Flags：LaunchDarkly / 自研方案
+- 浏览器渲染管线：从 HTML 到像素的完整流程
+- Core Web Vitals 2026：LCP / CLS / INP 定义与优化
+- 前端监控系统设计：架构选型 / 数据流 / 存储方案
+- 性能 SDK：Web Vitals 采集与上报实现
+- 行为监控 SDK：用户行为序列采集与回放
+- 错误监控 SDK：JS 错误 / Promise / 资源加载异常捕获
+- 告警与 AI 自愈：阈值策略 / 智能降噪 / 自动修复闭环
+- 自定义上报 SDK：埋点 DSL / 批量上报 / 离线缓存
+- 渲染范式演进：从 SSR 到 ISR 再到 PPR
+- 运行时优化：防抖节流 / Reflow 控制 / React 调度
+- Vite Tree Shaking 与 Bundle 分析优化
+- 网络与资源加载完全指南：preload / prefetch / HTTP/2 / 缓存策略
+- 感知性能优化：骨架屏 / 乐观更新 / View Transitions API
 
 ---
 
-## 八、微前端架构
+## 05 Vue 2 源码（✅ 13 篇）
 
-### 8.1 核心方案
-- Module Federation（Webpack 5）：运行时共享、版本协商
-- qiankun / Wujie：基于 single-spa 的封装，iframe 沙箱
-- Micro App（字节）：WebComponent 容器隔离
-
-### 8.2 关键问题
-- JS 沙箱隔离：Proxy 沙箱 vs iframe 沙箱
-- CSS 隔离：Shadow DOM / 动态前缀
-- 路由分发：主应用路由拦截机制
-- 状态共享：CustomEvent / 共享 Store 设计
-
----
-
-## 九、DevOps 与容器化
-
-### 9.1 Docker
-- 多阶段构建：减小镜像体积
-- Layer 缓存优化：依赖层与代码层分离
-- Next.js standalone 模式：最小化生产镜像
-
-### 9.2 基础设施即代码
-- Nginx 配置：SPA 路由、gzip、缓存头
-- CDN 策略：静态资源 vs HTML 缓存差异
-- 环境管理：dev / staging / prod 配置隔离
+- 响应式原理：Object.defineProperty / Dep / Watcher 完整实现
+- 组件渲染流程：createElement / patch / 组件实例化
+- Vue 2 初始化：new Vue() 全流程 / 选项合并 / 生命周期
+- 虚拟 DOM 与 Diff：snabbdom 算法 / key 的作用 / 同层比较
+- 事件系统：$on / $emit / 原生事件代理
+- 模板编译：parse → optimize → generate 三阶段
+- 插槽机制：普通插槽 / 作用域插槽 / v-slot 语法糖
+- 内置组件与核心 API：keep-alive / transition / nextTick
+- Vue Router 原理：hash / history 模式 / 路由守卫 / 动态路由
+- Vue 2 性能优化：长列表 / 函数式组件 / 异步组件
+- SSR 服务端渲染：renderToString / 客户端激活 / 数据预取
+- 单元测试：Vue Test Utils / 组件挂载 / 事件模拟
+- Vuex 原理：Store 实现 / 模块化 / 插件机制
 
 ---
 
-## 十、开发者体验（DX）
+## 06 Vue 3 源码（✅ 12 篇）
 
-### 10.1 本地开发
-- 开发服务器：HMR 原理、端口代理配置
-- 调试体验：Source Map 类型对比（eval / cheap-module / source-map）
-- VS Code 工作区配置：推荐扩展、调试配置
-
-### 10.2 代码生成
-- Plop / Hygen：脚手架模板，减少重复代码
-- OpenAPI Generator / orval：根据接口文档生成 SDK
-
-### 10.3 文档工程化
-- VitePress / Docusaurus：技术文档站点
-- TypeDoc：API 文档自动生成
-- ADR（架构决策记录）：长期决策追溯
+- 设计架构：Monorepo 结构 / 模块职责 / 与 Vue 2 对比
+- 响应式原理：Proxy / Reflect / effect / track / trigger
+- 组件渲染：createVNode / render / 调度器 / 异步队列
+- 虚拟 DOM 与 Diff：最长递增子序列 / 静态提升 / Fragment
+- Composition API：setup / ref / reactive / computed / watch 原理
+- 内置组件：Teleport / Suspense / KeepAlive / Transition 实现
+- 模板编译器：编译优化 / Block Tree / PatchFlag / 动态节点收集
+- Pinia 原理：defineStore / storeToRefs / 插件体系
+- Vue Router 4：组合式 API / 动态路由 / 导航守卫
+- Vue 3 性能优化：Tree Shaking / 静态提升 / 编译时优化
+- Monorepo 组件库搭建：Vite + TypeScript + Vitest 工程实践
+- 后台管理脚手架：权限路由 / 动态菜单 / 国际化
 
 ---
 
-## 学习路径建议
+## 07 React 18（🚧 进行中，1/规划篇数）
+
+- React 18 架构演进：从 Stack Reconciler 到 Fiber（✅ 已完成）
+- Fiber 架构深度：数据结构 / 工作循环 / 优先级调度
+- Lane 模型：位运算优先级 / 批处理 / 并发特性
+- Hooks 原理：链表结构 / useState / useEffect / useReducer
+- Concurrent Mode：startTransition / useDeferredValue / Suspense
+- RSC（React Server Components）：客户端 / 服务端边界 / 序列化
+- React 状态管理：Zustand / Jotai / Redux Toolkit 原理对比
+- React Router v6：嵌套路由 / loader / action / 数据流
+- Next.js 15 App Router：RSC / Streaming / PPR / 缓存策略
+- React 性能优化：memo / useMemo / useCallback / profiler 实战
+- React 测试：Testing Library / MSW / 快照测试
+
+---
+
+## 08 Node.js 全栈（📋 规划中）
+
+- 事件循环深度：libuv / 六个阶段 / nextTick vs Promise 优先级
+- 流与 Buffer：可读流 / 可写流 / Transform / 背压机制
+- 模块系统：CommonJS require 实现 / ESM 加载器 / 循环依赖
+- Hono 框架：中间件机制 / 路由 / Context / Edge Runtime
+- tRPC：端到端类型安全 / procedure / 中间件 / 订阅
+- Drizzle ORM：类型安全查询 / migration / 事务
+- PostgreSQL 深度：索引原理 / 执行计划 / pgvector 向量检索
+- Redis 应用：缓存策略 / 分布式锁 / 发布订阅 / 会话管理
+- 认证与鉴权：JWT / OAuth 2.0 / PKCE / NextAuth.js 实现
+- Node.js 性能：内存泄漏排查 / cluster / worker_threads / APM
+
+---
+
+## 09 泛客户端：微信小程序（📋 规划中）
+
+- 小程序架构：双线程模型 / 渲染层与逻辑层通信
+- 生命周期：App / Page / Component 三级生命周期对比
+- 数据绑定与更新：setData 原理 / 批量更新 / 性能陷阱
+- 组件系统：自定义组件 / behaviors / 抽象节点
+- 网络与存储：wx.request 封装 / 本地缓存 / 文件系统
+- 小程序性能优化：分包加载 / 预下载 / 骨架屏 / 渲染优化
+- Taro / uni-app 跨端方案：编译原理 / 运行时差异 / 选型建议
+- 小程序云开发：云函数 / 数据库 / 存储 / 实时推送
+
+---
+
+## 10 网络原理（📋 规划中）
+
+- HTTP 演进：HTTP/1.1 / HTTP/2 多路复用 / HTTP/3 + QUIC
+- HTTPS 与 TLS：握手过程 / 证书链 / HSTS / Certificate Pinning
+- DNS 解析：递归查询 / CDN 原理 / DNS-over-HTTPS
+- TCP 深度：三次握手 / 四次挥手 / 拥塞控制 / 滑动窗口
+- WebSocket：握手协议 / 帧格式 / 心跳 / 与 SSE 对比
+- 跨域与安全：CORS 机制 / CSRF / XSS / CSP / 安全响应头
+- 缓存体系：强缓存 / 协商缓存 / Service Worker 缓存策略
+- RESTful 与 GraphQL：设计原则 / N+1 问题 / DataLoader
+
+---
+
+## 11 数据结构与算法（📋 规划中）
+
+- 复杂度分析：时间 / 空间复杂度 / 摊还分析
+- 数组与链表：原地操作 / 双指针 / 快慢指针
+- 栈与队列：单调栈 / 优先队列 / 循环队列
+- 树：二叉树遍历 / BST / AVL / 红黑树 / 前端场景应用
+- 图：BFS / DFS / 拓扑排序 / 最短路径（前端构建图场景）
+- 哈希表：冲突处理 / 一致性哈希 / 布隆过滤器
+- 排序算法：快排 / 归并 / 堆排 / 计数排序及稳定性分析
+- 动态规划：状态转移 / 记忆化搜索 / 经典题型
+- 前端高频算法：虚拟 DOM Diff / LRU 缓存 / 并发控制 / 依赖解析
+
+---
+
+## 12 设计模式（📋 规划中）
+
+- 创建型：单例 / 工厂 / 抽象工厂 / 建造者 / 原型
+- 结构型：代理 / 装饰器 / 适配器 / 外观 / 组合
+- 行为型：观察者 / 发布订阅 / 策略 / 命令 / 职责链 / 迭代器
+- 前端专属模式：MVC / MVP / MVVM 演进 / Flux / 响应式编程
+- React 模式：HOC / Render Props / 自定义 Hook / 复合组件
+- 设计原则：SOLID / DRY / KISS / 最小惊讶原则
+
+---
+
+## 13 前端运维（📋 规划中）
+
+- Docker：多阶段构建 / Layer 缓存 / Next.js standalone 镜像
+- Nginx：SPA 路由配置 / gzip / 缓存头 / 反向代理 / SSL
+- GitHub Actions：工作流语法 / 缓存策略 / Matrix / Reusable Workflow
+- 质量门禁：typecheck + lint + test + build / Bundle Size 门禁
+- 部署策略：Vercel / 蓝绿部署 / 金丝雀发布 / Feature Flags
+- 可观测性：日志聚合 / 链路追踪 / 告警策略 / Grafana 看板
+
+---
+
+## 14 AI 工程（📋 规划中）
+
+- LLM API 接入：Anthropic / OpenAI / 通义 SDK 封装 / 多模型抽象
+- Streaming 与 SSE：流式响应原理 / ReadableStream / 前端渲染实现
+- Prompt Engineering：系统提示设计 / Few-shot / Chain-of-Thought
+- RAG 系统：文本切分 / Embedding / 向量检索 / 重排序
+- pgvector 实战：向量存储 / 相似度查询 / 混合检索
+- AI Agent：Tool Use / ReAct 模式 / LangChain / 多步骤编排
+- AI SDK（Vercel）：useChat / useCompletion / RSC Streaming
+- AI 应用安全：Prompt Injection 防护 / 输出过滤 / 速率限制
+- AI 工程化：评估体系 / A/B 测试 / 成本控制 / 可观测性
+
+---
+
+## 15 测试体系（📋 规划中）
+
+- 测试策略：测试金字塔 / 测试分层 / 覆盖率解读
+- Vitest：与 Vite 同配置 / 原生 ESM / 并发执行 / 快照测试
+- React Testing Library：以用户行为为中心 / 查询优先级
+- MSW：Service Worker Mock / 请求拦截 / 与测试框架集成
+- Playwright：E2E 测试 / 多浏览器 / 网络拦截 / CI 集成
+- 组件测试：Storybook + Chromatic 视觉回归测试
+- 测试驱动开发：TDD 在前端的实践边界与适用场景
+
+---
+
+## 文章命名规范
 
 ```
-基础层（必须掌握）
-  └── 模块系统 → 构建工具原理 → TypeScript 工程化 → 代码质量
-
-应用层（项目驱动）
-  └── CI/CD → 性能工程化 → CSS 工程化 → 微前端
-
-进阶层（专项深入）
-  └── 微前端架构 → DevOps → DX 工程化
+docs/articles/{系列编号} {系列名}/YYYY-MM-DD-{slug}.md
 ```
+
+系列编号两位数字，文章按实际发布日期命名，slug 全小写连字符。
 
 ---
 
-## prompt
-
-```text
- 下面我们规划前端性能与监控的第13篇文章，具体如下：
- {{
-今天规划实现：{{ 感知性能优化：让「慢」看起来不慢——骨架屏、乐观更新与页面过渡实战（面试收藏级） }}
-
-知识点范围：
-{{
-### 标题说明
-标题保持不变，内容补充白屏兜底和动画无障碍两个遗漏点。
-
-### 大纲
-
-**一、感知性能 vs 客观性能**
-- 为什么 LCP 2.0s 用户还说「慢」（等待心理学：不确定的等待更痛苦）
-- Doherty Threshold：响应时间 400ms 以内用户感知「即时」
-- 客观指标好但感知差的三种典型场景
-
-**二、Loading 状态设计：骨架屏**
-- 骨架屏 vs Spinner vs 进度条：各自适合什么场景
-- CSS shimmer 动画实现（`@keyframes` + `background-position`，~20 行）
-- 与 React `Suspense` fallback 的组合方式
-- 骨架屏自动生成思路：DOM 快照 + CSS 灰化
-- 骨架屏的 CLS 风险：占位尺寸不准导致布局偏移
-
-**三、白屏兜底策略**
-- 白屏检测：`requestIdleCallback` 后采样关键节点可视尺寸（引用第 5 篇监控）
-- 兜底 UI：最小化静态 HTML fallback，确保用户至少看到内容框架
-- 错误边界（Error Boundary）+ 降级渲染
-
-**四、Optimistic UI（乐观更新）**
-- 原理：先更新本地状态，后等待服务端确认
-- React Query `useMutation` 的 `onMutate` / `onError` / `onSettled` 三阶段
-- 失败回滚策略（rollback + toast 提示）
-- 适合场景：点赞 / 收藏 / 评论发布，不适合：支付 / 权限变更
-
-**五、View Transitions API（从用法到原理）**
-- 基础用法：`document.startViewTransition(() => updateDOM())`
-- 浏览器快照机制：old / new 两帧截图 + CSS 动画过渡
-- 自定义动画：`::view-transition-old` / `::view-transition-new` 伪元素
-- 跨文档 MPA 过渡：`@view-transition { navigation: auto }` CSS 规则
-- 与 Next.js App Router / React Router 的集成
-- 兼容性处理：`document.startViewTransition` 特性检测
-
-**六、动画性能**
-- 60fps 的含义：每帧 16.6ms，主线程任务必须在这之内完成
-- CSS 动画 vs JS 动画（rAF）vs Web Animations API 选型
-- 只用 `transform` + `opacity` 做动画的原因（Compositor 线程）
-- `prefers-reduced-motion`：无障碍适配，系统级减弱动画设置
-
-**七、完整代码**
-- Skeleton Screen 组件（可复用，支持多种布局，~60 行）
-- View Transitions 列表 → 详情丝滑过渡（Next.js App Router）
-- Optimistic 点赞按钮（React Query，~40 行）
-
-**八、系列收尾预告**
-
-### 涉及知识点
-- 感知等待心理学（Doherty Threshold / 不确定性放大等待感）
-- CSS `contain: layout style paint` 与骨架屏性能
-- React Suspense 的 transition 语义与 fallback 触发时机
-- React Query `onMutate` 的 context 传递机制
-- `document.startViewTransition` 的双帧快照原理
-- View Transitions Level 2（跨文档）的触发条件
-- Web Animations API 与 Compositor 线程的调度关系
-- `prefers-reduced-motion` 媒体查询与 WCAG 2.1 AA 要求
-}}
-
-分析角度（每个子主题都按此展开）：
-A · 实操五段式（适用于有「手写内核」的篇章）
-
-是什么 → 核心原理 → 手写实现（关键代码） → 生产级最佳实践 → 完整最佳实践代码
-
-B · 概念四段式（适用于概念/架构/方法论篇章）
-
-真实场景引入 → 概念/机制拆解 → 决策矩阵或对比表 → 行动清单
-
-已有笔记：
-{{
-  @docs/notes/38 Web 性能测试.md
-  @docs/notes/35 前端性能优化介绍.md
-  @docs/notes/34 前端页面的生命周期.md
-  @docs/notes/41 防抖节流.md
-  @docs/notes/42 请求和响应优化.md
-  @docs/notes/43 资源加载优化.md
-  @docs/notes/44 渲染优化.md
-  @docs/notes/45 图片优化.md
-  @docs/notes/46 Web性能优化地图.md
-  @docs/notes/47 压缩和解压缩.md
-  @docs/notes/48 Web缓存.md
-  @docs/notes/49 代理服务器.md
-}}
-
-规则：
-1. 先阅读以上笔记，找出缺失或浅尝辄止的知识点
-2. 补全内容（保留原有内容，只增不删），保留图片
-3. 将整理后的内容生成公众号文章，输出到 docs/articles/
-4. 文章结构：先出大纲等我确认，再逐节写作
- }}
- ；
-
- 每一篇最后加一个 参考 章节，引用内容如下，直接用一下内容不需要自行修改：
- https://web.dev/articles/vitals?hl=zh-cn
- https://web.dev/articles/rail?hl=zh-cn
- https://web.dev/articles/rendering-performance?hl=zh-cn
- https://web.dev/learn/performance/welcome?hl=zh-cn
- https://developer.mozilla.org/zh-CN/docs/Web/Performance
- https://github.com/berwin/Blog/issues/23
- https://github.com/GoogleChromeLabs/quicklink
-
-```
-
-*整理时间：2026-08-01 | 参考：State of JS 2024 / Vite 官方 / Turborepo 官方 / web.dev*
-
-每个知识点都是如下主线由浅入深的讲解 是什么 → 核心原理 → 手写实现（关键代码） → 生产级最佳实践 → 完整最佳实践代码
+*更新时间：2026-09-10 | 当前总文章数：59 篇*
