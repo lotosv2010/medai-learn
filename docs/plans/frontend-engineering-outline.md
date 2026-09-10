@@ -16,9 +16,9 @@
 | 05 | Vue 2 源码 | ✅ 完成 | 13 |
 | 06 | Vue 3 源码 | ✅ 完成 | 12 |
 | 07 | React 18 | 🚧 进行中 | 1 |
-| 08 | Node.js 全栈 | 📋 规划中 | — |
-| 09 | 泛客户端（小程序） | 📋 规划中 | — |
-| 10 | 网络原理 | 📋 规划中 | — |
+| 08 | 网络原理 | 📋 规划中（大纲已定稿 8 篇，先于 Node.js 系列写） | — |
+| 09 | Node.js 全栈 | 📋 规划中（大纲已定稿 15 篇） | — |
+| 10 | 泛客户端（小程序） | 📋 规划中 | — |
 | 11 | 数据结构与算法 | 📋 规划中 | — |
 | 12 | 设计模式 | 📋 规划中 | — |
 | 13 | 前端运维 | 📋 规划中 | — |
@@ -136,35 +136,7 @@
 
 ---
 
-## 08 Node.js 全栈（📋 规划中）
-
-- 事件循环深度：libuv / 六个阶段 / nextTick vs Promise 优先级
-- 流与 Buffer：可读流 / 可写流 / Transform / 背压机制
-- 模块系统：CommonJS require 实现 / ESM 加载器 / 循环依赖
-- Hono 框架：中间件机制 / 路由 / Context / Edge Runtime
-- tRPC：端到端类型安全 / procedure / 中间件 / 订阅
-- Drizzle ORM：类型安全查询 / migration / 事务
-- PostgreSQL 深度：索引原理 / 执行计划 / pgvector 向量检索
-- Redis 应用：缓存策略 / 分布式锁 / 发布订阅 / 会话管理
-- 认证与鉴权：JWT / OAuth 2.0 / PKCE / NextAuth.js 实现
-- Node.js 性能：内存泄漏排查 / cluster / worker_threads / APM
-
----
-
-## 09 泛客户端：微信小程序（📋 规划中）
-
-- 小程序架构：双线程模型 / 渲染层与逻辑层通信
-- 生命周期：App / Page / Component 三级生命周期对比
-- 数据绑定与更新：setData 原理 / 批量更新 / 性能陷阱
-- 组件系统：自定义组件 / behaviors / 抽象节点
-- 网络与存储：wx.request 封装 / 本地缓存 / 文件系统
-- 小程序性能优化：分包加载 / 预下载 / 骨架屏 / 渲染优化
-- Taro / uni-app 跨端方案：编译原理 / 运行时差异 / 选型建议
-- 小程序云开发：云函数 / 数据库 / 存储 / 实时推送
-
----
-
-## 10 网络原理（📋 规划中）
+## 08 网络原理（📋 规划中，大纲已定稿 8 篇，详见 `docs/plans/network-principles-series-outline.md`，先于 Node.js 系列写）
 
 - HTTP 演进：HTTP/1.1 / HTTP/2 多路复用 / HTTP/3 + QUIC
 - HTTPS 与 TLS：握手过程 / 证书链 / HSTS / Certificate Pinning
@@ -174,6 +146,41 @@
 - 跨域与安全：CORS 机制 / CSRF / XSS / CSP / 安全响应头
 - 缓存体系：强缓存 / 协商缓存 / Service Worker 缓存策略
 - RESTful 与 GraphQL：设计原则 / N+1 问题 / DataLoader
+
+---
+
+## 09 Node.js 全栈（📋 规划中，大纲已定稿 15 篇，详见 `docs/plans/node-fullstack-series-outline.md`）
+
+> 承接《08 网络原理》系列（HTTP/TLS/WebSocket 等协议原理），本系列不重复讲协议理论，只讲 Node.js 怎么实现
+
+- JS 异步基石：高阶函数 / 发布订阅 / Promise / 函数柯里化
+- JS 调度引擎：Generator / async-await / EventLoop 浏览器与 Node 差异
+- Node.js 运行时内核：V8+libuv 架构 / CommonJS 加载机制 / ESM 深度拆解
+- Node.js I/O 体系：Buffer / Stream / path / fs / 背压机制
+- Node.js 核心 API 大全：process / crypto / net / os / worker_threads
+- Web 认证体系：Cookie / Session / JWT / OAuth2
+- Express 深度：路由 / 中间件链 / 错误处理 / 手写核心
+- Koa 深度：洋葱模型 / compose 原理 / 手写实现
+- NestJS+TypeScript：IoC / DI / 装饰器元编程 / 模块化架构
+- MySQL 全栈：事务 / 索引原理 / 慢查询优化 / 设计范式
+- MongoDB 深度：文档模型 / 聚合管道 / 索引策略 / Mongoose
+- Redis 深度：五大数据结构 / 持久化 / 分布式锁 / 接口限流
+- PostgreSQL 进阶：窗口函数 / 高级索引 / pgvector 向量扩展
+- GraphQL+Apollo：Schema 设计 / Resolver / DataLoader N+1
+- Node.js 工程化：测试 / Docker / Cluster / worker_threads / 消息队列 / 安全
+
+---
+
+## 10 泛客户端：微信小程序（📋 规划中）
+
+- 小程序架构：双线程模型 / 渲染层与逻辑层通信
+- 生命周期：App / Page / Component 三级生命周期对比
+- 数据绑定与更新：setData 原理 / 批量更新 / 性能陷阱
+- 组件系统：自定义组件 / behaviors / 抽象节点
+- 网络与存储：wx.request 封装 / 本地缓存 / 文件系统
+- 小程序性能优化：分包加载 / 预下载 / 骨架屏 / 渲染优化
+- Taro / uni-app 跨端方案：编译原理 / 运行时差异 / 选型建议
+- 小程序云开发：云函数 / 数据库 / 存储 / 实时推送
 
 ---
 
