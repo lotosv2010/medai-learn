@@ -1,7 +1,7 @@
 # Node.js 全栈系列公众号文章大纲
 
 > 所属系列：Node.js 全栈深度拆解
-> 写作原则：使用与实践 → 设计与原理 → 源码解析（重点代码，来源 GitHub 仓库）→ 手写实现 → GitHub → 参考
+> 写作原则：内容结构按篇章类型分两种：① 可手写核心机制的篇章（01/02/07/08）：使用与实践 → 设计与原理 → 源码解析 → 手写实现 → GitHub → 参考（六段式）；② 工具/数据库/工程类篇章（03~06, 09~15）：使用与实践 → 设计与原理 → 源码解析 → 最佳实践 → 参考（五段式，无独立手写实现仓库）
 > 目标读者：5-10 年前端或全栈经验，正在系统补齐 Node.js 后端与工程化能力，备战高级/专家岗面试或转型 AI 应用工程师的开发者
 > 与 React 18 / Vue 3 系列关系：结构对称（六段式），可对照的知识点（如事件循环、发布订阅、Diff 与响应式）显式标注「对比前端」
 
@@ -63,7 +63,7 @@
 - 篇数：15 篇（JS 异步基础 2 篇 + Node.js 核心 3 篇 + 网络与认证 1 篇 + Web 框架 3 篇 + 数据库 4 篇 + GraphQL 1 篇 + 工程化 1 篇）
 - 核心主线：JS 异步体系（发布订阅/Promise/EventLoop）→ Node.js 运行时（模块系统/I-O/核心 API）→ 认证体系 → Web 框架三选一深度拆解（Express/Koa/NestJS）→ 数据库全家桶（MySQL/MongoDB/Redis/PostgreSQL）→ API 设计范式（GraphQL）→ 工程化落地（测试/部署/性能）
 - 主线节奏对齐 React 18 / Vue 3 系列："是什么 → 怎么运作 → 怎么用 → 怎么用得高级"，不做知识点平铺罗列
-- 内容结构：六段式（使用与实践 → 设计与原理 → 源码解析 → 手写实现 → GitHub → 参考）
+- 内容结构：篇章分两种结构——可手写核心机制的篇章（01/02/07/08）六段式（使用与实践 → 设计与原理 → 源码解析 → 手写实现 → GitHub → 参考）；工具/数据库/工程类篇章（03~06, 09~15）五段式（使用与实践 → 设计与原理 → 源码解析 → 最佳实践 → 参考，无独立手写实现仓库）
 - 特色：每篇 3-5 个「面试官会问」；示例统一沿用医疗场景命名（药品/处方/患者/医院管理系统 HIS）；涉及可与前端对照的知识点显式标注「对比前端」
 - 手写实现仓库：统一使用一个新建仓库（建议命名 `medai-node-source`），按篇章逐步搭建各模块的简化实现，风格对齐 React 18 系列 `lotosv2010/react-source` 的"增量式 monorepo"手法——不同的是 Node.js 系列每篇模块相对独立（EventEmitter/Promise/Express/Redis 客户端等互不依赖），因此采用 `packages/<模块名>` 的 monorepo 结构，各篇往对应 package 里增量填入实现，而不强求单一主链路贯穿全篇
 - 与《网络原理》系列的分工：本系列不重复讲协议原理（HTTP 演进/TLS 握手/WebSocket 帧格式等见 `docs/plans/network-principles-series-outline.md`），只讲"Node.js 怎么基于这些协议实现具体能力"
@@ -240,15 +240,12 @@
 2. ESM 加载器：`lib/internal/modules/esm/loader.js` — 解析/实例化/求值三阶段的实现入口
 3. libuv 线程池与异步 I/O 的 C++ 绑定：概览级介绍 `deps/uv` 目录结构和 `lib/internal/bootstrap` 中 JS 层如何调用底层绑定
 
-#### 四、手写实现（延续 `medai-node-source` monorepo）
+#### 四、最佳实践与实战示例
 
 1. 搭建 `packages/mini-require`：手写一个简化版 `require` 实现——读取文件、用 `vm` 模块或 `new Function` 包装执行、维护自己的模块缓存 Map，验证"同一模块二次 require 不会重新执行"与"循环依赖时后加载方拿到不完整 exports"两个现象
 2. 写一组对照 demo：同一份逻辑分别用 CJS 和 ESM 实现一次循环依赖场景，观察两者行为差异
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 四、参考
 - https://nodejs.org/api/modules.html
 - https://nodejs.org/api/esm.html
 - https://github.com/nodejs/node
@@ -291,16 +288,13 @@
 2. Readable Stream 内部缓冲与状态机：`lib/internal/streams/readable.js` — `_readableState` 中 `highWaterMark`、`buffer` 的维护
 3. `pipe` 实现核心：`lib/internal/streams/readable.js` — `Readable.prototype.pipe` 中对 `write` 返回值的判断、`pause`/`resume`/`drain` 事件的绑定逻辑
 
-#### 四、手写实现（延续 `medai-node-source` monorepo）
+#### 四、最佳实践与实战示例
 
 1. 搭建 `packages/mini-stream`：手写一个简化版 Readable + Writable + 手写 `pipe` 函数，正确实现背压（监听 `write` 返回值、`drain` 事件驱动暂停/恢复），用"生成 10 万行模拟患者数据 → 写入慢速目标（如加了 `setTimeout` 模拟延迟的 Writable）"验证内存占用不会无限增长
 2. 用 `packages/mini-stream` 额外实现一个 Transform 流（如"逐行转大写"）串进管道验证三段式管道正常工作
 3. 搭建 `packages/mini-static-server`：手写一个基于原生 `http`/`fs`/`path` 的静态资源服务器——① 路径安全校验（对请求路径做 `path.normalize` 后校验是否逃出根目录，防止 `../` 目录穿越）；② 按扩展名映射 `Content-Type`（`.pdf`/`.png`/`.js`/`.css` 等常见类型的映射表）；③ 用 `fs.createReadStream` + `pipe` 返回文件内容，避免大文件一次性读入内存；④ 可选支持 `Range` 请求头做断点续传（解析 `bytes=start-end`，返回 `206 Partial Content` 与 `Content-Range` 响应头，配合 `fs.createReadStream(path, { start, end })` 只读取指定字节区间）；⑤ 正确设置 `ETag`/`Cache-Control` 响应头（协议原理见《网络原理》系列第 07 篇，本篇只讲怎么在 Node.js 里落地）。用"药品说明书 PDF/图片"静态资源场景验证
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://nodejs.org/api/stream.html
 - https://nodejs.org/api/buffer.html
 - https://nodejs.org/api/fs.html
@@ -348,15 +342,12 @@
 2. `worker_threads` 实现：`lib/internal/worker.js` — `Worker` 类的消息通道（`MessagePort`）与线程生命周期管理
 3. `cluster` 模块连接分发：`lib/internal/cluster/primary.js` — 主进程 `fork` 工作进程与 round-robin 分发策略
 
-#### 四、手写实现（延续 `medai-node-source` monorepo）
+#### 四、最佳实践与实战示例
 
 1. 搭建 `packages/mini-ws`：不依赖 `ws` 库，用 Node.js 原生 `http` + `crypto` 模块手写一个最简 WebSocket 服务端（`Sec-WebSocket-Accept` 计算、帧编解码），协议细节参照《网络原理》系列第 05 篇，本篇只关注"怎么用 Node.js API 实现"
 2. 用 `worker_threads` 实现一个 CPU 密集任务示例（如计算一批模拟药品数据的哈希摘要），对比"主线程同步计算导致事件循环阻塞"和"丢给 worker_threads 计算"两种方式下，主线程能否继续响应其他请求
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://nodejs.org/api/process.html
 - https://nodejs.org/api/crypto.html
 - https://nodejs.org/api/worker_threads.html
@@ -399,15 +390,12 @@
 2. JWT 签名与验证：`auth0/node-jsonwebtoken` 仓库 — `sign`/`verify` 中 HMAC/RSA 签名算法的调用与 `exp` 过期校验逻辑
 3. OAuth2 授权码流程参考实现：`simov/grant` 或 Passport.js 的 `passport-oauth2` 策略 — 授权码换取 access token 的完整请求链路
 
-#### 四、手写实现（延续 `medai-node-source` monorepo）
+#### 四、最佳实践与实战示例
 
 1. 搭建 `packages/mini-session`：手写一个基于内存 Map 的 Session 中间件（生成会话 ID、设置 Cookie、请求时查找会话状态），再替换为 Redis 存储版本对比两者在多实例部署下的行为差异
 2. 搭建 `packages/mini-jwt`：手写 JWT 的签发与验证（HMAC-SHA256 签名，base64url 编解码，`exp` 校验），不依赖第三方库，验证篡改 payload 后签名校验会失败
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Cookies
 - https://jwt.io/
 - https://oauth.net/2/
@@ -548,14 +536,11 @@
 3. Express 适配层：`packages/platform-express/adapters/express-adapter.ts` — NestJS 路由注册如何转换为 `app.get/post` 调用
 4. 拦截器与异常过滤器执行链：`packages/core/interceptors/interceptors-consumer.ts`、`packages/core/exceptions/exceptions-handler.ts`
 
-#### 四、手写实现（延续 `medai-node-source` monorepo）
+#### 四、最佳实践与实战示例
 
 搭建 `packages/mini-nest`：用 TypeScript + `reflect-metadata` 手写一个简化版 IoC 容器——实现 `@Injectable()`/`@Controller()` 装饰器（记录元数据），实现一个 `Container` 类扫描并递归实例化所有 Provider（解析构造函数参数类型完成自动注入），实现一个极简的路由装饰器（`@Get(path)`）配合 Node.js 原生 `http` 模块把请求分发到对应控制器方法。用"患者模块（PatientController 注入 PatientService）"验证依赖自动注入链路正确工作。
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://docs.nestjs.com/
 - https://github.com/nestjs/nest
 - https://www.typescriptlang.org/docs/handbook/decorators.html
@@ -593,20 +578,17 @@
 - **三大范式与反范式设计权衡**：第一范式（字段原子性）、第二范式（消除部分依赖）、第三范式（消除传递依赖）是"减少数据冗余、保证更新一致性"的设计目标；但严格范式化会导致查询时需要更多 `JOIN`，高并发读场景下常常故意反范式化（如在订单表里冗余存储商品名称快照），用"空间换时间、一致性维护成本换查询性能"
 - 对比前端认知：索引的作用类似前端"给数组建立一个哈希表/Map 加速查找"的直觉，但 B+ 树索引额外解决了"范围查询"和"排序"的效率问题，这是纯哈希结构做不到的，这个对比有助于理解为什么数据库不是简单用哈希表做索引
 
-#### 三、源码解析（重点代码，来源 GitHub 仓库）
+#### 三、底层机制解析
 
-1. InnoDB B+ 树索引结构：`mysql/mysql-server` 仓库 `storage/innobase/btr/`（概览级介绍页结构与树的分裂合并逻辑，不深入 C++ 实现细节）
-2. MVCC 版本链实现：`storage/innobase/trx/trx0trx.cc`、`row/row0vers.cc`（概览级介绍隐藏字段 `DB_TRX_ID`/`DB_ROLL_PTR` 与回滚段）
-3. 查询优化器与执行计划生成：`sql/opt_range.cc`（概览级介绍 `EXPLAIN` 输出背后的成本估算逻辑）
+1. **InnoDB B+ 树索引结构**：非叶子节点只存键值和子节点指针，叶子节点存完整行数据（聚簇索引）或主键值（二级索引），树高通常 3-4 层，每次查询的磁盘 I/O 次数等于树高；叶子节点间双向链表连接，支持高效范围扫描
+2. **MVCC 版本链**：每行数据有隐藏字段 `DB_TRX_ID`（最近修改该行的事务 ID）和 `DB_ROLL_PTR`（指向回滚段中上一个版本的指针），构成一条版本链；读操作根据事务的 Read View 决定可见哪个版本，写操作只写最新版本并把旧版本链接到回滚段
+3. **查询优化器代价估算**：`EXPLAIN` 的 `rows` 字段来自优化器对扫描行数的估算（基于索引统计信息），`type` 字段反映访问路径（`const`/`ref`/`range`/`index`/`ALL`），优化器选择代价最低的执行计划
 
-#### 四、手写实现（延续 `medai-node-source` monorepo）
+#### 四、最佳实践与实战示例
 
 搭建 `packages/mini-bplustree`：用 TypeScript 手写一个简化版内存 B+ 树（支持插入、按键查找、范围查询），用"10 万条模拟处方记录按处方 ID 查找"对比"线性数组查找"和"B+ 树查找"的性能差异（用 `console.time` 简单测量），直观感受索引带来的复杂度优化（从 O(n) 到 O(log n)）。
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://dev.mysql.com/doc/refman/8.0/en/
 - https://github.com/mysql/mysql-server
 - https://use-the-index-luke.com/
@@ -644,20 +626,17 @@
 - **虚拟字段（virtual）**：不持久化存储、只在读取时通过 getter 动态计算的字段（如根据出生日期字段动态计算患者年龄），避免了"冗余存储衍生数据导致的更新一致性问题"
 - 对比 MySQL（承接第 11 篇）：MongoDB 的聚合管道和 SQL 的 `GROUP BY`/子查询在能力上有大量重叠，但表达方式从"声明式的一整条 SQL"变成"显式的多阶段管道"，这种差异本质上是"关系代数思维"和"数据流管道思维"两种查询范式的差异
 
-#### 三、源码解析（重点代码，来源 GitHub 仓库）
+#### 三、底层机制解析
 
-1. 聚合管道执行引擎：`mongodb/mongo` 仓库 `src/mongo/db/pipeline/`（概览级介绍各 `DocumentSource` 阶段如何串联执行）
-2. 索引 B 树实现：`src/mongo/db/storage/wiredtiger/`（概览级介绍 WiredTiger 存储引擎的索引组织方式）
-3. Mongoose 中间件钩子实现：`Automattic/mongoose` 仓库 `lib/helpers/query/applyQueryMiddleware.js`、`lib/document.js` 中 `pre`/`post` 钩子的注册与触发逻辑
+1. **聚合管道执行模型**：每个 stage 是一个 `DocumentSource` 对象，实现 `getNext()` 接口从上一个 stage 拉取文档；MongoDB 查询优化器会做 stage 下推（如把 `$match` 尽量提前到管道最前面，减少后续 stage 处理的文档数量）
+2. **WiredTiger 索引结构**：MongoDB 使用 WiredTiger 存储引擎，索引基于 B 树实现（不是 B+ 树，WiredTiger 的 B 树叶节点也存数据），复合索引按字段声明顺序排列键值，遵循类似"最左前缀"的查询匹配规则
+3. **Mongoose 钩子机制**：`pre`/`post` 钩子本质是一个回调队列，`pre` 钩子在操作执行前按注册顺序调用，`post` 钩子在操作完成后调用；内部用 `kareem` 库实现异步钩子的串行执行（支持 Promise 或 next 回调两种风格）
 
-#### 四、手写实现（延续 `medai-node-source` monorepo）
+#### 四、最佳实践与实战示例
 
 搭建 `packages/mini-aggregation`：用 TypeScript 对一个内存 JSON 数组（模拟处方记录集合）手写实现简化版聚合管道——`match`/`group`/`sort`/`project` 四个阶段函数，支持用数组方式串联多个阶段（`pipeline([match(...), group(...), sort(...)])`），验证管道式处理和一次性写复杂逻辑相比的可读性/可组合性差异。
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://www.mongodb.com/docs/manual/
 - https://mongoosejs.com/
 - https://github.com/Automattic/mongoose
@@ -694,24 +673,20 @@
 - **接口限流算法**（重点，补充章节）：固定窗口计数（`INCR`+`EXPIRE`）实现简单但存在"窗口边界突刺"问题（两个相邻窗口交界处瞬间流量可能达到限制的两倍）；滑动窗口（用 Sorted Set 以时间戳为 score 记录每次请求，每次请求先移除窗口外的旧记录再统计窗口内数量）能更平滑地限制速率但内存开销更大；**令牌桶算法**（以固定速率往桶里放令牌，桶满则丢弃多余令牌，请求需要拿到令牌才能通过，天然支持"允许短时突发流量"）与**漏桶算法**（请求先进队列，以固定速率处理，队列满则拒绝，输出速率恒定不允许突发）——令牌桶允许突发、漏桶强制平滑，这是两者选型的核心差异；生产环境常用 Lua 脚本把"读取令牌数量→计算是否放行→更新令牌数量"这一整套逻辑封装成原子操作，避免并发场景下的竞态条件
 - 对比前端：浏览器缓存（HTTP 缓存/localStorage）解决的是"减少重复网络请求"，Redis 解决的是"减少重复数据库查询压力"，两者思路相似（用更快的存储层挡在慢速层前面），但 Redis 在分布式场景下承担的一致性、并发控制职责远比浏览器缓存复杂
 
-#### 三、源码解析（重点代码，来源 GitHub 仓库）
+#### 三、底层机制解析
 
-1. Hash 编码转换逻辑：`redis/redis` 仓库 `src/t_hash.c` — `listpack` 与哈希表之间的转换阈值判断（`hash-max-listpack-entries` 配置项）
-2. RDB 快照与写时复制：`src/rdb.c` — `rdbSaveBackground` 中 `fork` 子进程完成快照的流程
-3. AOF 持久化与重写：`src/aof.c` — 命令追加写入与 `bgrewriteaof` 重写压缩逻辑
-4. 近似 LRU 实现：`src/evict.c` — `performEvictions` 中随机采样比较 `lru` 字段的淘汰逻辑
-5. 令牌桶限流参考实现：`redis/redis-py`（或 `rwz/redis-gcra`）仓库中基于 Lua 脚本的 GCRA（通用信元速率算法）限流实现，理解如何用一段 Lua 脚本原子化完成令牌桶的读取与更新
+1. **动态编码切换**：Hash/List/ZSet 等结构在元素数量少且值较短时使用 `listpack`（紧凑线性内存布局，遍历是 O(n) 但内存占用极小），超过 `hash-max-listpack-entries`/`hash-max-listpack-value` 阈值后转换为哈希表/跳表，这个切换是不可逆的（只升不降）
+2. **RDB + 写时复制**：`bgsave` 用 `fork()` 创建子进程，fork 后子进程和父进程共享所有内存页（通过操作系统的写时复制机制），只有被修改的页才会产生真正的内存拷贝，所以 fork 本身很快，但大量写入期间触发 `bgsave` 可能导致显著内存膨胀
+3. **近似 LRU**：Redis 不维护全局精确 LRU 链表（维护成本太高），而是给每个 key 记录一个 24 位的"最近访问时间戳"字段，淘汰时随机采样 N 个 key（默认 5 个），选出时间戳最旧的那个淘汰——结果是"近似 LRU"，正常情况下和精确 LRU 差别不大
+4. **Lua 脚本原子性**：Redis 执行 Lua 脚本时会阻塞其他命令（单线程保证），脚本内的所有 Redis 命令要么全部执行要么全不执行（脚本报错时已执行的命令不会自动回滚，但不会有并发插入），这是用 Lua 实现"读取-判断-写入"原子化的原理
 
-#### 四、手写实现（延续 `medai-node-source` monorepo）
+#### 四、最佳实践与实战示例
 
 1. 搭建 `packages/mini-lru`：手写一个近似 O(1) 的精确 LRU 缓存（`Map` 保持插入顺序 + 命中时删除重新插入到末尾模拟"最近使用"），对比"教科书精确 LRU"和 Redis"近似 LRU"在实现复杂度上的差异
 2. 搭建 `packages/mini-distlock`：基于 `ioredis` 手写一个分布式锁工具函数——`SET NX EX` 加锁、Lua 脚本保证"校验唯一标识后删除"的原子释放，用两个并发的模拟请求验证互斥效果
 3. 搭建 `packages/mini-ratelimit`：基于 `ioredis` 手写令牌桶限流器（Lua 脚本原子化更新令牌数量与时间戳），用连续发起的模拟请求验证"允许短时突发、超出速率后被拒绝"的效果，并对比固定窗口计数在窗口边界处的突刺问题
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://redis.io/docs/latest/
 - https://github.com/redis/redis
 - https://redis.io/docs/latest/develop/use/patterns/distributed-locks/
@@ -748,20 +723,17 @@
 - **pgvector 与向量检索原理**（重点，对齐本项目 AI 工程栈）：`pgvector` 让 PostgreSQL 具备存储高维向量（embedding）和做近似最近邻检索的能力——`<->`（L2 欧氏距离）、`<#>`（负内积，用于最大化内积检索场景）、`<=>`（余弦距离，衡量向量方向相似度，最常用于文本语义检索）三种距离算子对应不同的相似度度量方式；小数据量可以用精确的顺序扫描计算距离，数据量增大后需要建立近似索引（HNSW 或 IVFFlat）用"牺牲一定精度换取检索速度"的方式支撑大规模向量检索——这是 RAG（检索增强生成）系统里"药品说明书向量库"这类场景的数据库层实现基础
 - 对比 MySQL（承接第 11 篇）：PostgreSQL 在扩展性（自定义类型、`pgvector` 这类扩展插件生态）和分析型查询能力（窗口函数、CTE 递归查询）上通常被认为比 MySQL 更强，MySQL 在简单读写为主的 Web 应用场景下运维成熟度和生态工具链更普及——这是实际选型时的核心权衡维度
 
-#### 三、源码解析（重点代码，来源 GitHub 仓库）
+#### 三、底层机制解析
 
-1. MVCC 元组版本存储：`postgres/postgres` 仓库 `src/backend/access/heap/heapam.c`（概览级介绍 `HeapTupleHeaderData` 中 `xmin`/`xmax` 事务号字段如何标记版本可见性）
-2. `VACUUM` 实现：`src/backend/commands/vacuum.c`（概览级介绍死元组回收流程）
-3. `pgvector` 距离算子与索引：`pgvector/pgvector` 仓库 `src/vector.c`（距离计算函数）、`src/hnsw.c`（HNSW 近似索引构建逻辑，概览级介绍）
+1. **PostgreSQL MVCC 元组版本机制**：每行数据（元组）有 `xmin`（插入该版本的事务 ID）和 `xmax`（删除/更新该版本的事务 ID，未删除时为 0）两个隐藏字段；UPDATE 操作实际是插入一条新元组（`xmin` 设为当前事务 ID）并把旧元组的 `xmax` 设为当前事务 ID，旧元组成为"死元组"需要 `VACUUM` 回收；与 InnoDB 把旧版本放进独立回滚段不同，PostgreSQL 的旧版本就地存在表文件里
+2. **VACUUM 的必要性**：死元组积累会导致表文件膨胀（空间不能被操作系统回收，只能被后续 INSERT 复用），同时会拖慢查询（顺序扫描要跳过大量死元组）；`autovacuum` 是 PostgreSQL 内置的自动 VACUUM 进程，但频繁大量更新的场景需要手动调优触发阈值
+3. **pgvector HNSW 索引**：HNSW（Hierarchical Navigable Small World）是一种图结构近似索引——构建时每个向量作为图的一个节点，与最近邻节点之间建立边；查询时从最顶层的稀疏图入口开始，贪心地向目标向量方向"游走"直到收敛，层数越多查询越慢但召回率越高；`ef_construction` 控制构建时图的质量，`ef_search` 控制查询时的搜索宽度
 
-#### 四、手写实现（延续 `medai-node-source` monorepo）
+#### 四、最佳实践与实战示例
 
 搭建 `packages/mini-vector-search`：用 TypeScript 手写一个内存版向量检索小工具——实现余弦相似度计算函数，对一批模拟的药品说明书 embedding（可用随机向量或真实调用一次 embedding API 生成少量样本）做暴力线性扫描找最近邻，再实现一个简化版近似检索（如先用随机投影分桶再局部比较），对比两种方式在检索耗时和召回准确率上的权衡，直观理解 `pgvector` 里"精确检索 vs 近似索引"选择背后的工程考量。
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://www.postgresql.org/docs/current/
 - https://github.com/pgvector/pgvector
 - https://github.com/postgres/postgres
@@ -803,15 +775,12 @@
 2. DataLoader 批处理实现：`graphql/dataloader` 仓库 `src/index.js` — `load` 方法如何用 `Promise` + 微任务延迟收集请求，`dispatchQueue` 合并批处理调用
 3. Apollo Server 请求处理管道：`apollographql/apollo-server` 仓库概览级介绍插件化的请求生命周期钩子
 
-#### 四、手写实现（延续 `medai-node-source` monorepo）
+#### 四、最佳实践与实战示例
 
 1. 搭建 `packages/mini-graphql-server`：用 Node.js 原生 `http` 手写一个极简 GraphQL 执行器——解析一个简化的查询语法（不用完整 GraphQL 语法解析器，用简化的 JSON 结构模拟字段树），按字段树递归调用注册的 Resolver 函数
 2. 搭建 `packages/mini-dataloader`：手写一个简化版 DataLoader——`load(id)` 收集请求到队列，用 `process.nextTick` 延迟到当前 tick 结束后合并成一次 `batchLoadFn` 调用，并对相同 ID 去重。用"查询 10 位患者的处方列表"场景对比"每次单独查询"和"接入 mini-dataloader 后批量查询"的实际数据库调用次数
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://graphql.org/
 - https://www.apollographql.com/docs/
 - https://github.com/graphql/dataloader
@@ -860,17 +829,14 @@
 3. `amqplib` 的消息确认机制：`amqp-node/amqplib` 仓库 — `channel.ack`/`channel.nack` 与消费者预取（prefetch）的实现
 4. V8 堆快照与 Inspector 协议：概览级介绍 `node --inspect` 背后的 Chrome DevTools Protocol（CDP）通信机制，不深入 V8 内部实现
 
-#### 四、手写实现（延续 `medai-node-source` monorepo，作为系列收尾）
+#### 四、最佳实践与实战示例
 
 1. 用 Docker 给 `medai-node-source` 系列积累的手写模块之一（如第 07 篇的 `mini-express`）搭建一个多阶段构建的 Dockerfile，对比单阶段构建和多阶段构建的最终镜像体积差异
 2. 用 Node.js 原生 `cluster` 模块手写一个最小化的多进程 HTTP 服务示例，验证请求被分发到不同的工作进程（每个响应体里带上 `process.pid`，观察多次请求命中不同进程 ID）
 3. 搭建 `packages/mini-task-queue`：用 RabbitMQ（或用 Redis List 简化模拟）实现一个最小化任务队列——生产者提交"模拟 AI 推理任务"立即返回任务 ID，消费者从队列取任务处理并更新任务状态，验证提交与处理解耦、消费者处理速度不影响生产者响应速度
 4. 手写一个故意包含内存泄漏的示例脚本（如反复 `on` 却不 `off` 的 `EventEmitter`），用 `node --inspect` + Chrome DevTools 完整走一遍"两次堆快照对比定位泄漏对象"的排查流程，作为方法论的实操演示
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://jestjs.io/
 - https://docs.docker.com/build/building/multi-stage/
 - https://nodejs.org/api/cluster.html

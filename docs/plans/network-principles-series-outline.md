@@ -1,7 +1,7 @@
 # 网络原理系列公众号文章大纲（系列 08）
 
 > 所属系列：网络原理（对齐 `docs/plans/frontend-engineering-outline.md` 系列 08，先于 Node.js 全栈系列写）
-> 写作原则：使用与实践 → 设计与原理 → 源码解析（重点代码，来源 GitHub 仓库）→ 手写实现 → GitHub → 参考
+> 写作原则：使用与实践 → 设计与原理 → 源码/规范解析 → 实践演示与验证 → 参考
 > 目标读者：5-10 年前端或全栈经验，正在系统补齐网络协议底层原理，备战高级/专家岗面试
 > 与其他系列的分工：本系列讲的是协议本身的原理（不绑定具体语言/运行时），是 Node.js 系列的前置地基。凡是"协议是什么、为什么这样设计"的内容都在本系列讲透；Node.js 系列不再重复协议理论，只讲"Node.js 怎么基于这些协议实现具体能力"——例如 WebSocket 的握手/帧格式/心跳原理在本系列第 05 篇讲，Node.js 系列「Node 核心 API 大全」篇只讲怎么用 `crypto`/`net`/`http` 模块实现一个 WebSocket 服务端；RESTful/GraphQL 的设计原则对比在本系列第 08 篇讲，Node.js 系列「GraphQL+Apollo」篇负责 Resolver 源码级机制和手写实现。
 
@@ -13,7 +13,7 @@
 
 - 篇数：9 篇
 - 核心主线：HTTP 协议演进 → HTTPS/TLS 安全传输 → DNS 域名解析 → TCP 传输层机制 → WebSocket 实时通信 → 跨域与浏览器安全 → HTTP 缓存体系 → API 设计范式（RESTful vs GraphQL）→ 反向代理与负载均衡
-- 内容结构：六段式（使用与实践 → 设计与原理 → 源码解析/协议规范解析 → 手写实现 → GitHub → 参考）——协议类文章的"源码解析"部分以 RFC 规范原文 + 权威开源实现（如 Chromium/Node.js 网络栈）为主，"手写实现"部分侧重用 Node.js 原生 `net`/`tls`/`dgram` 模块还原协议关键步骤
+- 内容结构：五段式（使用与实践 → 设计与原理 → 源码/规范解析 → 实践演示与验证 → 参考）——协议类文章的"源码/规范解析"部分以 RFC 规范原文 + 权威开源实现（如 Chromium/Node.js 网络栈）为主，"实践演示与验证"部分侧重用 Node.js 原生 `net`/`tls`/`dgram` 模块还原协议关键步骤，重在理解而非产出独立工程
 - 特色：每篇 3-5 个「面试官会问」；示例统一沿用医疗场景命名（药品/处方/患者/医院管理系统 HIS）；涉及可与后续 Node.js 系列对照的知识点显式标注「对比 Node.js 实现」
 
 ---
@@ -76,16 +76,13 @@
 2. QUIC 传输协议：RFC 9000 — 连接建立、stream 多路复用、连接迁移的规范定义
 3. Node.js `http2` 模块实现：`lib/internal/http2/core.js`（nodejs/node 仓库）— `Http2Session` 如何管理多个 `Http2Stream`
 
-#### 四、手写实现
+#### 四、实践演示与验证
 
 用 Node.js 原生 `net` 模块（TCP 层）手写一个能演示"队头阻塞"的极简 HTTP/1.1 服务器：故意让第一个请求的处理延迟 3 秒，观察同一连接上排在后面、本可以立即返回的第二个请求也被迫等待；再用 Node.js `http2` 模块实现同样的场景，验证多路复用下第二个请求不受影响提前返回。
 
 **补充：内容协商中压缩算法的手写实现**——用 Node.js `zlib` 模块（`zlib.createGzip()`/`zlib.createBrotliCompress()`）包一个响应处理逻辑：读取请求头 `Accept-Encoding`，按"客户端支持 br 则优先用 br，否则降级到 gzip，都不支持则不压缩"的逻辑选择对应的 Transform 流，把响应体数据 `pipe` 经过压缩流后再写入 `res`，并正确设置 `Content-Encoding` 响应头告诉客户端使用了哪种压缩；用 `curl --compressed` 和浏览器分别验证能正确解压拿到原始内容。压缩流本身是 Stream/Transform 的一个具体应用（Stream API 原理见 Node.js 系列第 04 篇），本篇聚焦"为什么选这个算法、协议层怎么协商"。
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://www.rfc-editor.org/rfc/rfc9113
 - https://www.rfc-editor.org/rfc/rfc9000
 - https://developer.mozilla.org/zh-CN/docs/Web/HTTP
@@ -136,14 +133,11 @@
 2. 证书链验证算法：RFC 5280 — X.509 证书结构与路径验证算法
 3. Node.js TLS 模块：`lib/_tls_wrap.js`（nodejs/node 仓库）概览级介绍 `TLSSocket` 对 OpenSSL 绑定的封装
 
-#### 四、手写实现
+#### 四、实践演示与验证
 
 用 Node.js `tls` 模块（而非直接用 `https`）手写一个最简 TLS 服务端和客户端，客户端加载服务端证书并手动实现"证书指纹比对"逻辑（模拟 Certificate Pinning），故意替换成另一张证书验证连接是否被正确拒绝。
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://www.rfc-editor.org/rfc/rfc8446
 - https://www.rfc-editor.org/rfc/rfc5280
 - https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Headers/Strict-Transport-Security
@@ -186,14 +180,11 @@
 2. DNS-over-HTTPS 规范：RFC 8484 — DoH 请求如何把 DNS 查询封装进 HTTP GET/POST
 3. Node.js `dns` 模块：`lib/dns.js`（nodejs/node 仓库）— `lookup`（走 libuv 的 `getaddrinfo`，使用系统解析器）与 `resolve`（走 `c-ares` 库直接发起网络查询）的实现路径差异
 
-#### 四、手写实现
+#### 四、实践演示与验证
 
 用 Node.js `dgram`（UDP）模块手写一个极简的 DNS 查询客户端：手动构造符合 RFC 1035 格式的查询报文（不依赖 `dns` 模块），发送到 `8.8.8.8:53`，解析返回的二进制响应报文里的 IP 地址字段，直观理解"DNS 本质是跑在 UDP 之上的一个简单二进制协议"。
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://www.rfc-editor.org/rfc/rfc1035
 - https://www.rfc-editor.org/rfc/rfc8484
 - https://nodejs.org/api/dns.html
@@ -235,14 +226,11 @@
 2. 拥塞控制算法：RFC 5681（TCP Congestion Control）— 慢启动/拥塞避免/快速重传/快速恢复的具体算法定义
 3. Node.js `net` 模块 TCP Socket 封装：`lib/net.js`（nodejs/node 仓库）概览级介绍 `Socket` 类对底层 libuv TCP handle 的封装
 
-#### 四、手写实现
+#### 四、实践演示与验证
 
 用 Node.js `net` 模块手写一个 TCP 客户端/服务端，服务端故意延迟处理并读取 socket 的 `writableLength`，观察当客户端发送速度远超服务端处理速度时，Node.js 层面表现出的"背压”现象；配合 Wireshark 同步抓包，对照观察系统层面 TCP 窗口大小的变化，把"应用层背压"和"传输层滑动窗口"两个层级的现象关联起来看。
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://www.rfc-editor.org/rfc/rfc9293
 - https://www.rfc-editor.org/rfc/rfc5681
 - https://nodejs.org/api/net.html
@@ -283,14 +271,11 @@
 2. SSE 规范：WHATWG HTML 标准 Server-Sent Events 章节 — `text/event-stream` 格式与浏览器自动重连行为
 3. Chromium WebSocket 实现概览：`net/websockets/` 目录（概览级介绍浏览器侧握手校验逻辑，不深入 C++ 细节）
 
-#### 四、手写实现
+#### 四、实践演示与验证
 
 不依赖 `ws` 库，用 Node.js 原生 `http` + `crypto` 模块手写一个最简 WebSocket 服务端：监听 `upgrade` 事件、手动计算 `Sec-WebSocket-Accept`、手动解析客户端发来的帧（处理掩码与 payload length 的多种编码情况）、手动构造帧发送消息给客户端。用"服务端每秒推送一次模拟检验报告进度"验证服务端主动推送能力；额外实现心跳检测逻辑，模拟客户端长时间无响应后服务端主动断开连接。
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://www.rfc-editor.org/rfc/rfc6455
 - https://developer.mozilla.org/zh-CN/docs/Web/API/WebSocket
 - https://developer.mozilla.org/zh-CN/docs/Web/API/Server-sent_events
@@ -332,14 +317,11 @@
 2. CSP 规范：W3C Content Security Policy Level 3 — 各 `-src` 指令的白名单匹配规则
 3. `cors`（npm 包）实现：`expressjs/cors` 仓库 `lib/index.js` — 根据配置动态计算响应头的核心逻辑
 
-#### 四、手写实现
+#### 四、实践演示与验证
 
 搭建两个不同端口的极简 Node.js 服务模拟跨域场景：一个作为"前端页面"，一个作为"API 服务”，手写一个不使用 `cors` 库的中间件，根据请求的 `Origin` 头动态设置 `Access-Control-Allow-Origin` 等响应头，并正确处理 `OPTIONS` 预检请求；额外写一个演示 CSRF 攻击的最小示例页面（自动提交表单到目标接口），对比开启 `SameSite=Strict` 前后攻击是否生效。
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://developer.mozilla.org/zh-CN/docs/Web/HTTP/CORS
 - https://developer.mozilla.org/zh-CN/docs/Web/HTTP/CSP
 - https://owasp.org/www-community/attacks/csrf
@@ -380,14 +362,11 @@
 2. 条件请求规范：RFC 9110 第 13 章 — `If-None-Match`/`If-Modified-Since` 的服务端处理逻辑
 3. Service Worker 规范：W3C Service Workers 标准 — `fetch` 事件拦截与 `Cache` API 的基本模型
 
-#### 四、手写实现
+#### 四、实践演示与验证
 
 用 Node.js 原生 `http` 模块手写一个支持 `ETag` 协商缓存的静态文件服务器：读取文件内容计算哈希作为 `ETag`，正确处理请求头里的 `If-None-Match` 并返回 `304`；再手写一个最简 Service Worker，实现 Cache First 策略缓存药品说明书 PDF 资源，断网情况下依然能正常展示已缓存过的内容。
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://www.rfc-editor.org/rfc/rfc9111
 - https://developer.mozilla.org/zh-CN/docs/Web/API/Service_Worker_API
 - https://web.dev/articles/service-worker-caching-and-http-caching
@@ -428,14 +407,11 @@
 2. GraphQL 执行模型：GraphQL 官方规范（spec.graphql.org）"Execution”章节 — 字段树递归解析的规范定义
 3. N+1 问题与批处理思路的通用参考：`graphql/dataloader` 仓库 README — 批处理与缓存的设计动机说明（不深入实现，留给 Node.js 系列展开）
 
-#### 四、手写实现
+#### 四、实践演示与验证
 
 用同一个"患者+处方"数据集分别实现两种接口：一个纯 RESTful 版本（`/patients` 返回列表，`/patients/:id/prescriptions` 单独查询处方，观察前端拼数据需要几次请求）；一个极简 GraphQL 版本（不引入完整 GraphQL 引擎，用手写的字段树递归 Resolver 模拟），故意不做批处理让 N+1 问题真实发生（打印每次"查询处方"背后触发的数据库查询次数），直观对比两种范式在这个场景下的请求次数差异。
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://www.ics.uci.edu/~fielding/pubs/dissertation/top.htm
 - https://spec.graphql.org/
 - https://github.com/graphql/dataloader
@@ -474,14 +450,11 @@
 2. Nginx 负载均衡模块：`ngx_http_upstream_module` 官方文档 — 轮询/加权轮询/`ip_hash` 的配置语义与选择逻辑
 3. 一致性哈希算法：*Consistent Hashing and Random Trees*（原始论文，概览级介绍环形哈希空间的设计动机，不深入数学证明）
 
-#### 四、手写实现
+#### 四、实践演示与验证
 
 用 Node.js 原生 `http` 模块手写一个最简反向代理：读取请求的 `Host` 头，路由到医院 HIS 系统"处方服务"或"患者服务"两个不同的模拟后端端口（复现虚拟主机效果）；再实现一个 `upstream` 数组，分别用轮询和加权轮询两种策略把请求分发到多个模拟后端实例，打印每次分发命中的实例编号验证分配比例；额外写一个基于 `Referer` 头的中间件，拦截并拒绝非法来源的药品图片请求。
 
-#### 五、手写实现源码 GitHub 地址
-（新建仓库，待补充地址）
-
-#### 六、参考
+#### 五、参考
 - https://nginx.org/en/docs/http/ngx_http_upstream_module.html
 - https://www.rfc-editor.org/rfc/rfc9110
 - https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Headers/Referrer-Policy
