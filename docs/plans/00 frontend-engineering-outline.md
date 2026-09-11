@@ -23,12 +23,12 @@
 | 04 | 性能与前端监控 | ✅ 完成 | 13 | — |
 | 05 | Vue 2 源码 | ✅ 完成 | 13 | — |
 | 06 | Vue 3 源码 | ✅ 完成 | 12 | — |
-| 07 | React 18 | 🚧 进行中 | 1 | 核心主线 |
+| 07 | React 18 | 🚧 进行中（大纲已定稿 14 篇，详见 `docs/plans/04 react18-family-series-outline.md`） | 0/14 | 核心主线 |
 | 08 | Node.js 全栈 | 📋 规划中（大纲已定稿 17 篇，详见 `docs/plans/05 node-fullstack-series-outline.md`） | — | ① 第一优先 |
 | 09 | 网络原理 | 📋 规划中（大纲已定稿 10 篇，详见 `docs/plans/06 network-principles-series-outline.md`） | — | ② |
-| 10 | 数据结构与算法 | 📋 规划中（大纲已定稿 9 篇，详见 `docs/plans/07 data-structures-algorithms-outline.md`） | — | ③ |
-| 11 | 设计模式 | 📋 规划中（大纲已定稿 17 篇，详见 `docs/plans/08 design-patterns-series-outline.md`） | — | ④ |
-| 12 | 泛客户端（小程序） | 📋 规划中（大纲已定稿 12 篇，详见 `docs/plans/09 miniprogram-series-outline.md`） | — | ⑤ |
+| 10 | 泛客户端（小程序） | 📋 规划中（大纲已定稿 12 篇，详见 `docs/plans/09 miniprogram-series-outline.md`） | — | ⑤ |
+| 11 | 数据结构与算法 | 📋 规划中（大纲已定稿 13 篇，详见 `docs/plans/07 data-structures-algorithms-outline.md`） | — | ③ |
+| 12 | 设计模式 | 📋 规划中（大纲已定稿 17 篇，详见 `docs/plans/08 design-patterns-series-outline.md`） | — | ④ |
 | 13 | 前端运维 | 📋 规划中（大纲已定稿 18 篇，详见 `docs/plans/10 frontend-ops-series-outline.md`） | — | ⑥ |
 | 14 | AI 工程（应用开发） | 📋 规划中（大纲已定稿 16 篇，详见 `docs/plans/11 ai-application-engineering-outline.md`） | — | ★ 同步进行 |
 
@@ -127,19 +127,24 @@
 
 ---
 
-## 07 React 18（🚧 进行中，1/规划篇数）
+## 07 React 18（🚧 进行中，大纲已定稿 14 篇，详见 `docs/plans/04 react18-family-series-outline.md`）
 
-- React 18 架构演进：从 Stack Reconciler 到 Fiber（✅ 已完成）
-- Fiber 架构深度：数据结构 / 工作循环 / 优先级调度
-- Lane 模型：位运算优先级 / 批处理 / 并发特性
-- Hooks 原理：链表结构 / useState / useEffect / useReducer
-- Concurrent Mode：startTransition / useDeferredValue / Suspense
-- RSC（React Server Components）：客户端 / 服务端边界 / 序列化
-- React 状态管理：Zustand / Jotai / Redux Toolkit 原理对比
-- React Router v6：嵌套路由 / loader / action / 数据流
-- Next.js 15 App Router：RSC / Streaming / PPR / 缓存策略
-- React 性能优化：memo / useMemo / useCallback / profiler 实战
-- React 测试：Testing Library / MSW / 快照测试
+> 主线：架构演进 → 状态更新与优先级 → 渲染与 Diff → commit → Hooks → 并发 → 事件与 Context → 生态（Router / 状态管理 / SSR）→ 性能与工程化
+
+- React 18 架构全景：从 Stack 到 Fiber 的演进与源码调试环境搭建
+- React 18 状态更新：Update 双轨链表与 Lane 优先级模型深度拆解
+- React 18 渲染原理：mount / update / unmount 全流程与 bailout 复用机制
+- React 18 Diff 算法：单节点与多节点 Diff 源码精读
+- React 18 commit 阶段：三个子阶段与 effect 执行顺序原理
+- React 18 Hooks 深度：设计哲学、dispatcher 切换与 Hook 链表源码
+- React 18 并发渲染：Scheduler 时间切片、Lane 模型与 Suspense 原理
+- React 18 事件系统：合成事件、事件委托与自动批处理原理
+- React 18 Context：依赖传播机制与手写实现
+- React Router 6/7：Data Router 预取数据范式与权限路由实战
+- React 状态管理：Redux Toolkit 源码解析与 MobX / Zustand 选型对比
+- React 18 服务端渲染：流式 SSR 与 Server Components 原理实战
+- React 18 性能优化：memo / useMemo / 虚拟列表与 React Compiler
+- React 18 工程化实战：Turborepo + Monorepo 后台管理系统从零搭建
 
 ---
 
@@ -205,15 +210,21 @@
 
 ## 11 数据结构与算法（📋 规划中，大纲已定稿 13 篇，详见 `docs/plans/07 data-structures-algorithms-outline.md`）
 
-- 复杂度分析：时间 / 空间复杂度 / 摊还分析
-- 数组与链表：原地操作 / 双指针 / 快慢指针
-- 栈与队列：单调栈 / 优先队列 / 循环队列
-- 树：二叉树遍历 / BST / AVL / 红黑树 / 前端场景应用
-- 图：BFS / DFS / 拓扑排序 / 最短路径（前端构建图场景）
-- 哈希表：冲突处理 / 一致性哈希 / 布隆过滤器
-- 排序算法：快排 / 归并 / 堆排 / 计数排序及稳定性分析
-- 动态规划：状态转移 / 记忆化搜索 / 经典题型
-- 前端高频算法：虚拟 DOM Diff / LRU 缓存 / 并发控制 / 依赖解析
+> 主线：前端场景切入 → 复杂度分析 → 线性结构（栈 / 队列 / 链表 / 散列表）→ 树与堆与图 → 算法（排序 / 搜索 / 递归 / DP）
+
+- 为什么前端也需要算法？React Fiber / 虚拟 DOM / 事件队列里的数据结构
+- 时间与空间复杂度：从前端代码瓶颈到 Big-O 分析体系
+- 栈：浏览器调用栈 / undo 历史 / 单调栈高频题型全解
+- 队列：事件循环任务队列 / BFS / 双端队列与滑动窗口
+- 链表：React Fiber 链表结构与 LRU Cache 手写实现
+- 集合与散列表：ES6 Set / Map 底层原理与高频面试题
+- 树：DOM 遍历 / 虚拟 DOM diff / BST / Trie 前缀树实战
+- 堆：优先队列 / Top-K / 数据流中位数手写最小堆
+- 图：Webpack 模块依赖图 / 拓扑排序 / 最短路径
+- 排序：V8 TimSort 源码解析 / 快排 / 归并 / 稳定性全解
+- 搜索：二分搜索变体精讲 / BFS 最短路径 / DFS 回溯
+- 递归：递归三要素 / 尾递归 / 记忆化到 DP 的跨越
+- 动态规划：状态转移方程建模 / 编辑距离 / 背包问题
 
 ---
 
@@ -297,4 +308,4 @@ docs/articles/{系列编号} {系列名}/YYYY-MM-DD-{slug}.md
 
 ---
 
-*更新时间：2026-09-11（重排写作顺序：08 Node.js 全栈优先，14 AI 工程同步进行；删除 15 测试体系（已在 Vue 系列覆盖）；系列总数 15 个）| 当前总文章数：59 篇*
+*更新时间：2026-09-11（修正总览表与章节标题的编号/篇数矛盾：10 小程序 / 11 数据结构与算法（13 篇）/ 12 设计模式，React 18 补全 14 篇大纲；写作顺序：08 Node.js 全栈优先，14 AI 工程同步进行；删除 15 测试体系（已在 Vue 系列覆盖）；系列总数 15 个）| 当前已发布文章数：60 篇*
