@@ -21,7 +21,7 @@
 | 10 | 泛客户端（小程序） | 📋 规划中 | — |
 | 11 | 数据结构与算法 | 📋 规划中 | — |
 | 12 | 设计模式 | 📋 规划中 | — |
-| 13 | 前端运维 | 📋 规划中 | — |
+| 13 | 前端运维 | 📋 规划中（大纲已定稿 18 篇，详见 `docs/plans/frontend-ops-series-outline.md`） | — |
 | 14 | AI 工程（应用开发） | 📋 规划中 | — |
 | 15 | 测试体系 | 📋 规划中 | — |
 
@@ -213,14 +213,28 @@
 
 ---
 
-## 13 前端运维（📋 规划中）
+## 13 前端运维（📋 规划中，大纲已定稿 18 篇，详见 `docs/plans/frontend-ops-series-outline.md`）
 
-- Docker：多阶段构建 / Layer 缓存 / Next.js standalone 镜像
-- Nginx：SPA 路由配置 / gzip / 缓存头 / 反向代理 / SSL
-- GitHub Actions：工作流语法 / 缓存策略 / Matrix / Reusable Workflow
-- 质量门禁：typecheck + lint + test + build / Bundle Size 门禁
-- 部署策略：Vercel / 蓝绿部署 / 金丝雀发布 / Feature Flags
-- 可观测性：日志聚合 / 链路追踪 / 告警策略 / Grafana 看板
+> 篇章顺序按部署环境依赖关系排列：Linux 系统底层能力 → Docker 容器化 → Nginx 网关配置 → Jenkins CI/CD 自动化 → Kubernetes 容器编排
+
+- Linux 基础与文件系统：发行版脉络 / FHS 目录结构 / 权限位与 inode
+- Vim 编辑器：三种模式切换 / 移动编辑命令 / 配置定制
+- 用户与权限管理：用户组模型 / chmod-chown / SUID-SGID-Sticky Bit
+- 认证与安全：SSH 密钥认证原理 / sudo 权限委派 / PAM 机制
+- Shell 与脚本：Bash 语法 / 管道重定向 / grep-sed-awk 文本三剑客
+- 包管理：apt-yum-dpkg-rpm 对比 / 依赖解析原理
+- 系统资源与进程管理：CPU 负载与内存指标 / 进程信号与孤儿僵尸进程
+- 服务与 systemd：unit 文件 / 服务生命周期管理 / journalctl 日志
+- 网络配置与排查：ip-netstat-ss-curl / iptables-firewalld / 端口排查
+- Docker 核心原理：容器与虚拟机对比 / Namespace 隔离 / Cgroups 资源限制 / UnionFS 镜像分层
+- Dockerfile 与生产实践：多阶段构建 / Layer 缓存 / Compose 编排 / 数据卷与网络模式
+- Nginx 核心与反向代理配置：master-worker 进程模型 / 配置文件结构 / 负载均衡实操
+- Nginx 生产实战：SPA history 路由 / gzip 与缓存头 / HTTPS 证书配置
+- Jenkins 核心概念：CI-CD 理念 / Master-Agent 架构 / 插件体系
+- Jenkins Pipeline 实战：Jenkinsfile 声明式语法 / 多分支流水线 / 集成 Docker 构建
+- Kubernetes 核心概念：架构组件 / Pod-Deployment-Service / kubectl 基本操作
+- Kubernetes 配置与网络：ConfigMap-Secret / Ingress 路由 / PV-PVC 存储卷
+- Kubernetes 前端部署实战：滚动更新与健康检查 / HPA 自动扩缩容 / 故障排查
 
 ---
 
@@ -260,4 +274,4 @@ docs/articles/{系列编号} {系列名}/YYYY-MM-DD-{slug}.md
 
 ---
 
-*更新时间：2026-09-10 | 当前总文章数：59 篇*
+*更新时间：2026-09-11（新增系列 13 前端运维大纲，18 篇定稿）| 当前总文章数：59 篇*
