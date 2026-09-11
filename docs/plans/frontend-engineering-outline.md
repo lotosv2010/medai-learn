@@ -18,11 +18,11 @@
 | 07 | React 18 | 🚧 进行中 | 1 |
 | 08 | 网络原理 | 📋 规划中（大纲已定稿 10 篇，先于 Node.js 系列写） | — |
 | 09 | Node.js 全栈 | 📋 规划中（大纲已定稿 16 篇） | — |
-| 10 | 泛客户端（小程序） | 📋 规划中 | — |
+| 10 | 泛客户端（小程序） | 📋 规划中（大纲已定稿 12 篇，详见 `docs/plans/miniprogram-series-outline.md`） | — |
 | 11 | 数据结构与算法 | 📋 规划中 | — |
 | 12 | 设计模式 | 📋 规划中（大纲已定稿 17 篇） | — |
 | 13 | 前端运维 | 📋 规划中（大纲已定稿 18 篇，详见 `docs/plans/frontend-ops-series-outline.md`） | — |
-| 14 | AI 工程（应用开发） | 📋 规划中 | — |
+| 14 | AI 工程（应用开发） | 📋 规划中（大纲已定稿 14 篇，详见 `docs/plans/ai-application-engineering-outline.md`） | — |
 | 15 | 测试体系 | 📋 规划中 | — |
 
 ---
@@ -175,16 +175,22 @@
 
 ---
 
-## 10 泛客户端：微信小程序（📋 规划中）
+## 10 泛客户端：微信小程序（📋 规划中，大纲已定稿 12 篇，详见 `docs/plans/miniprogram-series-outline.md`）
 
-- 小程序架构：双线程模型 / 渲染层与逻辑层通信
-- 生命周期：App / Page / Component 三级生命周期对比
-- 数据绑定与更新：setData 原理 / 批量更新 / 性能陷阱
-- 组件系统：自定义组件 / behaviors / 抽象节点
-- 网络与存储：wx.request 封装 / 本地缓存 / 文件系统
-- 小程序性能优化：分包加载 / 预下载 / 骨架屏 / 渲染优化
-- Taro / uni-app 跨端方案：编译原理 / 运行时差异 / 选型建议
-- 小程序云开发：云函数 / 数据库 / 存储 / 实时推送
+> 主线：架构原理（双线程模型）→ 生命周期与路由 → 渲染机制（setData）→ 组件化 → 样式层 → 网络与存储 → 安全鉴权 → 支付与开放能力 → 性能优化 → 工程化发布 → 跨端框架 → 云开发
+
+- 小程序架构解密：双线程模型与渲染层-逻辑层通信机制
+- 生命周期与路由栈：App/Page/Component 三级生命周期 + 页面栈管理
+- 数据绑定与更新原理：setData 序列化开销与渲染性能陷阱
+- 组件化开发：Component 构造器 / behaviors 混入 / 组件通信全解
+- WXML/WXSS 底层机制：模板编译 / rpx 单位 / 条件与列表渲染性能
+- 网络与存储：wx.request 封装实战 / 本地缓存策略 / 文件系统
+- 登录鉴权与安全：wx.login 授权流程 / openid-unionid / 数据签名校验
+- 微信支付与开放能力：统一下单流程 / webview 跳转 / 订阅消息
+- 性能优化实战：分包加载 / 预下载 / 长列表虚拟化 / 首屏优化
+- 工程化与发布流程：CI/CD 自动化上传 / 分包体积治理 / 审核发布策略
+- Taro / uni-app 跨端方案：编译时 vs 运行时架构对比 / 条件编译 / 选型决策
+- 小程序云开发：云函数 / 云数据库 / 云调用与自建后端对比
 
 ---
 
@@ -251,17 +257,24 @@
 
 ---
 
-## 14 AI 工程（📋 规划中）
+## 14 AI 工程（📋 规划中，大纲已定稿 14 篇，详见 `docs/plans/ai-application-engineering-outline.md`）
 
-- LLM API 接入：Anthropic / OpenAI / 通义 SDK 封装 / 多模型抽象
-- Streaming 与 SSE：流式响应原理 / ReadableStream / 前端渲染实现
-- Prompt Engineering：系统提示设计 / Few-shot / Chain-of-Thought
-- RAG 系统：文本切分 / Embedding / 向量检索 / 重排序
-- pgvector 实战：向量存储 / 相似度查询 / 混合检索
-- AI Agent：Tool Use / ReAct 模式 / LangChain / 多步骤编排
-- AI SDK（Vercel）：useChat / useCompletion / RSC Streaming
-- AI 应用安全：Prompt Injection 防护 / 输出过滤 / 速率限制
-- AI 工程化：评估体系 / A/B 测试 / 成本控制 / 可观测性
+> 主线：基础设施层（多模型接入 → 流式传输）→ 交互层（Prompt 工程化 → RAG 检索增强）→ 推理层（AI Agent：工具调用 → 多步编排）→ 框架整合层（Vercel AI SDK）→ 生产化层（安全防护 → 评估体系 → 成本与可观测性）→ 综合实战；与《00 AI 工具与职业发展》系列（Prompt/Context/Harness/Loop 方法论）分工不重复，pgvector 索引原理见《09 Node.js 全栈》系列
+
+- 导读：从 Demo 到生产级 AI 系统——AI 应用工程师技术地图
+- LLM API 接入与多模型抽象：用 Strategy Pattern 统一 Claude / GPT / 通义千问
+- Streaming 与 SSE：Token 流如何变成打字机效果
+- Prompt Engineering 进阶：结构化输出与 Function Calling Schema 设计
+- RAG 系统（上）：文档分块策略与 Embedding 实战
+- RAG 系统（下）：向量检索、重排序与混合检索
+- pgvector 应用实战：从 Schema 设计到召回质量优化
+- AI Agent 基础：Tool Use 与 Function Calling 模式
+- AI Agent 进阶：ReAct 框架与多步骤编排
+- Vercel AI SDK 实战：useChat / useCompletion 与 RSC Streaming
+- AI 应用安全：Prompt Injection 防护与输出过滤
+- AI 工程化（上）：评估体系与 A/B 测试
+- AI 工程化（下）：成本控制与可观测性
+- 收官篇：药品问答系统实战——RAG + Agent + SSE 全链路整合
 
 ---
 
@@ -287,4 +300,4 @@ docs/articles/{系列编号} {系列名}/YYYY-MM-DD-{slug}.md
 
 ---
 
-*更新时间：2026-09-11（新增系列 12 设计模式大纲，17 篇定稿）| 当前总文章数：59 篇*
+*更新时间：2026-09-11（新增系列 14 AI 工程应用开发大纲，14 篇定稿）| 当前总文章数：59 篇*
