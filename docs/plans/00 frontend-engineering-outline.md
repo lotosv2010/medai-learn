@@ -1,29 +1,36 @@
 # 前端全栈系列文章总大纲
 
-> 10 年医疗电商前端经验晋升 AI 应用工程师的完整知识体系，共规划 16 个系列。
+> 10 年医疗电商前端经验晋升 AI 应用工程师的完整知识体系，共规划 15 个系列。
+
+---
+
+## 写作策略
+
+**双轨并行**：AI 工程系列（14）与其他系列同步推进——其他系列属于「整理发布」（已学知识输出），AI 工程系列属于「边学边写」（新知识输入）。两种认知负荷不冲突，互相调节。
+
+**非 AI 系列写作顺序**：Node.js 全栈 → 网络原理 → 数据结构与算法 → 设计模式 → 泛客户端（小程序）→ 前端运维 → 测试体系。先深后广，Node 是其余系列的基础设施。
 
 ---
 
 ## 系列总览
 
-| # | 系列名称 | 状态 | 文章数 |
-|---|---------|------|--------|
-| 00 | AI 工具与职业发展 | ✅ 完成 | 4 |
-| 01 | JavaScript 深度 | ✅ 完成 | 3 |
-| 02 | TypeScript | ✅ 完成 | 5 |
-| 03 | 工程化与构建工具 | ✅ 完成 | 8 |
-| 04 | 性能与前端监控 | ✅ 完成 | 13 |
-| 05 | Vue 2 源码 | ✅ 完成 | 13 |
-| 06 | Vue 3 源码 | ✅ 完成 | 12 |
-| 07 | React 18 | 🚧 进行中 | 1 |
-| 08 | 网络原理 | 📋 规划中（大纲已定稿 10 篇，先于 Node.js 系列写） | — |
-| 09 | Node.js 全栈 | 📋 规划中（大纲已定稿 17 篇，详见 `docs/plans/node-fullstack-series-outline.md`） | — |
-| 10 | 泛客户端（小程序） | 📋 规划中（大纲已定稿 12 篇，详见 `docs/plans/miniprogram-series-outline.md`） | — |
-| 11 | 数据结构与算法 | 📋 规划中 | — |
-| 12 | 设计模式 | 📋 规划中（大纲已定稿 17 篇） | — |
-| 13 | 前端运维 | 📋 规划中（大纲已定稿 18 篇，详见 `docs/plans/frontend-ops-series-outline.md`） | — |
-| 14 | AI 工程（应用开发） | 📋 规划中（大纲已定稿 14 篇，详见 `docs/plans/ai-application-engineering-outline.md`） | — |
-| 15 | 测试体系 | 📋 规划中 | — |
+| # | 系列名称 | 状态 | 文章数 | 写作优先级 |
+|---|---------|------|--------|-----------|
+| 00 | AI 工具与职业发展 | ✅ 完成 | 4 | — |
+| 01 | JavaScript 深度 | ✅ 完成 | 3 | — |
+| 02 | TypeScript | ✅ 完成 | 5 | — |
+| 03 | 工程化与构建工具 | ✅ 完成 | 8 | — |
+| 04 | 性能与前端监控 | ✅ 完成 | 13 | — |
+| 05 | Vue 2 源码 | ✅ 完成 | 13 | — |
+| 06 | Vue 3 源码 | ✅ 完成 | 12 | — |
+| 07 | React 18 | 🚧 进行中 | 1 | 核心主线 |
+| 08 | Node.js 全栈 | 📋 规划中（大纲已定稿 17 篇，详见 `docs/plans/05 node-fullstack-series-outline.md`） | — | ① 第一优先 |
+| 09 | 网络原理 | 📋 规划中（大纲已定稿 10 篇，详见 `docs/plans/06 network-principles-series-outline.md`） | — | ② |
+| 10 | 数据结构与算法 | 📋 规划中（大纲已定稿 9 篇，详见 `docs/plans/07 data-structures-algorithms-outline.md`） | — | ③ |
+| 11 | 设计模式 | 📋 规划中（大纲已定稿 17 篇，详见 `docs/plans/08 design-patterns-series-outline.md`） | — | ④ |
+| 12 | 泛客户端（小程序） | 📋 规划中（大纲已定稿 12 篇，详见 `docs/plans/09 miniprogram-series-outline.md`） | — | ⑤ |
+| 13 | 前端运维 | 📋 规划中（大纲已定稿 18 篇，详见 `docs/plans/10 frontend-ops-series-outline.md`） | — | ⑥ |
+| 14 | AI 工程（应用开发） | 📋 规划中（大纲已定稿 16 篇，详见 `docs/plans/11 ai-application-engineering-outline.md`） | — | ★ 同步进行 |
 
 ---
 
@@ -136,26 +143,9 @@
 
 ---
 
-## 08 网络原理（📋 规划中，大纲已定稿 10 篇，详见 `docs/plans/network-principles-series-outline.md`，先于 Node.js 系列写）
+## 08 Node.js 全栈（📋 规划中，大纲已定稿 17 篇，详见 `docs/plans/05 node-fullstack-series-outline.md`）
 
-> 篇章顺序按协议栈依赖关系自底向上排列：DNS → TCP → TLS → HTTP 演进 → HTTP 语义
-
-- DNS 解析：递归查询 / CDN 原理 / DNS-over-HTTPS
-- TCP 深度：三次握手 / 四次挥手 / 拥塞控制 / 滑动窗口
-- HTTPS 与 TLS：握手过程 / 证书链 / HSTS / Certificate Pinning
-- HTTP 演进：HTTP/1.1 / HTTP/2 多路复用 / HTTP/3 + QUIC
-- HTTP 语义基础：内容协商 / 状态码语义 / 方法安全性与幂等性
-- WebSocket：握手协议 / 帧格式 / 心跳 / 与 SSE 对比
-- 跨域与安全：CORS 机制 / CSRF / XSS / CSP / 安全响应头
-- 缓存体系：强缓存 / 协商缓存 / Service Worker 缓存策略
-- RESTful 与 GraphQL：设计原则 / N+1 问题 / DataLoader
-- 反向代理与负载均衡：正向/反向代理 / 虚拟主机 / 负载均衡算法 / 防盗链
-
----
-
-## 09 Node.js 全栈（📋 规划中，大纲已定稿 17 篇，详见 `docs/plans/node-fullstack-series-outline.md`）
-
-> 承接《08 网络原理》系列（HTTP/TLS/WebSocket 等协议原理），本系列不重复讲协议理论，只讲 Node.js 怎么实现
+> 写作顺序第一优先；协议原理部分见《09 网络原理》系列，本系列聚焦 Node.js 运行时、框架、数据库的实现层
 
 - JS 异步基石：高阶函数 / 发布订阅 / Promise / 函数柯里化
 - JS 调度引擎：Generator / async-await / EventLoop 浏览器与 Node 差异
@@ -177,7 +167,24 @@
 
 ---
 
-## 10 泛客户端：微信小程序（📋 规划中，大纲已定稿 12 篇，详见 `docs/plans/miniprogram-series-outline.md`）
+## 09 网络原理（📋 规划中，大纲已定稿 10 篇，详见 `docs/plans/06 network-principles-series-outline.md`）
+
+> 承接《08 Node.js 全栈》系列之后写；篇章顺序按协议栈依赖关系自底向上排列：DNS → TCP → TLS → HTTP 演进 → HTTP 语义
+
+- DNS 解析：递归查询 / CDN 原理 / DNS-over-HTTPS
+- TCP 深度：三次握手 / 四次挥手 / 拥塞控制 / 滑动窗口
+- HTTPS 与 TLS：握手过程 / 证书链 / HSTS / Certificate Pinning
+- HTTP 演进：HTTP/1.1 / HTTP/2 多路复用 / HTTP/3 + QUIC
+- HTTP 语义基础：内容协商 / 状态码语义 / 方法安全性与幂等性
+- WebSocket：握手协议 / 帧格式 / 心跳 / 与 SSE 对比
+- 跨域与安全：CORS 机制 / CSRF / XSS / CSP / 安全响应头
+- 缓存体系：强缓存 / 协商缓存 / Service Worker 缓存策略
+- RESTful 与 GraphQL：设计原则 / N+1 问题 / DataLoader
+- 反向代理与负载均衡：正向/反向代理 / 虚拟主机 / 负载均衡算法 / 防盗链
+
+---
+
+## 10 泛客户端：微信小程序（📋 规划中，大纲已定稿 12 篇，详见 `docs/plans/09 miniprogram-series-outline.md`）
 
 > 主线：架构原理（双线程模型）→ 生命周期与路由 → 渲染机制（setData）→ 组件化 → 样式层 → 网络与存储 → 安全鉴权 → 支付与开放能力 → 性能优化 → 工程化发布 → 跨端框架 → 云开发
 
@@ -196,7 +203,7 @@
 
 ---
 
-## 11 数据结构与算法（📋 规划中）
+## 11 数据结构与算法（📋 规划中，大纲已定稿 13 篇，详见 `docs/plans/07 data-structures-algorithms-outline.md`）
 
 - 复杂度分析：时间 / 空间复杂度 / 摊还分析
 - 数组与链表：原地操作 / 双指针 / 快慢指针
@@ -210,7 +217,7 @@
 
 ---
 
-## 12 设计模式（📋 规划中，大纲已定稿 17 篇，详见 `docs/plans/design-patterns-series-outline.md`）
+## 12 设计模式（📋 规划中，大纲已定稿 17 篇，详见 `docs/plans/08 design-patterns-series-outline.md`）
 
 > 主线：UML 图示能力 → SOLID 设计原则 → 创建型模式（对象怎么生产）→ 结构型模式（对象怎么组合）→ 行为型模式（对象怎么协作）；按信息密度重新分组成篇，不是「1 个 GoF 模式 = 1 篇」
 
@@ -234,7 +241,7 @@
 
 ---
 
-## 13 前端运维（📋 规划中，大纲已定稿 18 篇，详见 `docs/plans/frontend-ops-series-outline.md`）
+## 13 前端运维（📋 规划中，大纲已定稿 18 篇，详见 `docs/plans/10 frontend-ops-series-outline.md`）
 
 > 篇章顺序按部署环境依赖关系排列：Linux 系统底层能力 → Docker 容器化 → Nginx 网关配置 → Jenkins CI/CD 自动化 → Kubernetes 容器编排
 
@@ -259,9 +266,9 @@
 
 ---
 
-## 14 AI 工程（📋 规划中，大纲已定稿 14 篇，详见 `docs/plans/ai-application-engineering-outline.md`）
+## 14 AI 工程（📋 规划中，大纲已定稿 16 篇，详见 `docs/plans/11 ai-application-engineering-outline.md`）
 
-> 主线：基础设施层（多模型接入 → 流式传输）→ 交互层（Prompt 工程化 → RAG 检索增强）→ 推理层（AI Agent：工具调用 → 多步编排）→ 框架整合层（Vercel AI SDK）→ 生产化层（安全防护 → 评估体系 → 成本与可观测性）→ 综合实战；与《00 AI 工具与职业发展》系列（Prompt/Context/Harness/Loop 方法论）分工不重复，pgvector 索引原理见《09 Node.js 全栈》系列
+> ★ 与其他系列同步进行；主线：基础设施层（多模型接入 → 流式传输）→ 交互层（Prompt 工程化 → RAG 检索增强）→ 推理层（AI Agent：工具调用 → 多步编排）→ 框架整合层（Vercel AI SDK）→ 生产化层（安全防护 → 评估体系 → 成本与可观测性）→ 综合实战；与《00 AI 工具与职业发展》系列分工不重复，pgvector 索引原理见《08 Node.js 全栈》系列
 
 - 导读：从 Demo 到生产级 AI 系统——AI 应用工程师技术地图
 - LLM API 接入与多模型抽象：用 Strategy Pattern 统一 Claude / GPT / 通义千问
@@ -272,25 +279,13 @@
 - pgvector 应用实战：从 Schema 设计到召回质量优化
 - AI Agent 基础：Tool Use 与 Function Calling 模式
 - AI Agent 进阶：ReAct 框架与多步骤编排
+- MCP 协议深度：从工具定义到 MCP Server 构建与发布
+- 多智能体系统：LangGraph 状态机 / Agent 间消息路由 / 防循环死锁
 - Vercel AI SDK 实战：useChat / useCompletion 与 RSC Streaming
 - AI 应用安全：Prompt Injection 防护与输出过滤
 - AI 工程化（上）：评估体系与 A/B 测试
 - AI 工程化（下）：成本控制与可观测性
 - 收官篇：药品问答系统实战——RAG + Agent + SSE 全链路整合
-
----
-
-## 15 测试体系（📋 规划中）
-
-- 测试策略：测试金字塔 / 测试分层 / 覆盖率解读
-- Vitest：与 Vite 同配置 / 原生 ESM / 并发执行 / 快照测试
-- React Testing Library：以用户行为为中心 / 查询优先级
-- MSW：Service Worker Mock / 请求拦截 / 与测试框架集成
-- Playwright：E2E 测试 / 多浏览器 / 网络拦截 / CI 集成
-- 组件测试：Storybook + Chromatic 视觉回归测试
-- 测试驱动开发：TDD 在前端的实践边界与适用场景
-
----
 
 ## 文章命名规范
 
@@ -302,4 +297,4 @@ docs/articles/{系列编号} {系列名}/YYYY-MM-DD-{slug}.md
 
 ---
 
-*更新时间：2026-09-11（系列 09 Node.js 全栈新增第 10 篇「BFF 架构模式」，篇数由 16 篇增至 17 篇）| 当前总文章数：59 篇*
+*更新时间：2026-09-11（重排写作顺序：08 Node.js 全栈优先，14 AI 工程同步进行；删除 15 测试体系（已在 Vue 系列覆盖）；系列总数 15 个）| 当前总文章数：59 篇*

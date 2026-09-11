@@ -169,6 +169,16 @@ NEXTAUTH_URL=http://localhost:3000
 
 ---
 
+## 写作与学习策略
+
+**双轨并行**：AI 工程系列（14）与其他系列同步推进。其他系列为已学知识的整理输出，AI 工程系列为新知识的边学边写。
+
+**非 AI 系列写作顺序**：Node.js 全栈（08）→ 网络原理（09）→ 数据结构与算法（11）→ 设计模式（12）→ 泛客户端小程序（10）→ 前端运维（13）
+
+完整大纲索引见 `docs/plans/00 frontend-engineering-outline.md`
+
+---
+
 ## 当前学习重点
 
 > 这里由 session-start hook 动态写入，反映最新学习状态
@@ -178,5 +188,5 @@ NEXTAUTH_URL=http://localhost:3000
 重点知识：TypeScript 严格模式配置 + CI/CD（GitHub Actions）
 已完成：8 个知识点
 本周目标：完成 packages/shared 的类型定义层 + 认证系统
-上次学习：2026-09-11T03:50:05.309Z
+上次学习：2026-09-11T08:40:32.314Z
 <!-- LEARNING_FOCUS_END -->

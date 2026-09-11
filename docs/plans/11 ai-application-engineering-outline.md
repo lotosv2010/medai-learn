@@ -14,8 +14,8 @@
 
 **「AI 应用工程」系列**
 
-- 篇数：14 篇（导读 1 篇 + 应用工程技术 12 篇 + 收官实战 1 篇）
-- 核心主线：**基础设施层**（多模型接入 → 流式传输）→ **交互层**（Prompt 工程化 → RAG 检索增强）→ **推理层**（AI Agent：工具调用 → 多步编排）→ **框架整合层**（Vercel AI SDK）→ **生产化层**（安全防护 → 评估体系 → 成本与可观测性）→ **综合实战**
+- 篇数：16 篇（导读 1 篇 + 应用工程技术 14 篇 + 收官实战 1 篇）
+- 核心主线：**基础设施层**（多模型接入 → 流式传输）→ **交互层**（Prompt 工程化 → RAG 检索增强）→ **推理层**（AI Agent：工具调用 → 多步编排 → MCP 协议 → 多智能体系统）→ **框架整合层**（Vercel AI SDK）→ **生产化层**（安全防护 → 评估体系 → 成本与可观测性）→ **综合实战**
 - 篇章编排原则：按"一个 AI 问答请求从发起到落地"的真实数据流排列（多模型路由 → 流式返回 → 检索增强 → 工具调用 → 前端整合 → 安全兜底 → 效果度量），而非按知识点罗列；RAG 和 Agent 因内容密度高各拆成上下两篇，其余主题一个知识点一篇
 - 内容结构：五段式（使用与实践 → 设计与原理 → 工程落地参考 → 实践演示与验证 → 参考）
 - 特色：每篇 3-5 个「面试官会问」；代码示例统一 TypeScript，直接对应本项目 `packages/ai-sdk`、`apps/ai-engine` 的真实模块划分；场景统一为药品说明书问答、处方解读、多轮用药咨询；重点标注 AI 工程里的易混淆辨析（RAG≠微调、Agent≠Chatbot、观察者式流式≠轮询）
@@ -35,11 +35,13 @@
 | 06 | pgvector 应用实战：从 Schema 设计到召回质量优化 | 向量存储应用层 | ⬜ 待写 |
 | 07 | AI Agent 基础：Tool Use 与 Function Calling 模式 | Agent 工具调用 | ⬜ 待写 |
 | 08 | AI Agent 进阶：ReAct 框架与多步骤编排 | Agent 编排 | ⬜ 待写 |
-| 09 | Vercel AI SDK 实战：useChat / useCompletion 与 RSC Streaming | 前端框架整合 | ⬜ 待写 |
-| 10 | AI 应用安全：Prompt Injection 防护与输出过滤 | 安全防护 | ⬜ 待写 |
-| 11 | AI 工程化（上）：评估体系与 A/B 测试 | 效果度量 | ⬜ 待写 |
-| 12 | AI 工程化（下）：成本控制与可观测性 | 成本/监控 | ⬜ 待写 |
-| 13 | 收官篇：药品问答系统实战——RAG + Agent + SSE 全链路整合 | 综合实战 | ⬜ 待写 |
+| 09 | MCP 协议深度：从工具定义到 MCP Server 构建与发布 | MCP 协议 | ⬜ 待写 |
+| 10 | 多智能体系统：LangGraph 状态机 / Agent 间消息路由 / 防循环死锁 | 多智能体编排 | ⬜ 待写 |
+| 11 | Vercel AI SDK 实战：useChat / useCompletion 与 RSC Streaming | 前端框架整合 | ⬜ 待写 |
+| 12 | AI 应用安全：Prompt Injection 防护与输出过滤 | 安全防护 | ⬜ 待写 |
+| 13 | AI 工程化（上）：评估体系与 A/B 测试 | 效果度量 | ⬜ 待写 |
+| 14 | AI 工程化（下）：成本控制与可观测性 | 成本/监控 | ⬜ 待写 |
+| 15 | 收官篇：药品问答系统实战——RAG + Agent + SSE 全链路整合 | 综合实战 | ⬜ 待写 |
 
 ---
 
@@ -487,7 +489,104 @@ async function runReActLoop(task: string, tools: ToolDefinition[], maxSteps = 5)
 
 ---
 
-### 第 09 篇：Vercel AI SDK 实战：useChat / useCompletion 与 RSC Streaming
+### 第 09 篇：MCP 协议深度：从工具定义到 MCP Server 构建与发布
+
+**副标题**：第 07 篇手写的工具调用，每接一个新数据源就要重新定义一套 Schema——MCP 就是为了把这件事标准化
+
+#### 一、使用与实践
+- 第 07/08 篇里工具（Tool）的定义、执行、结果格式都是项目内部手写的私有协议，换一个 AI 客户端（比如从自建 Agent 换成 Claude Desktop 或 Claude Code）就要重新写一套适配代码
+- MCP（Model Context Protocol）是 Anthropic 主导的开放协议，用来统一"AI 客户端怎么发现和调用外部工具/数据源"这件事——本项目 `apps/ai-engine` 如果要把药品知识库能力暴露给 Claude Code 这类通用 Agent 客户端使用，MCP Server 就是标准接口
+
+#### 二、设计与原理
+- MCP 的三种能力原语：Tools（可调用的函数，对应第 07 篇的 Function Calling）、Resources（可读取的结构化数据，比如药品说明书文档）、Prompts（预置的提示词模板）——第 07/08 篇只覆盖了 Tools 这一种原语
+- MCP 的架构角色：MCP Host（发起请求的 AI 应用，如 Claude Code）、MCP Client（Host 内部与 Server 通信的客户端逻辑）、MCP Server（暴露具体能力的服务端）——一个 Host 可以同时连接多个 Server
+- 传输层：本地场景用 stdio（子进程标准输入输出），远程场景用 HTTP + SSE——与第 02 篇讲的 SSE 流式传输是同一套底层机制的复用
+- MCP vs 第 07 篇手写 Function Calling：手写方案是"项目私有协议，模型和工具定义耦合在一次 API 调用里"；MCP 是"标准化协议，工具能力可以被任意兼容 MCP 的客户端复用"——本质是把"工具定义"这层做成了可插拔、可分发的独立服务
+- 安全边界：MCP Server 一旦暴露，等于把内部数据/工具能力开放给外部 AI 客户端调用，需要显式的权限范围控制和审计日志，这是第 12 篇 AI 应用安全会延伸讨论的话题
+
+#### 三、工程落地参考
+```typescript
+// apps/ai-engine：把药品说明书检索能力包装成 MCP Server
+import { McpServer } from '@modelcontextprotocol/sdk/server';
+
+const server = new McpServer({ name: 'drug-knowledge-base', version: '1.0.0' });
+
+server.tool(
+  'searchDrugLeaflet',
+  { query: z.string(), topK: z.number().default(5) },
+  async ({ query, topK }) => {
+    const results = await ragRetriever.search(query, topK); // 复用第 05 篇的检索链路
+    return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+  }
+);
+
+server.connect(new StdioServerTransport());
+```
+
+#### 四、实践演示与验证
+- 用 Claude Desktop 或 Claude Code 作为 MCP Host，连接本地跑起来的 `drug-knowledge-base` MCP Server，验证通用 AI 客户端能否正确发现并调用 `searchDrugLeaflet` 工具
+- 对比同一个检索能力分别用第 07 篇手写 Function Calling 和本篇 MCP Server 两种方式暴露，体会"项目私有"与"标准化可分发"的差异
+
+#### 五、参考
+- MCP 官方规范文档（modelcontextprotocol.io）
+- Anthropic MCP SDK（TypeScript）官方文档
+
+**面试核心问**：
+- MCP 解决的核心问题是什么？和第 07 篇手写的 Function Calling 本质区别在哪？
+- MCP 的三种能力原语分别是什么，各自解决什么场景？
+- 把内部系统包装成 MCP Server 对外暴露，需要考虑哪些安全边界？
+
+---
+
+### 第 10 篇：多智能体系统：LangGraph 状态机 / Agent 间消息路由 / 防循环死锁
+
+**副标题**：一个 Agent 什么都要管，Prompt 会臃肿到失控——多智能体是把"角色分工"这件事搬进系统设计
+
+#### 一、使用与实践
+- 第 08 篇的单 Agent 循环里，如果同时要处理"查处方历史""解读药品相互作用""生成患者可读的解释"三类差异很大的任务，塞进同一个 Prompt 会导致指令冲突、上下文臃肿、模型注意力分散
+- 拆成"协调者 Agent + 处方分析专家 Agent + 用药解释专家 Agent"三个各自职责单一的 Agent，协调者负责路由任务、专家各自专注一件事，是生产级 Agent 系统更常见的组织方式
+
+#### 二、设计与原理
+- 多智能体架构的两种基本模式：Supervisor（协调者路由任务给专家 Agent，专家执行后把结果返回协调者汇总）与 Peer-to-Peer（Agent 之间直接互相传递消息，没有中心协调者）——本项目场景更适合 Supervisor 模式，路径可控、易于调试
+- LangGraph 的状态机模型：把多 Agent 协作建模成图（Graph）——节点是 Agent 或工具执行步骤，边是状态转移条件，图的执行状态（State）在节点间显式传递——比第 08 篇的线性 ReAct 循环多了"分支"和"并行"的表达能力
+- 与第 08 篇单 Agent 编排的关系：单 Agent 的 Thought-Action-Observation 循环可以看作图上的一个节点内部逻辑，多智能体系统是在更高层次把多个这样的节点组织成图
+- 常见工程风险：Agent 间消息路由错误（任务被路由给错误的专家）、循环死锁（协调者反复在两个 Agent 之间来回路由，任务无法收敛）——需要设置最大跳转次数和显式的终止状态，是第 08 篇 `maxSteps` 思路在多 Agent 场景下的延伸
+
+#### 三、工程落地参考
+```typescript
+// apps/ai-engine：Supervisor 模式的最小状态机骨架
+import { StateGraph, END } from '@langchain/langgraph';
+
+const graph = new StateGraph<AgentState>({ channels: agentStateSchema })
+  .addNode('supervisor', routeToExpert)          // 判断任务该交给哪个专家
+  .addNode('prescriptionExpert', analyzePrescription)
+  .addNode('drugInteractionExpert', checkInteraction)
+  .addConditionalEdges('supervisor', (state) =>
+    state.nextAgent === 'done' ? END : state.nextAgent
+  )
+  .addEdge('prescriptionExpert', 'supervisor')     // 专家执行完回到协调者
+  .addEdge('drugInteractionExpert', 'supervisor')
+  .setEntryPoint('supervisor');
+
+const app = graph.compile();
+```
+
+#### 四、实践演示与验证
+- 构造一个需要"先分析处方再检查药物相互作用"的复合任务，验证 Supervisor 能正确路由到两个专家 Agent 并汇总结果
+- 故意让路由条件写错（比如专家执行完总是路由回自己），观察触发死锁保护机制时的行为，体会终止条件设计的必要性
+
+#### 五、参考
+- LangGraph 官方文档（状态机 API、Supervisor 模式示例）
+- Anthropic《Building Effective Agents》博客中关于多 Agent 编排模式的讨论
+
+**面试核心问**：
+- 什么时候应该拆成多智能体系统，而不是继续用第 08 篇的单 Agent 编排？
+- Supervisor 模式和 Peer-to-Peer 模式的核心区别是什么，各自适合什么场景？
+- 多智能体系统里怎么防止 Agent 之间的路由死锁？
+
+---
+
+### 第 11 篇：Vercel AI SDK 实战：useChat / useCompletion 与 RSC Streaming
 
 **副标题**：前面几篇讲的流式传输和工具调用，AI SDK 帮你把胶水代码全包了
 
@@ -535,7 +634,7 @@ function DrugConsultChat() {
 
 ---
 
-### 第 10 篇：AI 应用安全：Prompt Injection 防护与输出过滤
+### 第 12 篇：AI 应用安全：Prompt Injection 防护与输出过滤
 
 **副标题**：你的 Agent 能调用工具的那一刻，Prompt Injection 就从"输出跑偏"升级成了"安全事件"
 
@@ -583,7 +682,7 @@ async function executeTool(name: string, args: unknown, context: { requireConfir
 
 ---
 
-### 第 11 篇：AI 工程化（上）：评估体系与 A/B 测试
+### 第 13 篇：AI 工程化（上）：评估体系与 A/B 测试
 
 **副标题**：没有量化指标，"这次 Prompt 改得更好了"就只是一句主观感觉
 
@@ -629,7 +728,7 @@ async function runEvalSuite(testCases: EvalCase[]) {
 
 ---
 
-### 第 12 篇：AI 工程化（下）：成本控制与可观测性
+### 第 14 篇：AI 工程化（下）：成本控制与可观测性
 
 **副标题**：AI 功能上线只是开始，账单和线上黑盒问题才是真正的持续挑战
 
@@ -678,7 +777,7 @@ async function tracedChatHandler(question: string) {
 
 ---
 
-### 第 13 篇：收官篇——药品问答系统实战：RAG + Agent + SSE 全链路整合
+### 第 15 篇：收官篇——药品问答系统实战：RAG + Agent + SSE 全链路整合
 
 **副标题**：把前 13 篇的每一个知识点，装进同一个能跑起来的系统里
 

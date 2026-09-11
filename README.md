@@ -81,6 +81,16 @@ medai-learn/
 
 ---
 
+## 写作策略
+
+**双轨并行**：AI 工程系列（系列 14）与其他系列同步推进。其他系列为已学知识整理输出，AI 工程系列为新知识边学边写，两种认知负荷互不干扰。
+
+**非 AI 系列写作顺序**：Node.js 全栈 → 网络原理 → 数据结构与算法 → 设计模式 → 泛客户端（小程序）→ 前端运维 → 测试体系
+
+完整系列大纲 → [`docs/plans/00 frontend-engineering-outline.md`](docs/plans/00%20frontend-engineering-outline.md)
+
+---
+
 ## 学习路线（6 个月）
 
 | 阶段 | 时间 | 重点 | 里程碑 |
