@@ -16,8 +16,8 @@
 | 05 | Vue 2 源码 | ✅ 完成 | 13 |
 | 06 | Vue 3 源码 | ✅ 完成 | 12 |
 | 07 | React 18 | 🚧 进行中 | 1 |
-| 08 | 网络原理 | 📋 规划中（大纲已定稿 8 篇，先于 Node.js 系列写） | — |
-| 09 | Node.js 全栈 | 📋 规划中（大纲已定稿 15 篇） | — |
+| 08 | 网络原理 | 📋 规划中（大纲已定稿 10 篇，先于 Node.js 系列写） | — |
+| 09 | Node.js 全栈 | 📋 规划中（大纲已定稿 16 篇） | — |
 | 10 | 泛客户端（小程序） | 📋 规划中 | — |
 | 11 | 数据结构与算法 | 📋 规划中 | — |
 | 12 | 设计模式 | 📋 规划中 | — |
@@ -136,16 +136,20 @@
 
 ---
 
-## 08 网络原理（📋 规划中，大纲已定稿 8 篇，详见 `docs/plans/network-principles-series-outline.md`，先于 Node.js 系列写）
+## 08 网络原理（📋 规划中，大纲已定稿 10 篇，详见 `docs/plans/network-principles-series-outline.md`，先于 Node.js 系列写）
 
-- HTTP 演进：HTTP/1.1 / HTTP/2 多路复用 / HTTP/3 + QUIC
-- HTTPS 与 TLS：握手过程 / 证书链 / HSTS / Certificate Pinning
+> 篇章顺序按协议栈依赖关系自底向上排列：DNS → TCP → TLS → HTTP 演进 → HTTP 语义
+
 - DNS 解析：递归查询 / CDN 原理 / DNS-over-HTTPS
 - TCP 深度：三次握手 / 四次挥手 / 拥塞控制 / 滑动窗口
+- HTTPS 与 TLS：握手过程 / 证书链 / HSTS / Certificate Pinning
+- HTTP 演进：HTTP/1.1 / HTTP/2 多路复用 / HTTP/3 + QUIC
+- HTTP 语义基础：内容协商 / 状态码语义 / 方法安全性与幂等性
 - WebSocket：握手协议 / 帧格式 / 心跳 / 与 SSE 对比
 - 跨域与安全：CORS 机制 / CSRF / XSS / CSP / 安全响应头
 - 缓存体系：强缓存 / 协商缓存 / Service Worker 缓存策略
 - RESTful 与 GraphQL：设计原则 / N+1 问题 / DataLoader
+- 反向代理与负载均衡：正向/反向代理 / 虚拟主机 / 负载均衡算法 / 防盗链
 
 ---
 

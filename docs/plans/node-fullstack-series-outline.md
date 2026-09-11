@@ -3,7 +3,6 @@
 > 所属系列：Node.js 全栈深度拆解
 > 写作原则：内容结构按篇章类型分两种：① 可手写核心机制的篇章（01/02/07/08）：使用与实践 → 设计与原理 → 源码解析 → 手写实现 → GitHub → 参考（六段式）；② 工具/数据库/工程类篇章（03~06, 09~15）：使用与实践 → 设计与原理 → 源码解析 → 最佳实践 → 参考（五段式，无独立手写实现仓库）
 > 目标读者：5-10 年前端或全栈经验，正在系统补齐 Node.js 后端与工程化能力，备战高级/专家岗面试或转型 AI 应用工程师的开发者
-> 与 React 18 / Vue 3 系列关系：结构对称（六段式），可对照的知识点（如事件循环、发布订阅、Diff 与响应式）显式标注「对比前端」
 
 ---
 
@@ -28,7 +27,7 @@
 
 对照 roadmap.sh/nodejs 与业界通用后端知识体系，原目录缺少以下高频考点，本次已补齐：
 
-- **WebSocket / 实时通信** —— 协议原理归入《网络原理》系列第 05 篇，本系列第 05 篇「Node.js 核心 API 大全」负责手写实现
+- **WebSocket / 实时通信** —— 协议原理归入《网络原理》系列第 06 篇，本系列第 05 篇「Node.js 核心 API 大全」负责手写实现
 - **测试体系**（Jest/Vitest/Supertest）—— 独立在第 15 篇工程化篇
 - **进程管理与部署**（PM2/Cluster/worker_threads/Docker）—— 并入第 15 篇
 - **消息队列基础**（RabbitMQ/Kafka 概念 + Node 消费者写法）—— 并入第 15 篇
@@ -47,8 +46,8 @@
 
 - **删除原「05 NPM 生态」篇**：`2026-08-02-npm-yarn-pnpm-deep-dive.md` 已完整覆盖 semver/幽灵依赖/pnpm 存储机制/workspace/lock 文件，本篇无增量内容，直接删除，全系列篇数由 16 篇降为 15 篇
 - **精简第 03 篇重叠内容**：`2026-08-01-js-module-systems.md` 已讲透 IIFE/AMD/CMD/UMD/ESM 的规范演进与 Tree Shaking 原理，第 03 篇改为聚焦 Node.js **运行时**如何加载/解析/缓存模块（V8+libuv 架构、CommonJS 模块包装函数、循环依赖、ESM 三阶段加载、幽灵依赖的模块解析算法成因），不重复规范对比部分，标题相应调整
-- **原「06 网络协议深度」拆分迁出**：OSI/TCP-IP/HTTP 演进/TLS 握手等协议原理与具体运行时无关，属于更基础的地基知识，已整体迁移并扩展为独立的《网络原理》系列（详见 `docs/plans/network-principles-series-outline.md`，共 8 篇），不再占用 Node.js 系列篇幅
-- **新增「05 Node.js 核心 API 大全」篇**：填补原 06 篇腾出的位置，聚焦 Node.js 专属的核心模块（`process`/`crypto`/`net`/`os`/`url`/`child_process`/`worker_threads`），并在手写实现中落地 WebSocket 服务端（协议原理见《网络原理》系列第 05 篇，此处只管"怎么用 Node.js 实现"）
+- **原「06 网络协议深度」拆分迁出**：OSI/TCP-IP/HTTP 演进/TLS 握手等协议原理与具体运行时无关，属于更基础的地基知识，已整体迁移并扩展为独立的《网络原理》系列（详见 `docs/plans/network-principles-series-outline.md`，共 10 篇），不再占用 Node.js 系列篇幅
+- **新增「05 Node.js 核心 API 大全」篇**：填补原 06 篇腾出的位置，聚焦 Node.js 专属的核心模块（`process`/`crypto`/`net`/`os`/`url`/`child_process`/`worker_threads`），并在手写实现中落地 WebSocket 服务端（协议原理见《网络原理》系列第 06 篇，此处只管"怎么用 Node.js 实现"）
 
 ### 7. 三次修订：系列顺序调整（本次修订）
 
@@ -60,12 +59,13 @@
 
 **「Node.js 全栈深度拆解」系列**
 
-- 篇数：15 篇（JS 异步基础 2 篇 + Node.js 核心 3 篇 + 网络与认证 1 篇 + Web 框架 3 篇 + 数据库 4 篇 + GraphQL 1 篇 + 工程化 1 篇）
-- 核心主线：JS 异步体系（发布订阅/Promise/EventLoop）→ Node.js 运行时（模块系统/I-O/核心 API）→ 认证体系 → Web 框架三选一深度拆解（Express/Koa/NestJS）→ 数据库全家桶（MySQL/MongoDB/Redis/PostgreSQL）→ API 设计范式（GraphQL）→ 工程化落地（测试/部署/性能）
-- 主线节奏对齐 React 18 / Vue 3 系列："是什么 → 怎么运作 → 怎么用 → 怎么用得高级"，不做知识点平铺罗列
-- 内容结构：篇章分两种结构——可手写核心机制的篇章（01/02/07/08）六段式（使用与实践 → 设计与原理 → 源码解析 → 手写实现 → GitHub → 参考）；工具/数据库/工程类篇章（03~06, 09~15）五段式（使用与实践 → 设计与原理 → 源码解析 → 最佳实践 → 参考，无独立手写实现仓库）
+- 篇数：16 篇（JS 异步基础 2 篇 + Node.js 核心 3 篇 + 网络与认证 1 篇 + Web 框架 3 篇 + 数据库 4 篇 + GraphQL 1 篇 + 工程化 2 篇）
+- 核心主线：JS 异步体系（发布订阅/Promise/EventLoop）→ Node.js 运行时（模块系统/I/O/核心 API）→ 认证体系 → Web 框架三选一深度拆解（Express/Koa/NestJS）→ 数据库全家桶（MySQL/MongoDB/Redis/PostgreSQL）→ API 设计范式（GraphQL）→ 工程化落地（测试/部署/性能/可观测性）
+- 叙事节奏："是什么 → 怎么运作 → 怎么用 → 怎么用得高级"，不做知识点平铺罗列
+- 内容结构：篇章分两种结构——可手写核心机制的篇章（01/02/07/08）六段式（使用与实践 → 设计与原理 → 源码解析 → 手写实现 → GitHub → 参考）；工具/数据库/工程类篇章（03~06, 09~16）五段式（使用与实践 → 设计与原理 → 源码解析 → 最佳实践 → 参考，无独立手写实现仓库）
 - 特色：每篇 3-5 个「面试官会问」；示例统一沿用医疗场景命名（药品/处方/患者/医院管理系统 HIS）；涉及可与前端对照的知识点显式标注「对比前端」
-- 手写实现仓库：统一使用一个新建仓库（建议命名 `medai-node-source`），按篇章逐步搭建各模块的简化实现，风格对齐 React 18 系列 `lotosv2010/react-source` 的"增量式 monorepo"手法——不同的是 Node.js 系列每篇模块相对独立（EventEmitter/Promise/Express/Redis 客户端等互不依赖），因此采用 `packages/<模块名>` 的 monorepo 结构，各篇往对应 package 里增量填入实现，而不强求单一主链路贯穿全篇
+- **项目主线**：从第 07 篇（Express 框架）起，各篇同时在 `apps/his-api` 这个持续演进的医院 HIS API 项目上叠加能力——07 篇搭 Express 骨架，08 篇迁移到 Koa 对比选型，09 篇升级到 NestJS，10~13 篇接入 MySQL/MongoDB/Redis/PostgreSQL，14 篇叠加 GraphQL，15 篇补测试和 Docker 部署，16 篇接入消息队列和 APM。这让读者在每篇手写实现仓库 `packages/<模块>` 之外，还能看到一个真实项目从零到生产的完整演进过程，避免"各篇互相孤立"的割裂感
+- 手写实现仓库：统一使用一个新建仓库（建议命名 `medai-node-source`），按篇章逐步搭建各模块的简化实现，采用 `packages/<模块名>` 的 monorepo 结构，各篇往对应 package 里增量填入实现；另设 `apps/his-api` 作为贯穿 07~16 篇的项目主线载体
 - 与《网络原理》系列的分工：本系列不重复讲协议原理（HTTP 演进/TLS 握手/WebSocket 帧格式等见 `docs/plans/network-principles-series-outline.md`），只讲"Node.js 怎么基于这些协议实现具体能力"
 
 ---
@@ -88,7 +88,8 @@
 | 12 | Redis 深度: 五大数据结构/持久化/缓存策略/分布式锁/接口限流（面试收藏级） | Redis | ⬜ 待写 |
 | 13 | PostgreSQL 进阶: 关系型精要/窗口函数/高级索引/pgvector 向量扩展（生产收藏级） | PostgreSQL | ⬜ 待写 |
 | 14 | GraphQL+Apollo: Schema 设计/Resolver/DataLoader N+1/Server 实战（生产收藏级） | GraphQL | ⬜ 待写 |
-| 15 | Node.js 工程化: 测试/Docker/PM2/Cluster/worker_threads/消息队列/安全（生产收藏级） | 工程化 | ⬜ 待写 |
+| 15 | Node.js 测试与部署: 测试分层/supertest/Docker多阶段构建/PM2与Cluster多进程（生产收藏级） | 测试与部署 | ⬜ 待写 |
+| 16 | Node.js 可观测性与安全: 消息队列解耦/安全实践/内存泄漏排查/APM 链路追踪（生产收藏级） | 可观测性/安全 | ⬜ 待写 |
 
 ---
 
@@ -270,7 +271,8 @@
 - `fs.createReadStream`/`fs.createWriteStream`：大文件（如患者体检报告 PDF）读写不占用大量内存
 - `stream.pipe()`：把读取流、转换流（如 gzip 压缩）、写入流串联起来
 - `path.join`/`path.resolve`/`path.extname` 等跨平台路径处理
-- **静态资源服务器最小实现**（前置知识，落地本篇 fs/stream/path 三者的综合练习）：按请求路径读取对应文件、根据扩展名映射 `Content-Type`、用 `fs.createReadStream` + `pipe` 返回文件内容而不是一次性 `readFile` 进内存——用医院 HIS 系统"药品说明书 PDF/图片"静态资源场景演示
+
+> 本篇聚焦纯 I/O 机制（Buffer/Stream/背压）。静态资源服务器这类涉及 HTTP 语义（`Content-Type`/`Range`/`ETag`）的综合实战，挪到第 05 篇末尾与 `apps/his-api` 项目一起落地，避免在"I/O 体系"标题下讲偏题的 HTTP 内容。
 
 #### 二、设计与原理
 
@@ -292,7 +294,6 @@
 
 1. 搭建 `packages/mini-stream`：手写一个简化版 Readable + Writable + 手写 `pipe` 函数，正确实现背压（监听 `write` 返回值、`drain` 事件驱动暂停/恢复），用"生成 10 万行模拟患者数据 → 写入慢速目标（如加了 `setTimeout` 模拟延迟的 Writable）"验证内存占用不会无限增长
 2. 用 `packages/mini-stream` 额外实现一个 Transform 流（如"逐行转大写"）串进管道验证三段式管道正常工作
-3. 搭建 `packages/mini-static-server`：手写一个基于原生 `http`/`fs`/`path` 的静态资源服务器——① 路径安全校验（对请求路径做 `path.normalize` 后校验是否逃出根目录，防止 `../` 目录穿越）；② 按扩展名映射 `Content-Type`（`.pdf`/`.png`/`.js`/`.css` 等常见类型的映射表）；③ 用 `fs.createReadStream` + `pipe` 返回文件内容，避免大文件一次性读入内存；④ 可选支持 `Range` 请求头做断点续传（解析 `bytes=start-end`，返回 `206 Partial Content` 与 `Content-Range` 响应头，配合 `fs.createReadStream(path, { start, end })` 只读取指定字节区间）；⑤ 正确设置 `ETag`/`Cache-Control` 响应头（协议原理见《网络原理》系列第 07 篇，本篇只讲怎么在 Node.js 里落地）。用"药品说明书 PDF/图片"静态资源场景验证
 
 #### 五、参考
 - https://nodejs.org/api/stream.html
@@ -305,16 +306,14 @@
 - 什么是背压？如果没有背压控制会出现什么问题？
 - `pipe()` 内部是怎么实现背压的？`highWaterMark` 具体控制什么？
 - 什么场景下应该用同步 fs API，什么场景绝对不能用？
-- 手写一个静态资源服务器，怎么防止目录穿越攻击（请求 `../../etc/passwd` 这类路径）？
-- `Range` 请求断点续传涉及哪些请求头/响应头？服务端该怎么处理？
 
 ---
 
-### 第 05 篇：Node.js 核心 API 大全: process/crypto/net/os/worker_threads 深度拆解（面试收藏级）
+### 第 05 篇：Node.js 核心 API 大全: process/crypto/net/os/worker_threads 深度拆解（含 WebSocket 服务端与静态资源服务器实现）（面试收藏级）
 
-**副标题**：进程信息与信号处理、加密哈希与签名、TCP/UDP 原生编程、多线程 worker_threads 与 cluster 多进程对比
+**副标题**：进程信息与信号处理、加密哈希与签名、TCP/UDP 原生编程、多线程 worker_threads 与 cluster 多进程对比、手写 WebSocket 服务端与静态资源服务器
 
-> 与《网络原理》系列的分工：本篇不讲协议原理（HTTP/TLS/WebSocket 帧格式等见 `docs/plans/network-principles-series-outline.md`），只讲"怎么用 Node.js 的核心模块实现具体能力"
+> 与《网络原理》系列的分工：本篇不讲协议原理（HTTP/TLS/WebSocket 帧格式等见 `docs/plans/network-principles-series-outline.md`），只讲"怎么用 Node.js 的核心模块实现具体能力"。手写实现部分落地两个综合场景（WebSocket 服务端、静态资源服务器），这也是本篇标题特别标注这两项的原因——避免读者按"process/crypto/net/os/worker_threads"这几个模块名字面意思查找时找不到这部分内容。
 
 #### 一、使用与实践
 
@@ -344,8 +343,9 @@
 
 #### 四、最佳实践与实战示例
 
-1. 搭建 `packages/mini-ws`：不依赖 `ws` 库，用 Node.js 原生 `http` + `crypto` 模块手写一个最简 WebSocket 服务端（`Sec-WebSocket-Accept` 计算、帧编解码），协议细节参照《网络原理》系列第 05 篇，本篇只关注"怎么用 Node.js API 实现"
+1. 搭建 `packages/mini-ws`：不依赖 `ws` 库，用 Node.js 原生 `http` + `crypto` 模块手写一个最简 WebSocket 服务端（`Sec-WebSocket-Accept` 计算、帧编解码），协议细节参照《网络原理》系列第 06 篇，本篇只关注"怎么用 Node.js API 实现"
 2. 用 `worker_threads` 实现一个 CPU 密集任务示例（如计算一批模拟药品数据的哈希摘要），对比"主线程同步计算导致事件循环阻塞"和"丢给 worker_threads 计算"两种方式下，主线程能否继续响应其他请求
+3. 在 `apps/his-api` 里搭建静态资源服务端（综合 `http`/`fs`/`path` 模块，延续第 04 篇 I/O 知识的落地）：① 路径安全校验（`path.normalize` 后校验是否逃出根目录，防止 `../` 目录穿越）；② 按扩展名映射 `Content-Type`；③ 用 `fs.createReadStream` + `pipe` 返回文件内容；④ 支持 `Range` 请求头断点续传（`bytes=start-end`，返回 `206 Partial Content`，配合 `fs.createReadStream(path, { start, end })`）；⑤ 设置 `ETag`/`Cache-Control` 响应头（协议原理见《网络原理》系列第 08 篇缓存体系）——用"药品说明书 PDF/图片"场景验证
 
 #### 五、参考
 - https://nodejs.org/api/process.html
@@ -359,6 +359,8 @@
 - `child_process` 和 `worker_threads` 应该怎么选？
 - `crypto.randomBytes()` 和 `Math.random()` 有什么区别？为什么安全场景不能用后者？
 - `net` 模块和 `http` 模块是什么关系？
+- 手写一个静态资源服务器，怎么防止目录穿越攻击（请求 `../../etc/passwd` 这类路径）？
+- `Range` 请求断点续传涉及哪些请求头/响应头？服务端该怎么处理？
 
 ---
 
@@ -794,9 +796,11 @@
 
 ---
 
-### 第 15 篇：Node.js 工程化: 测试/Docker/PM2/Cluster/worker_threads/消息队列/安全实践（生产收藏级）
+### 第 15 篇：Node.js 测试与部署: 测试分层/supertest/Docker多阶段构建/PM2与Cluster多进程（生产收藏级）
 
-**副标题**：单元测试与集成测试分层、多阶段构建镜像、cluster 多进程与 worker_threads 分工、消息队列任务解耦、安全实践与内存泄漏排查方法论
+**副标题**：单元测试与集成测试分层、supertest 进程内请求模拟、多阶段构建镜像、cluster 多进程与 PM2 进程守护
+
+> 原大纲第 15 篇把测试/部署/消息队列/安全/内存泄漏排查 7 个话题塞进一篇，密度过高必然被压扁成浅层罗列。现拆分为两篇：本篇聚焦"怎么测试、怎么打包部署、怎么利用多核"；下一篇聚焦"任务解耦、安全、可观测性"。全系列篇数因此由 15 篇增至 16 篇。
 
 #### 一、使用与实践
 
@@ -805,9 +809,6 @@
 - Dockerfile 基本结构：`FROM node:20-alpine`，多阶段构建（builder 阶段装依赖编译，production 阶段只拷贝构建产物，减小镜像体积）
 - PM2 基本用法：`pm2 start app.js -i max`（按 CPU 核数启动多个实例），`pm2 logs`/`pm2 monit`
 - Node.js 内置 `cluster` 模块手动启动多进程
-- `node --inspect` 配合 Chrome DevTools 做 CPU Profile 和堆内存快照分析
-- 消息队列基础：用 `amqplib` 连接 RabbitMQ 发布/消费一条"AI 推理任务"消息，理解队列如何解耦"提交任务"和"处理任务"两个环节
-- Node 安全实践：`helmet` 中间件一键设置安全响应头，`npm audit`/`pnpm audit` 扫描依赖漏洞
 
 #### 二、设计与原理
 
@@ -817,32 +818,24 @@
 - **单进程瓶颈与多进程扩展**：Node.js 的 JS 执行本身是单线程的，一个进程只能利用一个 CPU 核心处理 JS 计算——`cluster` 模块通过 `fork` 多个工作进程共享同一个监听端口（主进程负责接受连接后轮询分发给各工作进程，或由操作系统内核做负载均衡），让 CPU 密集型请求的处理能力随核数扩展；PM2 的 `-i max` 本质上是对 `cluster` 模块的封装 + 进程守护（自动重启崩溃的进程）+ 日志管理
 - **`cluster` 与 `worker_threads` 在工程化场景下的分工**（呼应第 05 篇）：生产部署的水平扩展用 `cluster`（多进程隔离故障、独立利用多核处理并发请求）；单次请求内部如果夹带 CPU 密集计算（如批量生成报表、图像处理），应该用 `worker_threads` 把这部分计算挪出主线程，而不是指望 `cluster` 解决——`cluster` 解决"扩展吞吐量"，`worker_threads` 解决"不阻塞单个请求所在的事件循环"，两者在生产架构里通常同时存在、各管一层
 - **`cluster` 模式下的状态共享问题**：多进程模式下，进程内存（如内存态的 Session 存储、内存缓存）是各进程独立的，不能假设"这次请求和上次请求会被同一个进程处理"，必须把需要跨请求共享的状态放到 Redis 等外部存储——这是从单进程开发心智切换到多进程生产部署时最容易踩的坑
-- **消息队列解耦的设计思想**：把"任务提交"和"任务处理"通过一个中间队列彻底解耦——生产者只管把任务消息丢进队列就立即返回，不需要等待处理完成；消费者按自己的处理能力从队列里取任务，两者的吞吐速率不再互相绑定；这对"AI 推理"这类耗时不确定、需要排队限流的场景（如医疗 AI 问诊助手的模型推理任务）尤其重要——避免让 HTTP 请求同步等待一个可能耗时数秒的推理过程，而是先返回任务 ID，客户端轮询或通过 WebSocket 接收完成通知；消息确认机制（ACK）保证消费者处理失败时消息不会丢失，可以重新入队或进入死信队列
-- **Node 安全实践的常见风险面**：SQL 注入（永远使用参数化查询/ORM 的绑定参数，不手动拼接 SQL 字符串）、依赖供应链风险（`npm audit`/`pnpm audit` 定期扫描已知漏洞的依赖版本，CI 流程中设为门禁）、缺失安全响应头（`helmet` 中间件一次性补齐 `X-Content-Type-Options`/`X-Frame-Options`/CSP 等，具体每个响应头防御的攻击类型见《网络原理》系列第 06 篇跨域与安全）——工程化视角的安全实践重点是"把这些检查自动化嵌入 CI 流程”，而不是依赖人工记忆
-- **内存泄漏排查方法论**：Node.js 内存泄漏常见于全局缓存无限增长、事件监听器未正确移除（`EventEmitter` 反复 `on` 却不 `off`）、闭包意外持有大对象引用；排查思路是用 `--inspect` 配合 Chrome DevTools 的 Memory 面板做多次堆快照（heap snapshot）对比，找出"两次快照之间持续增长、且不应该增长"的对象类型，再通过 Retainer 视图追踪这些对象被谁持有导致无法被 GC 回收
-- 对比前端性能排查：浏览器端排查内存泄漏（如未清理的定时器、未解绑的事件监听）和 Node.js 端排查内存泄漏在方法论上高度一致（都是"多次快照对比 + Retainer 链路追踪"），这是前端性能优化经验可以直接迁移到 Node.js 后端排障的一个典型例子
+- 对比前端：前端 CI 里的测试分层（单元测试/组件测试/E2E）与本篇的测试金字塔是同一套方法论在不同运行环境下的应用，`supertest` 的"进程内模拟请求"思路也和前端测试库"不真实渲染到浏览器、只在 jsdom 里模拟 DOM"的取舍逻辑一致
 
 #### 三、源码解析（重点代码，来源 GitHub 仓库）
 
 1. Node.js `cluster` 模块的进程间连接分发：`lib/internal/cluster/primary.js`（nodejs/node 仓库）— 主进程 `fork` 工作进程与 round-robin 分发策略（`SCHED_RR`）的实现
 2. `supertest` 的进程内请求模拟：`ladjs/supertest` 仓库 `lib/test.js` — 如何包装 `superagent` 直接对传入的 `app` 发起进程内请求而非真实网络请求
-3. `amqplib` 的消息确认机制：`amqp-node/amqplib` 仓库 — `channel.ack`/`channel.nack` 与消费者预取（prefetch）的实现
-4. V8 堆快照与 Inspector 协议：概览级介绍 `node --inspect` 背后的 Chrome DevTools Protocol（CDP）通信机制，不深入 V8 内部实现
 
 #### 四、最佳实践与实战示例
 
-1. 用 Docker 给 `medai-node-source` 系列积累的手写模块之一（如第 07 篇的 `mini-express`）搭建一个多阶段构建的 Dockerfile，对比单阶段构建和多阶段构建的最终镜像体积差异
-2. 用 Node.js 原生 `cluster` 模块手写一个最小化的多进程 HTTP 服务示例，验证请求被分发到不同的工作进程（每个响应体里带上 `process.pid`，观察多次请求命中不同进程 ID）
-3. 搭建 `packages/mini-task-queue`：用 RabbitMQ（或用 Redis List 简化模拟）实现一个最小化任务队列——生产者提交"模拟 AI 推理任务"立即返回任务 ID，消费者从队列取任务处理并更新任务状态，验证提交与处理解耦、消费者处理速度不影响生产者响应速度
-4. 手写一个故意包含内存泄漏的示例脚本（如反复 `on` 却不 `off` 的 `EventEmitter`），用 `node --inspect` + Chrome DevTools 完整走一遍"两次堆快照对比定位泄漏对象"的排查流程，作为方法论的实操演示
+1. 给 `apps/his-api` 项目搭建一个多阶段构建的 Dockerfile，对比单阶段构建和多阶段构建的最终镜像体积差异
+2. 用 Node.js 原生 `cluster` 模块把 `apps/his-api` 改造成多进程启动，验证请求被分发到不同的工作进程（每个响应体里带上 `process.pid`，观察多次请求命中不同进程 ID）
+3. 给 `apps/his-api` 的核心路由补上 `supertest` 集成测试，验证第 06~14 篇逐步叠加的认证/数据库/GraphQL 能力在测试层面都能覆盖
 
 #### 五、参考
 - https://jestjs.io/
 - https://docs.docker.com/build/building/multi-stage/
 - https://nodejs.org/api/cluster.html
 - https://pm2.keymetrics.io/
-- https://www.rabbitmq.com/tutorials
-- https://helmetjs.github.io/
 
 **面试核心问**：
 - 测试金字塔的分层策略是什么？为什么端到端测试的数量应该最少？
@@ -850,8 +843,52 @@
 - Node.js 是单线程的，`cluster` 模块是怎么利用多核 CPU 的？
 - `cluster` 和 `worker_threads` 在生产架构里分别解决什么问题？能不能互相替代？
 - 多进程部署下，为什么不能用进程内存存储 Session？
+
+---
+
+### 第 16 篇：Node.js 可观测性与安全: 消息队列解耦/安全实践/内存泄漏排查/APM 链路追踪（生产收藏级）
+
+**副标题**：消息队列任务解耦与 ACK 机制、常见安全风险面与自动化防护、内存泄漏排查方法论、分布式追踪与 APM 基础
+
+> 从原第 15 篇拆出的第二篇，聚焦生产运行时的"看得见、防得住"——可观测性和安全不是测试通过就能保证的，需要独立的方法论。
+
+#### 一、使用与实践
+
+- `node --inspect` 配合 Chrome DevTools 做 CPU Profile 和堆内存快照分析
+- 消息队列基础：用 `amqplib` 连接 RabbitMQ 发布/消费一条"AI 推理任务"消息，理解队列如何解耦"提交任务"和"处理任务"两个环节
+- Node 安全实践：`helmet` 中间件一键设置安全响应头，`npm audit`/`pnpm audit` 扫描依赖漏洞
+- OpenTelemetry Node.js SDK 基本接入：自动埋点 HTTP/数据库调用，导出到本地 Jaeger/Zipkin 查看一次请求的完整调用链
+
+#### 二、设计与原理
+
+- **消息队列解耦的设计思想**：把"任务提交"和"任务处理"通过一个中间队列彻底解耦——生产者只管把任务消息丢进队列就立即返回，不需要等待处理完成；消费者按自己的处理能力从队列里取任务，两者的吞吐速率不再互相绑定；这对"AI 推理"这类耗时不确定、需要排队限流的场景（如医疗 AI 问诊助手的模型推理任务）尤其重要——避免让 HTTP 请求同步等待一个可能耗时数秒的推理过程，而是先返回任务 ID，客户端轮询或通过 WebSocket 接收完成通知；消息确认机制（ACK）保证消费者处理失败时消息不会丢失，可以重新入队或进入死信队列
+- **Node 安全实践的常见风险面**：SQL 注入（永远使用参数化查询/ORM 的绑定参数，不手动拼接 SQL 字符串）、依赖供应链风险（`npm audit`/`pnpm audit` 定期扫描已知漏洞的依赖版本，CI 流程中设为门禁）、缺失安全响应头（`helmet` 中间件一次性补齐 `X-Content-Type-Options`/`X-Frame-Options`/CSP 等，具体每个响应头防御的攻击类型见《网络原理》系列第 07 篇跨域与安全）——工程化视角的安全实践重点是"把这些检查自动化嵌入 CI 流程"，而不是依赖人工记忆
+- **内存泄漏排查方法论**：Node.js 内存泄漏常见于全局缓存无限增长、事件监听器未正确移除（`EventEmitter` 反复 `on` 却不 `off`）、闭包意外持有大对象引用；排查思路是用 `--inspect` 配合 Chrome DevTools 的 Memory 面板做多次堆快照（heap snapshot）对比，找出"两次快照之间持续增长、且不应该增长"的对象类型，再通过 Retainer 视图追踪这些对象被谁持有导致无法被 GC 回收
+- **分布式追踪与 APM 基础**（补充章节，5-10 年后端岗高频考点）：单机排障靠日志和堆快照，但分布式系统里一次请求可能跨越 API 网关、多个微服务、数据库、消息队列，仅靠单机日志无法还原完整链路——OpenTelemetry 定义了 Trace（一次完整请求的调用链）/Span（链路中的一个操作单元，带 parent-child 关系）/Context Propagation（跨服务边界传递 trace id，通常通过 HTTP 头 `traceparent`）三个核心概念；APM（Application Performance Monitoring）系统（如 Jaeger/Zipkin/Datadog）把大量 Span 数据聚合展示成火焰图，用于定位"一次慢请求到底慢在哪个环节"
+- 对比前端性能排查：浏览器端排查内存泄漏（如未清理的定时器、未解绑的事件监听）和 Node.js 端排查内存泄漏在方法论上高度一致（都是"多次快照对比 + Retainer 链路追踪"），前端性能监控 SDK 的埋点上报思路也与后端 APM 的 Span 上报同源——这是前端性能优化经验可以直接迁移到 Node.js 后端排障的一个典型例子
+
+#### 三、源码解析（重点代码，来源 GitHub 仓库）
+
+1. `amqplib` 的消息确认机制：`amqp-node/amqplib` 仓库 — `channel.ack`/`channel.nack` 与消费者预取（prefetch）的实现
+2. V8 堆快照与 Inspector 协议：概览级介绍 `node --inspect` 背后的 Chrome DevTools Protocol（CDP）通信机制，不深入 V8 内部实现
+3. OpenTelemetry Node.js SDK 自动埋点：`open-telemetry/opentelemetry-js` 仓库概览级介绍 `Instrumentation` 如何通过 monkey-patch 常见模块（如 `http`/`pg`）自动生成 Span
+
+#### 四、最佳实践与实战示例
+
+1. 搭建 `packages/mini-task-queue`：用 RabbitMQ（或用 Redis List 简化模拟）实现一个最小化任务队列——生产者提交"模拟 AI 推理任务"立即返回任务 ID，消费者从队列取任务处理并更新任务状态，验证提交与处理解耦、消费者处理速度不影响生产者响应速度，并接入 `apps/his-api` 作为其"AI 问诊任务"的异步处理通道
+2. 手写一个故意包含内存泄漏的示例脚本（如反复 `on` 却不 `off` 的 `EventEmitter`），用 `node --inspect` + Chrome DevTools 完整走一遍"两次堆快照对比定位泄漏对象"的排查流程，作为方法论的实操演示
+3. 给 `apps/his-api` 接入 OpenTelemetry 自动埋点 + 本地 Jaeger，发起一次"查询患者信息（触发数据库查询 + Redis 缓存查询）"的请求，在 Jaeger UI 里观察完整调用链火焰图
+
+#### 五、参考
+- https://www.rabbitmq.com/tutorials
+- https://helmetjs.github.io/
+- https://opentelemetry.io/docs/languages/js/
+
+**面试核心问**：
 - 消息队列解耦"生产任务"和"消费任务"具体解决了什么问题？消息确认机制的作用是什么？
 - 排查一次 Node.js 内存泄漏，你的思路是什么？会用到哪些工具？
+- Node.js 常见的安全风险有哪些？怎么把安全检查自动化嵌入 CI？
+- 分布式追踪解决了什么问题？Trace/Span/Context Propagation 分别是什么？
 
 ---
 
@@ -878,6 +915,7 @@ https://docs.docker.com/
 https://pm2.keymetrics.io/
 https://www.rabbitmq.com/tutorials
 https://helmetjs.github.io/
+https://opentelemetry.io/docs/languages/js/
 ```
 
 - `nodejs.org`：Node.js 官方文档，覆盖第 03/04/05 篇核心模块与 API 权威参照
@@ -886,13 +924,14 @@ https://helmetjs.github.io/
 - `dev.mysql.com`/`mongodb.com`/`redis.io`/`postgresql.org`：四大数据库官方文档，覆盖第 10/11/12/13 篇
 - `pgvector`：向量检索扩展文档，覆盖第 13 篇 AI 关联小节
 - `graphql.org`/`apollographql.com`/`graphql/dataloader`：覆盖第 14 篇
-- `jestjs.io`/`docs.docker.com`/`pm2.keymetrics.io`/`rabbitmq.com`/`helmetjs.github.io`：覆盖第 15 篇工程化实践
+- `jestjs.io`/`docs.docker.com`/`pm2.keymetrics.io`：覆盖第 15 篇测试与部署
+- `rabbitmq.com`/`helmetjs.github.io`/`opentelemetry.io`：覆盖第 16 篇可观测性与安全
 
 > 网络协议原理（HTTP 演进/HTTPS/TLS/DNS/TCP/WebSocket/跨域安全/HTTP 缓存/RESTful-GraphQL 设计对比）已独立为《网络原理》系列，见 `docs/plans/network-principles-series-outline.md`，本系列不再重复列出对应 RFC/MDN 参考链接。
 
-> 引用规范延续 React 18 / Vue 3 系列：正文中不出现具体博主名/账号名/人名，仅在文末参考池中列官方文档或权威开源仓库 URL；源码解析章节标注的路径以对应开源仓库当前主分支目录结构为准，写作时需核对当前版本号是否与文中描述一致。
+> 引用规范：正文中不出现具体博主名/账号名/人名，仅在文末参考池中列官方文档或权威开源仓库 URL；源码解析章节标注的路径以对应开源仓库当前主分支目录结构为准，写作时需核对当前版本号是否与文中描述一致。
 
 ---
 
-*规划时间：2026-09-10 | 参考：Node.js 官方文档 / 各框架与数据库官方文档 / roadmap.sh Node.js 路线图理念 / React 18 系列大纲格式规范*
+*规划时间：2026-09-10 | 本次修订（2026-09-11）：拆分第 15 篇工程化为「测试与部署」「可观测性与安全」两篇（全系列 15→16 篇），04/05 篇内容归属调整（静态资源服务器/WebSocket 实现移入 05 篇），引入 `apps/his-api` 项目主线贯穿 07~16 篇，同步网络原理系列篇号引用 | 参考：Node.js 官方文档 / 各框架与数据库官方文档 / roadmap.sh Node.js 路线图理念*
 
