@@ -17,7 +17,7 @@
 | 06 | Vue 3 源码 | ✅ 完成 | 12 |
 | 07 | React 18 | 🚧 进行中 | 1 |
 | 08 | 网络原理 | 📋 规划中（大纲已定稿 10 篇，先于 Node.js 系列写） | — |
-| 09 | Node.js 全栈 | 📋 规划中（大纲已定稿 16 篇） | — |
+| 09 | Node.js 全栈 | 📋 规划中（大纲已定稿 17 篇，详见 `docs/plans/node-fullstack-series-outline.md`） | — |
 | 10 | 泛客户端（小程序） | 📋 规划中（大纲已定稿 12 篇，详见 `docs/plans/miniprogram-series-outline.md`） | — |
 | 11 | 数据结构与算法 | 📋 规划中 | — |
 | 12 | 设计模式 | 📋 规划中（大纲已定稿 17 篇） | — |
@@ -153,7 +153,7 @@
 
 ---
 
-## 09 Node.js 全栈（📋 规划中，大纲已定稿 15 篇，详见 `docs/plans/node-fullstack-series-outline.md`）
+## 09 Node.js 全栈（📋 规划中，大纲已定稿 17 篇，详见 `docs/plans/node-fullstack-series-outline.md`）
 
 > 承接《08 网络原理》系列（HTTP/TLS/WebSocket 等协议原理），本系列不重复讲协议理论，只讲 Node.js 怎么实现
 
@@ -166,12 +166,14 @@
 - Express 深度：路由 / 中间件链 / 错误处理 / 手写核心
 - Koa 深度：洋葱模型 / compose 原理 / 手写实现
 - NestJS+TypeScript：IoC / DI / 装饰器元编程 / 模块化架构
+- BFF 架构模式：API Gateway vs BFF / 多端数据聚合与裁剪
 - MySQL 全栈：事务 / 索引原理 / 慢查询优化 / 设计范式
 - MongoDB 深度：文档模型 / 聚合管道 / 索引策略 / Mongoose
 - Redis 深度：五大数据结构 / 持久化 / 分布式锁 / 接口限流
 - PostgreSQL 进阶：窗口函数 / 高级索引 / pgvector 向量扩展
 - GraphQL+Apollo：Schema 设计 / Resolver / DataLoader N+1
-- Node.js 工程化：测试 / Docker / Cluster / worker_threads / 消息队列 / 安全
+- Node.js 测试与部署：测试分层 / supertest / Docker 多阶段构建 / PM2 与 Cluster
+- Node.js 可观测性与安全：消息队列解耦 / 安全实践 / 内存泄漏排查 / APM 链路追踪
 
 ---
 
@@ -300,4 +302,4 @@ docs/articles/{系列编号} {系列名}/YYYY-MM-DD-{slug}.md
 
 ---
 
-*更新时间：2026-09-11（新增系列 14 AI 工程应用开发大纲，14 篇定稿）| 当前总文章数：59 篇*
+*更新时间：2026-09-11（系列 09 Node.js 全栈新增第 10 篇「BFF 架构模式」，篇数由 16 篇增至 17 篇）| 当前总文章数：59 篇*
