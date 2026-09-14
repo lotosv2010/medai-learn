@@ -553,11 +553,11 @@ dispatchSetState                        // 👈 Hook 的更新入口
 
 后续每一篇讲到具体函数，都可以照着这个方法在对应函数上打断点验证。
 
-#### 第五步（进阶）：官方 `examples/source-debug` —— 免打包直接编译源码
+#### 第五步（进阶）：自建 `examples/source-debug` —— 免打包直接编译源码
 
-前面「第二步 ~ 第三步」的做法有个前置成本：每次都要 `yarn build` 出一份 `NODE_DEV` 产物，再 `alias` 到业务项目。React 官方仓库其实还自带一个更"直接"的调试入口——`examples/source-debug/`，它用 webpack 把 `packages/*/src` 里的源码直接编成浏览器可跑的 bundle，**完全绕过 Rollup 构建**，断点打在的就是 `src` 下的原始文件，改源码即热更新。
+前面「第二步 ~ 第三步」的做法有个前置成本：每次都要 `yarn build` 出一份 `NODE_DEV` 产物，再 `alias` 到业务项目。可以在官方源码基础上自己搭一套更"直接"的调试入口——`examples/source-debug/`（这不是官方仓库自带的目录，需要自己创建），用 webpack 把 `packages/*/src` 里的源码直接编成浏览器可跑的 bundle，**完全绕过 Rollup 构建**，断点打在的就是 `src` 下的原始文件，改源码即热更新。
 
-`react/package.json` 里已经预置了这条命令：
+可以在 `react/package.json` 里手动加一条命令：
 
 ```json
 {
@@ -675,7 +675,7 @@ module.exports = function hermesLoader(source) {
 };
 ```
 
-这段 loader 复刻的是 React 官方真实测试流程（见 `scripts/jest/preprocessor.js`）的两步做法：Hermes 负责"解析 Babel 啃不动的 Flow 语法"，Babel 负责"剥离类型 + 转 JSX"。这也是很多同学第一次知道 **React 源码不是 TypeScript、而是 Flow** 的地方。
+这段 loader 复刻的是 React 官方测试流程（见 `scripts/jest/preprocessor.js`）的两步做法：Hermes 负责"解析 Babel 啃不动的 Flow 语法"，Babel 负责"剥离类型 + 转 JSX"，照着这个思路自己搭一份等价的 webpack loader。这也是很多同学第一次知道 **React 源码不是 TypeScript、而是 Flow** 的地方。
 
 **入口示例 `app.js` 和 `index.html`**
 
@@ -718,7 +718,7 @@ root.render(<App />);
 
 > 💬 **面试官会问**：React 源码是 TypeScript 写的吗？为什么要用 hermes-parser？
 >
-> ✅ **标准答案**：React 源码是 **Flow** 写的，不是 TypeScript。部分新 Flow 语法（如 predicate 类型）超出了 Babel 自带 Flow 解析器的能力，直接交给 Babel 会报语法错误，所以官方调试流程先用 hermes-parser（Hermes 是 Meta 的 JS 引擎）解析成 Babel 兼容的 AST，再交给 Babel 做"剥离类型 + JSX 转 `React.createElement`"。这套两步走和官方测试脚本 `scripts/jest/preprocessor.js` 的做法一致。
+> ✅ **标准答案**：React 源码是 **Flow** 写的，不是 TypeScript。部分新 Flow 语法（如 predicate 类型）超出了 Babel 自带 Flow 解析器的能力，直接交给 Babel 会报语法错误，所以自建调试环境时借用官方测试脚本 `scripts/jest/preprocessor.js` 的思路，先用 hermes-parser（Hermes 是 Meta 的 JS 引擎）解析成 Babel 兼容的 AST，再交给 Babel 做"剥离类型 + JSX 转 `React.createElement`"。
 
 > 🎁 **加分答案**：`webpack.config.js` 里的 `NormalModuleReplacementPlugin` 把 `ReactFiberConfig.js` 替换成 `forks/ReactFiberConfig.dom.js`，其实暴露了 React 的「Host Config 解耦」——同一份 reconciler 源码，在正式构建时由 Rollup 按渲染器替换成 dom/native 等不同 fork，调试环境绕过了 Rollup，所以要手动做同样替换。这也是 `react-reconciler` 能被 `react-dom`/`react-native` 共用的物理证据。
 
@@ -872,7 +872,7 @@ function DoctorScheduleWidget() {
 | `memoizedState` | 上一次渲染完成后的 state（函数组件里对应 Hook 链表的头节点） | 第 06 篇 Hooks |
 | `updateQueue` | 待处理的更新队列 | 第 02 篇状态更新 |
 | `flags` | 标记这个节点本次渲染需要执行的副作用类型（新增/更新/删除/DOM 操作等） | 第 05 篇 commit 阶段 |
-| `subtreeFlags` | 子树副作用标记的冒泡汇总（React 18 新增，替代 effectList） | 第 05 篇 commit 阶段 |
+| `subtreeFlags` | 子树副作用标记的冒泡汇总（React 17 引入，替代 effectList，React 18 延续使用） | 第 05 篇 commit 阶段 |
 | `lanes` | 这个 Fiber 上待处理更新的优先级 | 第 02 篇状态更新 |
 | `childLanes` | 子树上待处理更新的优先级汇总 | 第 02 篇状态更新 |
 | `alternate` | 指向"另一棵树"里对应的同一个组件的 Fiber 节点（双缓存机制的核心） | 下一小节详细展开 |
@@ -917,6 +917,24 @@ reconcileChildren(根节点)
     → reconcileChildren(患者项 1)
       → reconcileChildren(患者详情)
         → ... （层层深入，无法在中途跳出）
+```
+
+**Stack 递归 vs Fiber 循环：两种遍历方式的直观对比**
+
+```
+Stack Reconciler（React 15）                Fiber 架构（React 16+）
+─────────────────────────────              ─────────────────────────────
+函数调用入栈                                 取出一个 Fiber 节点
+   ↓                                            ↓
+递归处理子节点                               performUnitOfWork 处理
+   ↓                                            ↓
+层层深入，栈不断加深                          检查 shouldYield()
+   ↓                                        ↙否，继续      ↘是，中断
+必须等全部出栈                        （回到取下一个节点）  让出主线程
+   ↓                                                       保存 workInProgress 指针
+❌ 无法在中途让出主线程                                       ↓
+                                                    浏览器空闲后恢复，
+                                                    回到取下一个节点
 ```
 
 **医疗场景：患者列表 + 全局检索的卡顿**
@@ -976,6 +994,21 @@ function workLoop(fiber) {
                           <Patient id=1> (sibling: Patient id=2)
 ```
 
+用图来看，`child/sibling/return` 三个指针把整棵组件树重新组织成了一张可以"手动"遍历的链表网：
+
+```mermaid
+graph TD
+    App["App<br/>return: null"] -->|child| Header["Header<br/>return: App"]
+    App -->|child| Main["Main<br/>return: App"]
+    Header -.sibling.-> Main
+    Header -->|child| Logo["Logo<br/>return: Header"]
+    Main -->|child| PatientList["PatientList<br/>return: Main"]
+    PatientList -->|child| P1["Patient id=1"]
+    P1 -.sibling.-> P2["Patient id=2"]
+```
+
+实线是 `child` 指针（深度优先往下走），虚线是 `sibling` 指针（同层往右走），每个节点还有一个没画出来的 `return` 指针指回父节点——遍历到某个节点没有 `child` 也没有 `sibling` 时，就靠 `return` 一层层回溯，找上层节点的 `sibling` 继续走。
+
 遍历这棵树不再需要函数调用栈层层深入，而是靠这三个指针在一个 `while` 循环里"手动"走位：
 
 1. 有 `child` 就往下走（深度优先）
@@ -1032,6 +1065,24 @@ current 树（屏幕上显示的）        workInProgress 树（正在构建的�
     <Header> ←— alternate —→        <Header>
        ↓                                 ↓
     <PatientList> ← alternate → <PatientList>
+```
+
+**渲染流程中的双缓存切换（时序图）**
+
+```mermaid
+sequenceDiagram
+    participant Root as FiberRootNode
+    participant Cur as current 树
+    participant WIP as workInProgress 树
+    participant DOM as 真实 DOM
+
+    Root->>Cur: current 指向已渲染完成的树
+    Note over WIP: 渐进构建：复用 current 上<br/>各节点的 alternate 对象
+    Root->>WIP: 基于 current 创建/复用 workInProgress
+    WIP->>WIP: beginWork / completeWork<br/>（diff、标记 flags）
+    WIP->>DOM: commit 阶段应用变更
+    Root->>Root: root.current = root.current.alternate
+    Note over Root,Cur: workInProgress 变成新的 current<br/>旧 current 退居为下次渲染的 alternate
 ```
 
 **渲染流程中的双缓存切换**
@@ -1115,6 +1166,22 @@ function getHighestPriorityLane(lanes) {
 
 一次运算就能同时处理多个优先级的组合逻辑，而单纯的数值大小比较做不到这种"组合"的表达能力。
 
+**Lane 位掩码模型示意**
+
+```mermaid
+graph LR
+    subgraph Lanes["31 位二进制位，每一位/一组位代表一种优先级车道"]
+        direction LR
+        L0["bit 0<br/>SyncLane"]
+        L2["bit 2<br/>InputContinuousLane"]
+        L4["bit 4<br/>DefaultLane"]
+        L6["bit 6<br/>TransitionLane"]
+        L30["bit 30<br/>IdleLane"]
+    end
+    L0 -.位或合并.-> Merged["lanes = SyncLane 位或 DefaultLane<br/>同一个数同时表达两种优先级"]
+    L4 -.位或合并.-> Merged
+```
+
 **常见的 Lane 优先级分类**
 
 | Lane 类型 | 触发场景 | 能否被打断 | 典型用途 |
@@ -1163,6 +1230,23 @@ function workLoopConcurrent() {
 
 如果时间片用完，`workLoop` 主动跳出循环，把主线程还给浏览器，让浏览器有机会处理绘制、响应用户输入等更高优先级的工作；等浏览器空闲下来，再通过调度机制把剩下的渲染工作接着做完。
 
+**时间切片时间线示意**
+
+```mermaid
+gantt
+    title 主线程时间片分配（示意，非真实比例）
+    dateFormat X
+    axisFormat %Lms
+    section 帧1 0-5ms
+    渲染低优先级任务(药品列表筛选) :0, 5
+    section 让出主线程
+    浏览器处理输入绘制 :5, 8
+    section 帧2 8-13ms
+    高优先级更新插队(用户输入响应) :8, 10
+    section 帧3 13-18ms
+    恢复低优先级任务继续渲染 :13, 18
+```
+
 **高优先级更新打断低优先级渲染**
 
 假设低优先级的"药品列表筛选"正在渲染中（已经处理了 50 个 Fiber 节点，还有 100 个没处理），用户突然在输入框里输入了一个字符（高优先级更新）：
@@ -1193,6 +1277,24 @@ Fiber 架构落地后，React 源码被拆成了职责分明的几个包，自�
 | `scheduler` | 独立的任务调度器，只关心"优先级"和"时间切片"这两件事，完全不知道 Fiber、组件是什么 | `shouldYieldToHost`、任务队列、优先级排序 | 无依赖（可单独使用） |
 | `react-reconciler` | 平台无关的协调算法核心（Fiber 树构建、diff、调度对接），被 `react-dom`、`react-native`、`react-test-renderer` 共同依赖 | `beginWork`、`completeWork`、`commitRoot`、work loop | 依赖 `react` 和 `scheduler` |
 | `react-dom` | 浏览器宿主环境的渲染器，提供 `react-reconciler` 需要的 Host Config 实现（怎么创建/更新/删除真实 DOM 节点） | `createRoot`、`hydrateRoot`、Host Config（`createInstance`、`appendChild` 等） | 依赖 `react-reconciler` |
+
+**包依赖关系图**
+
+```mermaid
+graph BT
+    react["react<br/>公共 API + Hooks 声明<br/>（无依赖）"]
+    scheduler["scheduler<br/>任务调度 + 时间切片<br/>（无依赖，可独立使用）"]
+    reconciler["react-reconciler<br/>Fiber 树构建 + diff + 调度对接"]
+    dom["react-dom<br/>浏览器 Host Config 实现"]
+    native["react-native<br/>（示意：其他渲染平台）"]
+
+    react --> reconciler
+    scheduler --> reconciler
+    reconciler --> dom
+    reconciler --> native
+```
+
+`react-reconciler` 是唯一同时被多个渲染平台依赖的包——`react-dom`、`react-native` 各自实现一份 Host Config，接入同一套协调算法。
 
 **这个划分的核心设计动机**
 
@@ -1241,17 +1343,17 @@ const reconcilerInstance = ReactReconciler(HostConfig)
 
 ---
 
-### 8. 副作用收集：从 effectList 到 subtreeFlags 冒泡
+### 8. 副作用收集：React 17 引入的 subtreeFlags 冒泡（React 18 延续使用）
 
-这是一个容易被面试官追问、但很多资料没讲清楚的细节。
+这是一个容易被面试官追问、但很多资料没讲清楚的细节，也容易被搞错版本——这个改动实际发生在 React 16 到 17 之间，React 18 只是延续了这套机制，不是 18 的新特性。
 
-**React 17 及之前：独立的 `effectList` 链表**
+**React 16 及之前：独立的 `effectList` 链表**
 
-React 17 的渲染过程中，会维护一条独立的 `effectList` 链表，专门收集"有副作用需要处理的 Fiber 节点"（比如需要插入 DOM、需要更新属性的节点）。commit 阶段直接遍历这条链表执行副作用，不需要再遍历一遍完整的 Fiber 树。
+React 16 的渲染过程中，会维护一条独立的 `effectList` 链表，专门收集"有副作用需要处理的 Fiber 节点"（比如需要插入 DOM、需要更新属性的节点）。commit 阶段直接遍历这条链表执行副作用，不需要再遍历一遍完整的 Fiber 树。
 
-**React 18：`subtreeFlags` 冒泡取代 `effectList`**
+**React 17 起：`subtreeFlags` 冒泡取代 `effectList`**
 
-React 18 把这条独立链表去掉了，改成在 `completeWork`（自底向上"完成"每个 Fiber 节点时）阶段，把当前节点自身的 `flags` 通过位或运算"冒泡"合并到父节点的 `subtreeFlags` 字段上。
+React 17 把这条独立链表去掉了，改成在 `completeWork`（自底向上"完成"每个 Fiber 节点时）阶段，把当前节点自身的 `flags` 通过位或运算"冒泡"合并到父节点的 `subtreeFlags` 字段上。React 18 沿用了这套机制，没有再变过。
 
 commit 阶段遍历树时，只要一个节点的 `subtreeFlags` 是 `NoFlags`（说明它的整棵子树都没有副作用需要处理），就可以直接跳过整棵子树，不需要再往下遍历。
 
@@ -1262,13 +1364,13 @@ commit 阶段遍历树时，只要一个节点的 `subtreeFlags` 是 `NoFlags`�
 - `effectList` 方式：维护一条独立链表，commit 阶段直接遍历链表，不用再遍历树
 - `subtreeFlags` 方式：省去了额外维护一条链表的开销，用位运算做"有没有副作用"的剪枝判断
 
-React 18 的方式省去了额外维护一条链表的内存开销，并且这个变化和 React 18 支持的一些新特性（比如 Suspense 场景下渲染树的部分子树可能被暂时"卸下"又重新挂载）有关——独立的 `effectList` 链表在这类更复杂的树结构变化场景下维护成本变高，而"冒泡到 `subtreeFlags`"这种方式天然贴合树结构本身，不需要额外维护一份和树结构平行的链表数据。
+`subtreeFlags` 的方式省去了额外维护一条链表的内存开销，并且这个变化和 Suspense 场景下渲染树的部分子树可能被暂时"卸下"又重新挂载这类特性有关——独立的 `effectList` 链表在这类更复杂的树结构变化场景下维护成本变高，而"冒泡到 `subtreeFlags`"这种方式天然贴合树结构本身，不需要额外维护一份和树结构平行的链表数据。
 
-> 💬 **面试官会问**：React 18 和 React 17 在 commit 阶段的实现上有什么不同？
+> 💬 **面试官会问**：React 16 和 React 17+ 在 commit 阶段收集副作用的方式有什么不同？
 >
-> ✅ **标准答案**：React 17 用一条独立的 `effectList` 链表收集所有有副作用的 Fiber 节点，commit 阶段直接遍历这条链表；React 18 去掉了这条链表，改为在 `completeWork` 阶段把子节点的 `flags` 通过位运算冒泡合并到父节点的 `subtreeFlags` 上，commit 阶段遍历 Fiber 树时，凡是 `subtreeFlags` 为空的子树直接跳过不再深入。
+> ✅ **标准答案**：React 16 用一条独立的 `effectList` 链表收集所有有副作用的 Fiber 节点，commit 阶段直接遍历这条链表；React 17 去掉了这条链表，改为在 `completeWork` 阶段把子节点的 `flags` 通过位运算冒泡合并到父节点的 `subtreeFlags` 上，commit 阶段遍历 Fiber 树时，凡是 `subtreeFlags` 为空的子树直接跳过不再深入。React 18 延续了这套机制，没有再改动。
 
-> 🎁 **加分答案**：两种方式都是为了避免"遍历完整棵树才能找出哪些节点需要处理"，React 18 的方式省去了额外维护一条链表的开销，并且和 Suspense 场景下渲染树的部分子树可能被暂时"卸下"又重新挂载这类新特性有关——独立的 `effectList` 链表在这类场景下维护成本变高，而"冒泡到 `subtreeFlags`"天然贴合树结构本身。这部分细节会在第 05 篇 commit 阶段篇详细展开。
+> 🎁 **加分答案**：两种方式都是为了避免"遍历完整棵树才能找出哪些节点需要处理"，`subtreeFlags` 的方式省去了额外维护一条链表的开销，并且和 Suspense 场景下渲染树的部分子树可能被暂时"卸下"又重新挂载这类特性有关——独立的 `effectList` 链表在这类场景下维护成本变高，而"冒泡到 `subtreeFlags`"天然贴合树结构本身。这部分细节会在第 05 篇 commit 阶段篇详细展开。
 
 ---
 
@@ -1544,7 +1646,7 @@ function performConcurrentWorkOnRoot(root, didTimeout) {
 3. `performConcurrentWorkOnRoot` 对应 Concurrent 模式下可被打断的渲染，它的返回值是"自己的引用"这个细节很关键：意味着如果这次没跑完，调度器会把"继续跑同一个任务"重新排入队列，而不是从头开始
 4. `includesBlockingLane` 判断当前 lanes 是否包含阻塞性更新（如 `SyncLane`），如果包含，即使在并发模式下也会降级为同步渲染
 
-### 5. 自定义渲染器 Host Config 约定：packages/react-reconciler/src/forks/ReactFiberReconciler.js
+### 5. 自定义渲染器 Host Config 约定：packages/react-reconciler/src/ReactFiberReconciler.js
 
 ```javascript
 // react-reconciler 包对外暴露的入口（简化示意）
@@ -1562,6 +1664,12 @@ const HostConfig = {
     return document.createTextNode(text)
   },
   
+  // 挂载阶段：把子节点先接到还没挂到真实 DOM 树上的父节点（离屏构建），
+  // 和下面 appendChild 的区别是——这里的 parent 此时还不在文档树里
+  appendInitialChild(parent, child) {
+    parent.appendChild(child)
+  },
+
   appendChild(parent, child) {
     parent.appendChild(child)
   },
@@ -1583,7 +1691,8 @@ const HostConfig = {
   },
   
   commitUpdate(instance, updatePayload, type, oldProps, newProps, internalHandle) {
-    // 把属性变化应用到 DOM 节点上
+    // 把属性变化应用到 DOM 节点上（updatePayload 计算"要更新哪些属性"这一步，
+    // 概念上对应下面示意的 prepareUpdate，实际接口里通常内联在 commitUpdate 里）
     updateFiberProps(instance, newProps)
     updateProperties(instance, updatePayload, type, oldProps, newProps)
   },
@@ -1592,6 +1701,8 @@ const HostConfig = {
     textInstance.nodeValue = newText
   },
   
+  // 概念示意：对比新旧 props 算出 updatePayload，交给 commitUpdate 应用；
+  // 这一步在真实实现里不一定是独立导出的方法名，常被内联进 commitUpdate 内部
   prepareUpdate(instance, type, oldProps, newProps, rootContainer, hostContext) {
     // 计算需要更新的属性，返回 updatePayload
     return diffProperties(instance, type, oldProps, newProps)
@@ -1681,7 +1792,7 @@ react-source/
 ├── tsconfig.json / turbo.json / pnpm-workspace.yaml
 ```
 
-> 目录、命名尽量贴近官方仓库 [facebook/react](https://github.com/facebook/react)，方便随时对照源码检索。
+> 目录、命名尽量贴近官方仓库 facebook/react（https://github.com/facebook/react），方便随时对照源码检索。
 
 **根目录 package.json（节选，完整脚本见仓库）**
 
@@ -2107,20 +2218,16 @@ export function createWorkInProgress(current: FiberNode, pendingProps: any): Fib
 
 `beginWork` 是主线的第一站：拿到当前 Fiber，判断要不要 bailout（跳过不必要的重渲染），再按 `tag` 分发到不同的 `update*` 函数，最终产出子 Fiber 交给 workLoop 继续往下走。
 
-**packages/react-reconciler/src/ReactFiberBeginWork.ts**（贴出分发主入口 + 函数组件/HostComponent 两个最常用分支，完整文件含 HostRoot/Fragment/Mode/bailout 逻辑，326 行）
+**packages/react-reconciler/src/ReactFiberBeginWork.ts**（贴出主分发函数骨架 + `reconcileChildren` 通用辅助函数，完整文件含 bailout 判断、HostRoot/Fragment/Mode 等分支，326 行）
 
 ```typescript
 import { cloneChildFibers, mountChildFibers, reconcileChildFibers } from "./ReactChildFiber";
 import type { FiberNode } from "./ReactFiber";
-import { DidCapture, NoFlags, PerformedWork } from "./ReactFiberFlags";
-import { NoLanes, includesSomeLane, type Lanes } from "./ReactFiberLane";
+import { NoLanes, type Lanes } from "./ReactFiberLane";
 import {
   Fragment, FunctionComponent, HostComponent, HostRoot, HostText,
   IndeterminateComponent, Mode,
 } from "./ReactWorkTags";
-
-// 本次 beginWork 是否接收到了新的 props/state/context，决定函数组件是 bailout 还是继续 reconcile
-let didReceiveUpdate = false;
 
 export function reconcileChildren(
   current: FiberNode | null,
@@ -2138,65 +2245,14 @@ export function reconcileChildren(
   }
 }
 
-// renderWithHooks 简化实现：直接调用函数组件拿 children（Phase 5 接入 hooks 时会替换为
-// 真正实现：切换 Dispatcher、建立 Hook 链表）
-function renderWithHooks(_current: FiberNode | null, _wip: FiberNode, Component: any, props: any): any {
-  return Component(props);
-}
-
-function updateFunctionComponent(
-  current: FiberNode | null,
-  workInProgress: FiberNode,
-  Component: any,
-  nextProps: any,
-  renderLanes: Lanes,
-): FiberNode | null {
-  const nextChildren = renderWithHooks(current, workInProgress, Component, nextProps);
-
-  if (current !== null && !didReceiveUpdate) {
-    // 没有新的 props/state，children 不变，bailout
-    return bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes);
-  }
-
-  workInProgress.flags |= PerformedWork;
-  reconcileChildren(current, workInProgress, nextChildren, renderLanes);
-  return workInProgress.child;
-}
-
-function updateHostComponent(
-  current: FiberNode | null,
-  workInProgress: FiberNode,
-  renderLanes: Lanes,
-): FiberNode | null {
-  const nextProps = workInProgress.pendingProps;
-  const nextChildren = nextProps.children;
-  reconcileChildren(current, workInProgress, nextChildren, renderLanes);
-  return workInProgress.child;
-}
-
 function beginWork(
   current: FiberNode | null,
   workInProgress: FiberNode,
   renderLanes: Lanes,
 ): FiberNode | null {
-  if (current !== null) {
-    const oldProps = current.memoizedProps;
-    const newProps = workInProgress.pendingProps;
-    if (oldProps !== newProps) {
-      didReceiveUpdate = true;
-    } else {
-      // props 没变，检查是否有待处理的更新（childLanes 里有没有本次 renderLanes）
-      const hasScheduledUpdateOrContext = includesSomeLane(current.lanes, renderLanes);
-      if (!hasScheduledUpdateOrContext && (workInProgress.flags & DidCapture) === NoFlags) {
-        didReceiveUpdate = false;
-        // early bailout：克隆子 fiber 继续向下，不重新执行组件函数
-        return bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes);
-      }
-      didReceiveUpdate = false;
-    }
-  } else {
-    didReceiveUpdate = false;
-  }
+  // 这里省略的开头部分，是判断能否直接跳过本次渲染的 bailout 逻辑
+  // （对比新旧 props、检查有没有排队中的更新），命中 bailout 就提前返回，
+  // 不再往下执行组件函数。完整的判断条件和源码留给第 03 篇渲染原理篇详细展开。
 
   workInProgress.lanes = NoLanes; // 进入 begin 阶段前清空待处理优先级
 
@@ -2223,13 +2279,13 @@ function beginWork(
 }
 ```
 
-`bailoutOnAlreadyFinishedWork` 是 bailout 优化的核心：如果子树也没有待处理的工作（`!includesSomeLane(renderLanes, workInProgress.childLanes)`），整棵子树直接跳过，不再往下遍历——这正是「二、1」节双缓存收益一节提到的"props/state 没变可以直接复用节点"在源码层面的体现。`updateHostRoot` 负责从 `HostRoot` fiber 的 `updateQueue` 里取出本次要渲染的顶层元素（`processUpdateQueue` 计算出的 `memoizedState.element`），这一步是 `createRoot(container).render(<App/>)` 调用链路上，ReactElement 第一次真正进入 Fiber 树构建的入口。完整实现见仓库文件。
+`updateFunctionComponent`/`updateHostComponent` 分别对应函数组件和宿主节点两个最常用分支，内部都是"取出 children → 调用 `reconcileChildren` 生成子 Fiber"这个套路。`updateHostRoot` 负责从 `HostRoot` fiber 的 `updateQueue` 里取出本次要渲染的顶层元素（`processUpdateQueue` 计算出的 `memoizedState.element`），这一步是 `createRoot(container).render(<App/>)` 调用链路上，ReactElement 第一次真正进入 Fiber 树构建的入口。beginWork 开头省略的 bailout 判断逻辑，完整实现见仓库文件，原理留给第 03 篇细讲。
 
 ---
 
 ### 6. ReactChildFiber —— 单节点/文本节点场景的子 Fiber 构建
 
-`reconcileChildren` 内部真正做"用新 children 生成子 Fiber"的是 `ChildReconciler` 工厂产出的 `reconcileChildFibers`（更新场景，标记副作用）与 `mountChildFibers`（挂载场景，不标记副作用）。完整的多节点数组 diff 算法（三阶段：头部 slot 匹配 → 快路径 → Map 查找）属于第 04 篇 Diff 算法的范畴，这里只贴与本篇主线相关的单元素/文本节点路径和总入口：
+`reconcileChildren` 内部真正做"用新 children 生成子 Fiber"的是 `ChildReconciler` 工厂产出的 `reconcileChildFibers`（更新场景，标记副作用）与 `mountChildFibers`（挂载场景，不标记副作用）。这里只贴与本篇主线相关的单元素/文本节点路径和总入口，多节点数组的处理由 `reconcileChildrenArray` 完成（这是入口分发时会调用到的一个函数引用，具体的三阶段 diff 算法——头部 slot 匹配 → 快路径 → Map 查找——留给第 04 篇详细展开）：
 
 ```typescript
 // packages/react-reconciler/src/ReactChildFiber.ts（节选）
@@ -2294,7 +2350,8 @@ function ChildReconciler(shouldTrackSideEffects: boolean) {
       return placeSingleChild(reconcileSingleElement(returnFiber, currentFirstChild, newChild, lanes));
     }
     if (Array.isArray(newChild)) {
-      return reconcileChildrenArray(returnFiber, currentFirstChild, newChild, lanes); // 见第 04 篇
+      // 多节点数组 diff 的具体算法（三阶段：头部 slot 匹配 → 快路径 → Map 查找）留给第 04 篇展开
+      return reconcileChildrenArray(returnFiber, currentFirstChild, newChild, lanes);
     }
     if (typeof newChild === "string" || typeof newChild === "number") {
       return placeSingleChild(reconcileSingleTextNode(returnFiber, currentFirstChild, "" + newChild, lanes));
@@ -2313,7 +2370,7 @@ export const mountChildFibers = ChildReconciler(false);
 
 ### 7. completeWork —— "归"阶段：创建真实 DOM 实例 + 副作用冒泡
 
-`beginWork` 往下走到叶子节点后，`completeWork` 开始自底向上"归"，做两件事：给 `HostComponent`/`HostText` 创建真实的 DOM 实例（挂到 `fiber.stateNode`），以及把子树的 `flags` 冒泡汇总到父节点的 `subtreeFlags`（对照「二、8」节讲的 `effectList` → `subtreeFlags` 演进）。
+`beginWork` 往下走到叶子节点后，`completeWork` 开始自底向上"归"，做两件事：给 `HostComponent`/`HostText` 创建真实的 DOM 实例（挂到 `fiber.stateNode`），以及把子树的 `flags` 冒泡汇总到父节点的 `subtreeFlags`（对照「二、8」节讲的 `subtreeFlags` 冒泡机制）。这里只是最基础的 flags 冒泡，完整的 effect 链表收集（区分 `useLayoutEffect`/`useEffect` 等不同类型）留给第 05 篇 commit 阶段篇展开。
 
 ```typescript
 // packages/react-reconciler/src/ReactFiberCompleteWork.ts（节选主链路）
@@ -2485,12 +2542,12 @@ export class ReactDOMRoot {
 
 ---
 
-### 9. ReactDOMHostConfig —— react-dom 对 Host Config 接口的真实实现
+### 9. ReactDOMHostConfig —— react-dom-bindings 对 Host Config 接口的真实实现
 
-第三节「三、5」讲的 Host Config 约定，在这个项目里由 `react-dom` 实现，构建时通过 fork（rollup 插件 / vite `resolveId`）把这份实现替换进 reconciler 里只会 `throw` 的占位模块 `ReactFiberHostConfig.ts`。下面贴主链路用到的几个方法（属性处理只做 `className`/`style`/普通字符串属性的简版，事件系统留给第 08 篇）：
+第三节「三、5」讲的 Host Config 约定，在这个项目里由独立的 `react-dom-bindings` 包实现（对照官方仓库里 `react-dom` 和 `react-dom-bindings` 拆成两个包的做法，`react-dom` 只负责对外的 `createRoot`/`hydrateRoot` 等 API，Host Config 的具体实现放在 `react-dom-bindings` 里），构建时通过 fork（rollup 插件 / vite `resolveId`）把这份实现替换进 reconciler 里只会 `throw` 的占位模块 `ReactFiberHostConfig.ts`。下面贴主链路用到的几个方法（属性处理只做 `className`/`style`/普通字符串属性的简版，事件系统留给第 08 篇）：
 
 ```typescript
-// packages/react-dom/src/client/ReactDOMHostConfig.ts（节选）
+// packages/react-dom-bindings/src/client/ReactDOMHostConfig.ts（节选）
 function setProp(domElement: Element, propKey: string, value: any): void {
   if (typeof value === "function") return; // 事件处理器：事件系统尚未实现，先忽略
   if (propKey === "style" && typeof value === "object" && value !== null) {
@@ -2701,7 +2758,7 @@ const bundles = [
 - https://zh-hans.react.dev/
 - https://jonny-wei.github.io/blog/react/
 - https://react.iamkasong.com
-- https://github.com/wbccb/mini-react
+- https://github.com/wbccb/Frontend-Articles
 
 ---
 
@@ -2731,7 +2788,7 @@ const bundles = [
 | Lane 模型 | 31 位二进制表达优先级，位运算支持多优先级合并处理 | ⭐⭐⭐⭐ |
 | 时间切片 | `scheduler` 包的 `shouldYieldToHost()` 判断是否让出主线程 | ⭐⭐⭐⭐ |
 | 包职责划分 | react/scheduler/react-reconciler/react-dom 各管一层，自底向上无循环依赖 | ⭐⭐⭐⭐⭐ |
-| effectList → subtreeFlags | React 18 用位运算冒泡代替独立链表收集副作用节点 | ⭐⭐⭐ |
+| effectList → subtreeFlags | React 17 引入位运算冒泡代替独立链表收集副作用节点，React 18 延续使用 | ⭐⭐⭐ |
 | Vue 3 vs React 优化路线 | 编译时标记动态节点 vs 运行时 Fiber+Lane 启发式调度，两种取舍 | ⭐⭐⭐⭐ |
 | `react-reconciler` 解耦 | 协调算法与渲染平台分离，实现 Host Config 即可接入任意平台 | ⭐⭐⭐⭐⭐ |
 
