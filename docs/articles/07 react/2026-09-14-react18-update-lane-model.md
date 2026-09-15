@@ -340,6 +340,8 @@ return Object.assign({}, prevState, partialState); // 浅合并
 >
 > 🎁 **加分答案**：这种"相似但独立"背后的原因是 Class 组件和函数组件挂状态的位置不同——Class 组件的状态挂在 Fiber 的 `updateQueue` 上（一个 Fiber 对应一份 state），Hook 的状态挂在 Hook 链表的每个节点上（一个 Fiber 可能有多个 Hook，每个 Hook 各自一份 state），数据结构的挂载位置不同，导致两套实现即使思路相同也没法直接复用同一份代码。
 
+除了挂载位置不同，两者的 `Update` 对象本身的字段也不对等——Class 版本是 `{ eventTime, lane, tag, payload, callback, next }`，Hook 版本在本地手写仓库里只有 `{ lane, action, next }` 三个字段，更精简。少掉的 `tag`/`callback` 不是疏漏：`tag` 区分的是 `UpdateState`/`ReplaceState`/`ForceUpdate`/`CaptureUpdate` 这几种 Class 生命周期语义，Hook 场景没有 `forceUpdate` 这个概念；`callback` 对应的是 `setState(payload, callback)` 的第二个参数，Hook 的 `dispatch` 从设计上就不支持这种回调，副作用统一交给 `useEffect` 表达。`payload` 换成了 `action`，也对应着 Hook 版本处理时直接调用 `reducer(state, action)`，不需要像 Class 版 `getStateFromUpdate` 那样区分"对象浅合并"还是"函数调用"两种模式。
+
 ### 4. 为什么跳过的 Update 不能直接丢弃
 
 如果某个 Update 因为优先级不够本次渲染而被跳过（比如先来了一个低优先级更新，中途插入一个高优先级更新），**不能直接丢弃它**，必须留在 `baseQueue`/`baseUpdate` 链表里等下一次渲染补上，否则会导致更新丢失。
@@ -475,6 +477,80 @@ export function includesBlockingLane(_root: FiberRootNode, lanes: Lanes): boolea
 
 三个助手函数看似简单，但组合起来就能表达"多个优先级同时排队""判断有没有某个优先级""是不是某一组优先级的子集"这些复杂的组合逻辑——这是下一节要讲的"位运算相比数值优先级模型"的核心优势所在。
 
+### 6.5 事件优先级如何映射到 Lane
+
+上一节列出的 Lane 常量本身只是一组数字，真正决定"这次更新该用哪条 lane"的，是 `requestUpdateLane`：
+
+```typescript
+// packages/react-reconciler/src/ReactFiberWorkLoop.ts（节选）
+export function requestUpdateLane(fiber: FiberNode): Lane {
+  const mode = fiber.mode;
+  if ((mode & ConcurrentMode) === NoMode) {
+    return SyncLane; // legacy 模式（ReactDOM.render）恒同步
+  }
+
+  const isTransition = ReactCurrentBatchConfig.transition !== null;
+  if (isTransition) {
+    if (currentEventTransitionLane === NoLane) {
+      currentEventTransitionLane = claimNextTransitionLane(); // 同一事件内的多次更新复用同一条 lane
+    }
+    return currentEventTransitionLane;
+  }
+
+  const updateLane = getCurrentUpdatePriority(); // 读取事件系统设置好的优先级
+  if (updateLane !== NoLane) {
+    return updateLane;
+  }
+  return DefaultLane; // 兜底：不在任何事件上下文里触发的更新（比如定时器里的 setState）
+}
+```
+
+`getCurrentUpdatePriority` 读到的值，是原生事件派发前由事件系统写进去的。本地手写仓库的事件优先级映射在 `react-dom-bindings/src/events/ReactDOMEventListener.ts` 里：
+
+```typescript
+// packages/react-dom-bindings/src/events/ReactDOMEventListener.ts（节选）
+export function getEventPriority(domEventName: DOMEventName): EventPriority {
+  switch (domEventName) {
+    case "click":
+    case "keydown":
+    case "keyup":
+    case "input":
+    case "change":
+    case "submit":
+      return DiscreteEventPriority;      // 离散事件：对应 SyncLane
+    case "mousemove":
+    case "mouseover":
+    case "mouseout":
+      return ContinuousEventPriority;    // 连续事件：对应 InputContinuousLane
+    default:
+      return DefaultEventPriority;       // 其余事件：对应 DefaultLane
+  }
+}
+```
+
+拿到优先级之后，`createEventListenerWrapperWithPriority` 会用对应的 wrapper 包一层，在真正派发事件前把这个优先级临时写进 `currentUpdatePriority`，事件处理完再恢复：
+
+```typescript
+// packages/react-dom-bindings/src/events/ReactDOMEventListener.ts（节选）
+function dispatchDiscreteEvent(domEventName, eventSystemFlags, container, nativeEvent) {
+  const previousPriority = getCurrentUpdatePriority();
+  try {
+    setCurrentUpdatePriority(DiscreteEventPriority); // 派发前切优先级
+    dispatchEvent(domEventName, eventSystemFlags, container, nativeEvent);
+  } finally {
+    setCurrentUpdatePriority(previousPriority);       // 派发完恢复，不污染后续代码
+  }
+}
+```
+
+这就是"点击事件里的 `setState` 是同步优先级，`mousemove` 里的 `setState` 优先级稍低"这句话的完整源码依据——不是 React 凭空给某个事件"贴标签"，而是原生事件派发前先把 `currentUpdatePriority` 设成对应档位，事件处理函数里任意一次 `setState`/`dispatch` 调 `requestUpdateLane` 时，读到的都是这个已经设好的优先级。
+
+**为什么这样分层？** 离散事件（点击、按键、输入、提交）用户期望"点了立刻有反应"，所以对应最高优先级 `SyncLane`；连续事件（`mousemove`/`mouseover`）在短时间内会触发很多次，如果每次都同步渲染会造成明显卡顿，所以降一档给 `InputContinuousLane`，允许被更紧急的更新打断，但仍然高于 `DefaultLane`（不能被拖到"不知道什么时候"才处理，否则拖拽跟手感会很差）。
+
+> 💬 **面试官会问**：点击事件里的 `setState` 和 `mousemove` 里的 `setState`，优先级为什么不一样？源码层面在哪里区分？
+>
+> ✅ **标准答案**：区分点在事件派发阶段。`createEventListenerWrapperWithPriority` 会根据 `getEventPriority(domEventName)` 的结果选择不同的 wrapper——`click` 等离散事件走 `dispatchDiscreteEvent`，派发原生事件前用 `setCurrentUpdatePriority(DiscreteEventPriority)` 把当前优先级设成同步；`mousemove` 等连续事件走 `dispatchContinuousEvent`，设成 `ContinuousEventPriority`。事件处理函数里调用的 `setState`/`dispatch` 最终都会走到 `requestUpdateLane`，读到的正是这个已经被事件系统设好的 `currentUpdatePriority`，所以两者拿到的 lane 不一样。
+
 ### 7. 为什么是 31 位，不是 32 位
 
 JS 的位运算（`|`/`&`/`~`）把数字当作 **32 位有符号整数**处理，最高位（第 31 位，从 0 开始数）是符号位——一旦这一位被置 1，数字就会被 JS 引擎解释成负数：
@@ -556,6 +632,23 @@ export function getHighestPriorityLane(lanes: Lanes): Lane {
 > 💬 **面试官会问**：`lanes & -lanes` 这个位运算是在做什么？为什么能取出最高优先级的 lane？
 >
 > ✅ **标准答案**：`-lanes` 在补码表示下等于 `~lanes + 1`，`lanes & -lanes` 的结果是 `lanes` 中数值最低的那一位 1（提取"最低设置位"是一个通用的二进制技巧）。因为 React 的 Lane 常量按"数值越小优先级越高"的约定排列，数值最低的那一位对应的正是实际最紧急的优先级，所以这个位运算恰好实现了"O(1) 取出最高优先级 lane"的效果。
+>
+> 🎁 **加分答案**：这是"取最低设置位"的技巧，源码里还有一个方向相反的技巧——`pickArbitraryLaneIndex`（取最高设置位对应的下标），两者服务于不同的场景，下一节展开。
+
+### 9.5 找最高位的另一个技巧：`pickArbitraryLaneIndex`
+
+`lanes & -lanes` 解决的是"这一批 lane 里最紧急的是哪一条"，但 `root.eventTimes`/`root.expirationTimes` 这些数组是按"每条 lane 对应一个数组下标"存储的，需要一个"给定一条 lane，算出它在数组里的下标"的转换：
+
+```typescript
+// packages/react-reconciler/src/ReactFiberLane.ts
+function pickArbitraryLaneIndex(lanes: Lanes): number {
+  return 31 - Math.clz32(lanes);
+}
+```
+
+`Math.clz32` 返回一个数从最高位数起、有多少个连续的 0（"count leading zeros"，32 位）。假设 `lanes = 0b00010000`（`DefaultLane`，第 4 位是 1），`Math.clz32(lanes)` 返回 `27`（32 位里前 27 位都是 0），`31 - 27 = 4`，正好是这一位的下标。
+
+这和「二、9」的 `lanes & -lanes` 刚好是相对的两种操作：`lanes & -lanes` 取的是**最低**设置位（用于挑优先级），`pickArbitraryLaneIndex` 取的是**最高**设置位对应的下标（用于定位数组索引）。`markRootUpdated`/`markStarvedLanesAsExpired`/`markRootFinished` 这些函数在遍历 `pendingLanes` 逐条处理时，都要靠这个下标去 `eventTimes[index]`/`expirationTimes[index]` 读写对应的时间戳。
 
 ### 10. 优先级饿死与兜底机制
 
@@ -618,6 +711,34 @@ const exitStatus = shouldTimeSlice
 > 💬 **面试官会问**：如果 Lane 模型没有"过期"兜底机制，会出现什么现象？React 是怎么解决优先级饿死问题的？
 >
 > ✅ **标准答案**：没有兜底机制的话，如果高优先级更新持续不断地插队，低优先级的 Update 理论上可能永远得不到处理机会，对应的 UI 更新会一直被推迟，用户会感觉"这部分内容怎么点了很久都没反应"。React 用 `markStarvedLanesAsExpired` 给每条排队中的 lane 计算一个过期时间，一旦超时就强制标记为 `expiredLanes`，下一次调度时这条 lane 会被强制走同步渲染路径，不再参与"可能被打断"的时间切片，保证它一定会被处理完。
+
+一次渲染 commit 完成后，还有一步收尾容易被忽略——`markRootFinished`：
+
+```typescript
+// packages/react-reconciler/src/ReactFiberLane.ts（节选）
+export function markRootFinished(root: FiberRootNode, remainingLanes: Lanes): void {
+  const noLongerPendingLanes = root.pendingLanes & ~remainingLanes;
+  root.pendingLanes = remainingLanes;      // 只保留还没处理完（被跳过）的 lane
+  root.suspendedLanes = NoLanes;
+  root.pingedLanes = NoLanes;
+  root.expiredLanes &= remainingLanes;     // 已完成的 lane 不再算过期
+  root.entangledLanes &= remainingLanes;
+
+  let lanes = noLongerPendingLanes;
+  while (lanes > 0) {
+    const index = pickArbitraryLaneIndex(lanes);
+    const lane = 1 << index;
+    root.entanglements[index] = NoLanes;
+    root.eventTimes[index] = NoTimestamp;       // 清空事件时间戳
+    root.expirationTimes[index] = NoTimestamp;  // 清空过期时间戳
+    lanes &= ~lane;
+  }
+}
+```
+
+对每条"这次已经处理完、不再 pending"的 lane，把它在 `eventTimes`/`expirationTimes` 数组里对应下标的记录清空。这一步是必要的：如果不清理，下次同一条 lane（比如又来了一次新的 `SyncLane` 更新）复用这个下标时，会读到上一轮残留的旧时间戳，导致饥饿检测的过期判断算错。
+
+顺带一提，`getNextLanes` 里还有一段处理 `entangledLanes`（纠缠 lane）的分支——某些 lane 之间被声明为"必须同批渲染"，选中其中一条时要把纠缠的其它 lane 一并展开。当前手写仓库尚未实现 Suspense，`entangledLanes` 恒为 `NoLanes`，这个分支不生效，属于和 `suspendedLanes`/`pingedLanes` 一样的预留字段。
 
 ### 11. 对比 Vue 3：微任务合并 vs 优先级排队
 
@@ -794,14 +915,31 @@ function ensureRootIsScheduled(root, currentTime) {
   if (root.callbackPriority === newCallbackPriority) {
     return // 👈 优先级没变，复用现有调度任务——这正是批处理去重的关键一步
   }
-  // ... 取消旧任务、按优先级调度新任务
+
+  if (existingCallbackNode != null) cancelCallback(existingCallbackNode) // 取消旧任务
+
+  if (newCallbackPriority === SyncLane) {
+    // SyncLane 不走 Scheduler，直接塞进内部同步队列，靠微任务统一 flush
+    scheduleSyncCallback(performSyncWorkOnRoot.bind(null, root))
+    scheduleMicrotask(flushSyncCallbacks)
+  } else {
+    // 其余 lane 映射到 Scheduler 的四档优先级，交给 Scheduler 自行安排时间切片
+    const schedulerPriorityLevel = lanesToSchedulerPriority(nextLanes)
+    root.callbackNode = scheduleCallback(schedulerPriorityLevel, performConcurrentWorkOnRoot.bind(null, root))
+  }
+  root.callbackPriority = newCallbackPriority
 }
 ```
 
 **关键点**
 
 1. `ensureRootIsScheduled` 如何根据当前上下文（是否已经有同优先级任务在排队）决定是否需要真正调度一次新任务，是「二、5」节"批处理的本质"结论的源码依据
-2. 这一节和本地手写仓库的 `ReactFiberWorkLoop.ts` 里的 `scheduleUpdateOnFiber`/`ensureRootIsScheduled` 也是逐段对齐的实现（见「四」节）
+2. `newCallbackPriority === SyncLane` 这个分支是为什么 `SyncLane` 的更新"看起来"总是最快完成的关键——它压根没有交给 Scheduler 参与时间切片竞争，而是走独立的同步队列 + 微任务 `flushSyncCallbacks`，本次事件循环内就会被清空。其余 lane 才通过 `lanesToEventPriority` 映射到 Scheduler 的 `ImmediatePriority`/`UserBlockingPriority`/`NormalPriority`/`IdlePriority` 四档，交给 Scheduler 自己决定什么时候执行、要不要被打断
+3. 这一节和本地手写仓库的 `ReactFiberWorkLoop.ts` 里的 `scheduleUpdateOnFiber`/`ensureRootIsScheduled` 也是逐段对齐的实现（见「四」节）
+
+> 💬 **面试官会问**：`SyncLane` 的更新最终是怎么被执行的？和其他 lane 走的是不是同一条调度路径？
+>
+> ✅ **标准答案**：不是同一条路径。`ensureRootIsScheduled` 里，`newCallbackPriority === SyncLane` 会走一条独立分支——调用 `scheduleSyncCallback` 把渲染任务塞进模块级的同步队列 `syncQueue`，再用 `scheduleMicrotask(flushSyncCallbacks)` 排一个微任务去清空这个队列，完全不经过 Scheduler。其余 lane（`InputContinuousLane`/`DefaultLane`/`TransitionLane` 等）才会通过 `lanesToEventPriority` 换算成 Scheduler 的优先级档位，交给 `scheduleCallback` 走 Scheduler 自己的时间切片调度。这也是"同步更新不会被时间切片打断"在调度层面的直接体现——它压根没进入会被打断的那套机制。
 
 ---
 
@@ -814,6 +952,8 @@ function ensureRootIsScheduled(root, currentTime) {
 > Phase 2（简版）已完成更新队列（`Update`/`UpdateQueue`/`SharedQueue` 数据结构、`createUpdate`/`enqueueUpdate`/`processUpdateQueue`/`cloneUpdateQueue`/`initializeUpdateQueue`）；Phase 4 完成完整 Lane 模型（30 条 lane 位表逐位对齐官方）与 reconciler 接入 Scheduler 的调度链路。
 
 **⚠️ 一处需要更新的信息**：仓库在本篇写作期间又向前推进了一步——Phase 5（Hooks 主链路，`useState`/`useReducer`）已经落地，同时把并发更新的入队方式从"立即冒泡"整体切换成了"延迟入队"模型（新增 `ReactFiberConcurrentUpdates.ts`）。这意味着「三、3」节提到的 `enqueueConcurrentHookUpdate` 延迟入队层，现在不再是"官方有、本项目没有"的差距项，而是仓库里已经跑通的真实代码；`ReactFiberClassUpdateQueue.ts` 的 `enqueueUpdate` 也同步做了改造，不再自己内联冒泡 lane，而是委托给这套新模块。本节按这份最新代码讲解；Hook 更新队列的逐行源码解读（`mountState`/`updateReducer`/Dispatcher 切换）仍然留到第 06 篇 Hooks 篇专门展开，这里只讲它如何影响 Class/HostRoot 这条链路。
+
+**⚠️ 另一处需要更新的信息**：前面「二、6」「三」两节里"事件系统 Phase 6 才落地，`requestUpdateLane` 兜底恒为 `DefaultLane`"这个说法也已经过时。仓库的事件优先级系统（`react-dom-bindings/src/events/ReactDOMEventListener.ts`）目前已经跑通——`getEventPriority` 按原生事件名分流出 `DiscreteEventPriority`/`ContinuousEventPriority`/`DefaultEventPriority` 三档，`dispatchDiscreteEvent`/`dispatchContinuousEvent` 会在派发原生事件前用 `setCurrentUpdatePriority` 把这个优先级临时写进 `currentUpdatePriority`，事件处理完再恢复。所以 `requestUpdateLane` 里 `getCurrentUpdatePriority()` 这一步现在有真实数据源，不再是"暂时兜底成 DefaultLane"——点击、输入等离散事件里触发的更新，实际拿到的就是 `SyncLane`，完整链路见「二、6.5」节。
 
 ### 1. UpdateQueue 数据结构：ReactFiberClassUpdateQueue.ts
 
@@ -1134,6 +1274,8 @@ pnpm dev   # 沿用第01篇的 vite 调试环境，http://localhost:5173
 - **为什么 Lane 最多只能有 31 条而不是 32 条？这个限制的根源是什么？**
 - **`lanes & -lanes` 这个位运算是在做什么？为什么能取出最高优先级的 lane？**
 - **如果 Lane 模型没有"过期"兜底机制，会出现什么现象？React 是怎么解决优先级饿死问题的？**
+- **点击事件和 `mousemove` 事件触发的更新，优先级为什么不一样？源码层面在哪里区分？**
+- **`SyncLane` 的更新走的是 Scheduler 调度吗？和其他 lane 是不是同一条调度路径？**
 
 ---
 
@@ -1150,6 +1292,8 @@ pnpm dev   # 沿用第01篇的 vite 调试环境，http://localhost:5173
 | 31 位而非 32 位 | JS 位运算按 32 位有符号整数处理，最高位是符号位，只能安全用低 31 位 | ⭐⭐⭐⭐ |
 | 位运算 vs 数值优先级 | `\|` 表达并集（多优先级共存），`&` 表达交集/子集判断，单一数值做不到 | ⭐⭐⭐⭐⭐ |
 | `lanes & -lanes` | 提取最低设置位，对应"数值越小优先级越高"约定下的最高优先级 | ⭐⭐⭐⭐⭐ |
+| 事件优先级→Lane 映射 | `getEventPriority` 按事件名分流，派发前 `setCurrentUpdatePriority` 写入，`requestUpdateLane` 读取 | ⭐⭐⭐⭐ |
+| Lane→Scheduler 调度 | `SyncLane` 走独立同步队列+微任务，其余 lane 映射到 Scheduler 四档优先级 | ⭐⭐⭐⭐ |
 | 优先级饿死兜底 | `markStarvedLanesAsExpired` 给每条 lane 算过期时间，过期强制同步处理 | ⭐⭐⭐⭐ |
 | Vue3 对比 | `nextTick` 微任务合并无优先级区分，React 额外叠加 Lane 排队层 | ⭐⭐⭐ |
 
