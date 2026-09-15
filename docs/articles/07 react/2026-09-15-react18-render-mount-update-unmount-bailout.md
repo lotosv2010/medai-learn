@@ -356,12 +356,29 @@ function commitDeletionEffectsOnFiber(finishedRoot, nearestMountedAncestor, dele
       }
       return
     }
-    // FunctionComponent 等无自身 DOM 的节点：effect 卸载清理挂在这一层（Phase 5 补齐）
+    case FunctionComponent:
+    case ForwardRef:
+    case MemoComponent: {
+      // 整棵组件被卸载：不管 deps 上次是否变化，layout/passive effect 的 destroy 都要执行一次
+      commitHookEffectListUnmount(HookLayout, deletedFiber) // 👈 useLayoutEffect 清理函数
+      commitHookEffectListUnmount(HookPassive, deletedFiber) // 👈 useEffect 清理函数
+      recursivelyTraverseDeletionEffects(finishedRoot, nearestMountedAncestor, deletedFiber)
+      return
+    }
+    case ClassComponent: {
+      // componentWillUnmount：与 FunctionComponent 分支清理 hook effect 的位置对应
+      const instance = deletedFiber.stateNode
+      if (typeof instance.componentWillUnmount === 'function') {
+        instance.componentWillUnmount()
+      }
+      recursivelyTraverseDeletionEffects(finishedRoot, nearestMountedAncestor, deletedFiber)
+      return
+    }
   }
 }
 ```
 
-这段代码本身就是"自底向上"的字面体现——`recursivelyTraverseDeletionEffects` 递归深入子树完成清理后才轮到当前节点执行 `removeChild`，调用栈的"归"顺序天然保证了顺序正确性。
+这段代码本身就是"自底向上"的字面体现——`recursivelyTraverseDeletionEffects` 递归深入子树完成清理后才轮到当前节点执行 `removeChild`，调用栈的"归"顺序天然保证了顺序正确性。`FunctionComponent`/`ForwardRef`/`MemoComponent` 分支里的 `commitHookEffectListUnmount` 正是「一、4」「一、5」节两个例子背后的真实代码——`StrictMode` 模拟 unmount 时先跑的那次 cleanup、Tab 切换时 `VitalsPanel` 里 `useEffect` 清理函数的调用，都是从这里触发的。
 
 ### 6. 工作循环驱动：workLoopConcurrent/workLoopSync
 
@@ -397,7 +414,7 @@ function performUnitOfWork(unitOfWork) {
 
 ## 四、手写实现（解读已完成代码）
 
-本节基于本地真实项目 `D:\github\react-source`（GitHub：https://github.com/lotosv2010/react-source）编写。需要如实说明一件事：**本篇要讲的 `beginWork`/`completeWork`/commit 阶段的 mutation 逻辑，并不是本篇新写的代码**——按仓库 `docs/roadmap.md` 的记录，这些都在项目的 Phase 2（Fiber 数据结构 + 真实 DOM 渲染）、Phase 3（Diff 算法）就已经和官方 React 18 源码逐段对齐完成了，目前仓库正在推进的是 Phase 5（Hooks 主链路）。本节要做的是把这几段已经跑通的真实代码逐行解读清楚，讲透 mount/update/unmount 和 bailout 具体是怎么落地的，而不是演示"新写了什么"。
+本节基于本地真实项目 `D:\github\react-source`（GitHub：https://github.com/lotosv2010/react-source）编写。需要如实说明一件事：**本篇要讲的 `beginWork`/`completeWork`/commit 阶段的 mutation 逻辑，并不是本篇新写的代码**——按仓库 `docs/roadmap.md` 的记录，这些都在项目的 Phase 2（Fiber 数据结构 + 真实 DOM 渲染）、Phase 3（Diff 算法）就已经和官方 React 18 源码逐段对齐完成了。截至本篇写作时，仓库进度已经推进到 Phase 9（Hooks/事件系统/Context/Class 组件生命周期/Suspense/forwardRef·memo/错误边界全部落地），unmount 阶段的 effect 清理、Class 组件 `componentWillUnmount` 都已经是真实实现，本节会一并讲清楚。本节要做的是把这几段已经跑通的真实代码逐行解读清楚，讲透 mount/update/unmount 和 bailout 具体是怎么落地的，而不是演示"新写了什么"。
 
 ### 1. beginWork 的 bailout 判断：ReactFiberBeginWork.ts
 
@@ -463,7 +480,7 @@ function beginWork(
 }
 ```
 
-和官方版本比，唯一的简化是分发的 tag 种类少（`ClassComponent`/`SuspenseComponent` 等留到后续 Phase），但 bailout 判断这一段——`oldProps !== newProps` 检查、`checkScheduledUpdateOrContext` 检查、`attemptEarlyBailoutIfNoScheduledUpdate` 调用——逐行对照官方 `v18.2.0` 的 `ReactFiberBeginWork.js`（4226~4320 行区间）完全一致。
+仓库这份实现现在的 tag 分发已经不止 mount/update/unmount 主链路涉及的几种——`ClassComponent`/`ForwardRef`/`MemoComponent`/`ContextProvider`/`ContextConsumer`/`SuspenseComponent`/`OffscreenComponent` 都已经补齐（对应 Phase 7~9），本篇聚焦的仍是 `FunctionComponent`/`HostComponent`/`HostText` 这条最核心的主链路。bailout 判断这一段——`oldProps !== newProps` 检查、`checkScheduledUpdateOrContext` 检查、`attemptEarlyBailoutIfNoScheduledUpdate` 调用——逐行对照官方 `v18.2.0` 的 `ReactFiberBeginWork.js`（4226~4320 行区间）完全一致；唯一需要补充的一点是，`attemptEarlyBailoutIfNoScheduledUpdate` 里现在多了 `ContextProvider` 分支：即使这个 Fiber 本身命中 bailout，也必须先 `pushProvider` 把新 value 压栈，否则子树读到的 `context._currentValue` 会是旧值。
 
 `checkScheduledUpdateOrContext` 和 `attemptEarlyBailoutIfNoScheduledUpdate` 的实现也已经真实落地：
 
@@ -482,8 +499,14 @@ function attemptEarlyBailoutIfNoScheduledUpdate(
   workInProgress: FiberNode,
   renderLanes: Lanes,
 ): FiberNode | null {
-  // 官方这里会按 tag 把 host context / provider 等压栈，Phase 2/3 的 host config
-  // 没有 context 栈，压栈操作先省略，留给 react-dom 落地 host context 时补
+  // 官方这里还会按 tag 压栈 host context 等，Phase 2/3 的 host config 没有对应的栈
+  // （getHostContext 恒返回空对象），先省略；ContextProvider 的栈必须压——即使这个
+  // fiber 本身 bailout，子树读到的 context._currentValue 也得是新值（Phase 7 补齐）
+  if (workInProgress.tag === ContextProvider) {
+    const newValue = workInProgress.memoizedProps.value;
+    const context: ReactContext<any> = workInProgress.type._context;
+    pushProvider(workInProgress, context, newValue);
+  }
   return bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes);
 }
 ```
@@ -605,7 +628,7 @@ function diffProperties(
     const lastValue = lastProps[propKey];
     const nextValue = nextProps[propKey];
     if (lastValue === nextValue) continue;
-    if (typeof nextValue === "function") continue; // 事件处理器变化忽略（事件系统未落地）
+    if (typeof nextValue === "function") continue; // 事件处理器不走属性 diff，见下方说明
     updatePayload.push(propKey, nextValue);
   }
 
@@ -613,7 +636,7 @@ function diffProperties(
 }
 ```
 
-这套属性处理目前的边界很明确：`className`/`style`/普通字符串属性走的是真实实现，`on*` 事件处理器目前被直接忽略——事件系统排在 Phase 6，还没接入。
+这套属性处理的边界很明确：`className`/`style`/普通字符串属性走的是真实实现，`on*` 事件处理器**恒不进入这份 `updatePayload`**——但这不是"事件系统还没做"，仓库的事件系统（Phase 6）已经完整落地，只是走的是完全不同的路径：`createInstance`/`commitUpdate` 会把整份 props 存进 `updateFiberProps`（`ReactDOMComponentTree.ts`），事件委托系统在根容器上监听原生事件，触发时通过 `getClosestInstanceFromNode` 反查 Fiber、`getListener` 现取 `onClick` 等监听器再分发——所以 `diffProperties`/`setProp` 跳过函数类型的属性，是"事件处理器不归 DOM 属性 diff 管"，不是能力缺失。
 
 ### 3. commit 阶段的 mutation 三件套：ReactFiberCommitWork.ts
 
@@ -673,13 +696,30 @@ function commitDeletionEffectsOnFiber(
       }
       return;
     }
+    case FunctionComponent:
+    case ForwardRef:
+    case MemoComponent: {
+      // 整棵组件被卸载：layout/passive effect 的 destroy 都要执行一次，不看上次 deps 是否变化
+      commitHookEffectListUnmount(HookLayout, deletedFiber);
+      commitHookEffectListUnmount(HookPassive, deletedFiber);
+      recursivelyTraverseDeletionEffects(finishedRoot, nearestMountedAncestor, deletedFiber);
+      return;
+    }
+    case ClassComponent: {
+      const instance = deletedFiber.stateNode;
+      if (typeof instance.componentWillUnmount === "function") {
+        instance.componentWillUnmount();
+      }
+      recursivelyTraverseDeletionEffects(finishedRoot, nearestMountedAncestor, deletedFiber);
+      return;
+    }
     default:
       recursivelyTraverseDeletionEffects(finishedRoot, nearestMountedAncestor, deletedFiber);
   }
 }
 ```
 
-**当前边界**：这里的"清理"目前只包含 DOM 移除，还没有 `useEffect`/`useLayoutEffect` 清理函数的调用——按 `docs/roadmap.md`，effect 的卸载清理要等 Phase 5 Hooks 主链路（`useEffect`/`useLayoutEffect` 落地）时一起补上，这是「一、4」「一、5」节讲的"卸载时调用清理函数"这一层，目前在仓库里还是待实现项，不影响本篇讲的"DOM 层面 mount/update/unmount 三条路径"这个主线是完整可跑的。
+`commitHookEffectListUnmount` 的实现很直接：遍历这个 Fiber `updateQueue` 上挂的 effect 循环链表，按 `flags`（`HookLayout`/`HookPassive`）过滤出匹配的 effect，逐个调用它的 `destroy()`——这正是「一、4」「一、5」节讲的"卸载时调用清理函数"在源码层面的落地：`useLayoutEffect` 的清理函数（如果有）会在这里同步执行，`useEffect` 的清理函数也在这里被找到并调用。
 
 ### 4. commitRoot 的 mutation 子阶段与双缓存树切换：ReactFiberWorkLoop.ts
 
@@ -740,7 +780,7 @@ pnpm dev   # http://localhost:5173，选择 reconciler fixture
 
 > 💬 **面试官**：这份手写实现里 mount/update/unmount 和 bailout 这部分和真实 React 18 源码的差距在哪？
 >
-> ✅ **标准答案**：`beginWork` 的 tag 分发、bailout 三段判断（props 引用/context/排队更新）、`completeWork` 的真实 DOM 创建与属性 diff、commit mutation 阶段的 Placement/Update/Deletion 处理，都已经和官方源码逐段对齐，是可以直接断点调试验证的真实实现。当前明确的边界是：unmount 阶段目前只做了 DOM 移除，`useEffect`/`useLayoutEffect` 清理函数的调用还没接入（留给 Phase 5 Hooks 落地时一起补），事件系统（`on*`）也还没实现。这两个边界不影响本篇讲的 Fiber 树层面 mount/update/unmount 主链路的正确性。
+> ✅ **标准答案**：`beginWork` 的 tag 分发、bailout 三段判断（props 引用/context/排队更新）、`completeWork` 的真实 DOM 创建与属性 diff、commit mutation 阶段的 Placement/Update/Deletion 处理，以及 unmount 时 `useEffect`/`useLayoutEffect`/`componentWillUnmount` 的清理调用，都已经和官方源码逐段对齐，是可以直接断点调试验证的真实实现。当前明确的边界主要在事件系统的精简范围（`DOMEventNames.ts` 只覆盖鼠标/键盘/表单/焦点这个常见子集，drag/touch/animation/wheel 等事件待补）和 hydrate/legacy render（Phase 10 明确不做）。这些边界不影响本篇讲的 Fiber 树层面 mount/update/unmount 主链路的正确性。
 >
 > 🎁 **加分答案**：值得注意这个仓库补齐 mount/update/unmount 主链路的顺序——不是先补 Hooks 再补渲染主链路，而是先在 Phase 2/3 把"没有状态、只有 props 驱动"的渲染主链路和 Diff 算法打磨到和官方逐位对齐，再在 Phase 5 引入 Hooks。这个顺序本身符合 React 架构的天然分层：Fiber 树的构建/复用/提交机制与"状态从哪来"是解耦的，先固化好前者，后续接入任何形式的状态管理（Hooks 也好、Class 也好）都只是在已经跑通的渲染主链路上"多了一种触发更新的来源"，不需要推翻重来。
 
@@ -755,9 +795,10 @@ pnpm dev   # http://localhost:5173，选择 reconciler fixture
 
 ## 六、参考资料
 
-- https://react.iamkasong.com
+- https://zh-hans.react.dev/
 - https://jonny-wei.github.io/blog/react/
-- https://pomb.us/build-your-own-react/
+- https://react.iamkasong.com
+- https://github.com/wbccb/Frontend-Articles
 
 ---
 
