@@ -742,7 +742,6 @@ function pushEffect(
 ## 五、手写实现源码地址
 
 - GitHub：https://github.com/lotosv2010/react-source
-- 本地路径：`D:\github\react-source`
 
 ---
 
