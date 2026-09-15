@@ -5,58 +5,43 @@
 {{
 ## 知识点范围
 
-### 第 06 篇：React 18 Hooks 深度: 设计哲学、dispatcher 切换与 Hook 链表源码（面试收藏级）
+### 第 07 篇：React 18 并发渲染: Scheduler 时间切片、Lane 模型与 Suspense 原理（面试收藏级）
 
-**副标题**：Hooks 设计哲学、dispatcher 机制、Hook 链表、useSyncExternalStore 防撕裂原理
-
-> 说明：本篇合并原大纲中拆开的「Hooks 基本使用」与「Hooks 源码解析」两篇——同一个 Hook 的"怎么用"和"为什么这样设计"放在一起讲，避免中间被架构/渲染篇打断主线。
+**副标题**：MessageChannel 时间切片、事件优先级到 Lane 映射、startTransition 与 Suspense 协作
 
 #### 一、使用与实践
-- `useState`：基本用法与函数式更新，区分"直接传值"与"传函数"两种更新方式的适用场景；惰性初始化 `useState(() => computeExpensiveInitialState())` 只在首次渲染执行一次
-- `useEffect`：依赖数组的三种写法与清理函数时机
-- `useLayoutEffect`：处方单弹窗先测量 DOM 再定位，避免闪烁
-- `useInsertionEffect`（新增补齐）：三种 effect 中最早执行、最少被业务直接使用的一种，专门给 CSS-in-JS 库在 DOM 变更前插入样式用，这里先建立基本认知，执行时机细节见第 05 篇
-- `useMemo` / `useCallback`：配合 `memo` 化组件固定引用，减少子组件重复渲染（对照第 03 篇的 bailout 机制）
-- `useRef`：DOM 引用与不触发渲染的可变值两种典型用途
-- `useContext`：跨层级传递当前登录医生信息（原理留给第 09 篇 Context 专篇）
-- `useReducer`：管理复杂的问诊表单状态；`dispatch` 引用永远保持稳定
-- `useSyncExternalStore`（新增补齐，重点）：`const state = useSyncExternalStore(store.subscribe, store.getSnapshot)`，用于订阅"React 外部"的数据源（如医生排班这类模块级单例 store、浏览器 API），是 React 18 官方提供的"安全订阅外部状态"标准方式
-- 自定义 Hook 设计规范：`usePatientRecord`、`usePrescriptionForm` 的参数与返回值类型设计
-- `forwardRef` + `useImperativeHandle`：父组件命令式调用子组件方法的标准写法
-- `createPortal`：脱离父组件 CSS 层级限制渲染到 `document.body`，但事件冒泡仍沿 React 组件树传播
-- `useId`：生成跨服务端/客户端渲染一致的唯一 ID
-- **Fragment 内置组件**（新增）：`<></>`（短语法）与 `<React.Fragment key={...}>` 的区别——Fragment 允许返回多个子节点而不额外包裹 DOM 元素；短语法 `<>` 不支持 `key` 属性，列表渲染需要 key 时必须用显式 `<React.Fragment key={...}>`；在 Fiber 树中 `fiber.tag === Fragment`，Diff 时直接处理其子节点数组、不产生额外宿主节点；对比 Vue 3 的 `<template>` 在编译后同样被优化掉、不产生额外 VNode
-- Error Boundary：类组件通过 `static getDerivedStateFromError` + `componentDidCatch` 捕获子树渲染期间的异常
+- `useTransition`：将非紧急更新标记为可中断的过渡态
+- `startTransition`：不需要 pending 状态时的轻量版 API
+- `useDeferredValue`：让某个值"延迟跟随"最新值更新
+- `Suspense` 配合 `lazy()`：组件级代码分割 + 加载态兜底
+- `Suspense` 配合数据请求：结合支持 Suspense 的数据源实现"读取即挂起"模式
+- 并发模式下 `ReactDOM.createRoot` 是开启一切并发特性的前提
 
 #### 二、设计与原理
-- Hooks 本质是"用函数组件 + 闭包"复用状态逻辑，替代 Class 组件生命周期方法里拼接不相关逻辑的问题
-- 调用顺序依赖模型：Hook 的状态是按"调用顺序"对应存储位置的，条件语句或循环会导致某次渲染多调用或少调用某个 Hook，从而让状态和 Hook 调用错位
-- 自定义 Hook 不是新语法，只是"调用其他 Hook 的普通函数"，多个组件使用同一个自定义 Hook 时各自拥有独立的闭包和状态实例
-- 对比 Vue 3 Composable：Vue 的响应式依赖收集不依赖调用顺序，因此 Composable 可以写在 `if/for` 里；React Hooks 用调用顺序对应状态存储，换来的是不需要建立响应式依赖收集系统、实现更简单，代价是牺牲了控制流书写上的自由度
-- `useEffect` 与 `useLayoutEffect` 时机差异的设计意图：见第 05 篇 commit 阶段详解，这里回顾结论——`useEffect` 异步调度不阻塞绘制，`useLayoutEffect` 同步执行用于必须同步读取/修改布局的场景
-- `useImperativeHandle` 的本质：配合 `forwardRef` 自定义父组件通过 ref 能拿到哪些方法，"最小暴露面"的封装思路
-- `createPortal` 事件冒泡仍按 React 树而非 DOM 树传播的原因：合成事件系统基于 Fiber 树结构做事件收集（详见第 08 篇），Portal 只改变了真实 DOM 挂载位置，没有改变对应 Fiber 节点在 Fiber 树里的 `return` 指针关系
-- `useId` 解决的具体问题：SSR 场景下按"树中位置"编码生成确定性字符串，服务端和客户端遍历顺序一致则 ID 严格一致
-- Error Boundary 的捕获边界：只能捕获渲染阶段、生命周期方法、构造函数中抛出的异常，无法捕获事件处理函数、异步代码中的异常
-- **dispatcher 机制**：`ReactCurrentDispatcher.current` 在渲染函数组件前，由 `renderWithHooks` 根据 mount/update 阶段切换指向 `HooksDispatcherOnMount` 或 `HooksDispatcherOnUpdate` 两套完全不同的函数实现
-- **Hook 链表**：`fiber.memoizedState` 指向该 Fiber 上第一个 Hook 对象，多次 Hook 调用在同一个 Fiber 上串成一条单向链表——这正是"Hooks 调用顺序必须保持一致"规则的底层原因
-- `useState`/`useReducer` 实现：mount 阶段创建 Hook 节点和 `queue`；`dispatch` 触发的更新追加进 `queue.pending` 环形链表（与第 02 篇 Class 组件的 UpdateQueue 结构做对照回顾），真正的状态计算发生在下一次渲染的 `updateReducer` 中
-- `useEffect`/`useLayoutEffect` 实现：都会创建一个 Effect 对象追加进 `fiber.updateQueue` 上的 effect 环形链表，区别只在于打的标记不同（`HookLayout`/`HookPassive`/`HookInsertion`），执行时机详见第 05 篇
-- **`useSyncExternalStore` 与并发渲染下的 tearing 问题**（新增，重点）：并发模式下一次渲染可能被高优先级更新打断、中途还会读取多次同一个外部 store 的值——如果只是简单地 `useState` + `useEffect` 手写订阅，在渲染尚未完成、被打断又恢复的过程中，外部 store 的值可能已经在渲染中途发生了变化，导致同一次渲染里不同组件读到了这个外部 store 前后不一致的两个值（这就是"tearing / 撕裂"）；`useSyncExternalStore(subscribe, getSnapshot)` 的实现在每次渲染前后都会用 `getSnapshot()` 比较结果是否变化（`checkIfSnapshotChanged`），如果在渲染过程中发现值已经变了，会强制走一次同步重渲染保证读到的是最新且一致的值，从而保证"同一次渲染里所有读到这个 store 的地方，值一定是一致的"
-- `useSyncExternalStore` 是 Redux/Zustand 等外部状态库能在并发模式下安全工作的地基（与第 11 篇状态管理篇联动）
+- 时间切片的本质：把渲染工作拆成不超过 5ms 的"工作单元"，每跑完一个时间片就把控制权交还浏览器
+- **协作式调度 vs 抢占式调度**（新增，重点）：React Scheduler 本质是**协作式调度（cooperative scheduling）**，不是真正的**抢占式调度（preemptive scheduling）**——JS 是单线程的，运行时没有能力像操作系统调度线程那样在任意一条指令处强行打断正在执行的函数；React 所谓的"可中断渲染"，实际上是把 Fiber 树的遍历拆成一个个"工作单元"（每个工作单元对应一个 Fiber 节点的 `beginWork`/`completeWork`），每处理完一个工作单元后，`workLoopConcurrent` 主动调用一次 `shouldYieldToHost()` 检查时间片是否用完——这是任务"自己选择在约定好的检查点让步"，属于协作式；真正的抢占式调度（如操作系统线程调度、Go 的 goroutine 早期版本）是由调度器/运行时在任意时刻强行剥夺执行权，不需要任务配合
+  - 这个区别解释了一个常见误解："并发渲染能让任意耗时的渲染都不卡顿"——不对：如果单个组件的渲染函数本身写了一个耗时很长的同步循环（比如函数组件体内直接跑一个大计算），React 只能在**工作单元之间**的检查点让步，无法打断**正在执行中的某一个工作单元**本身，这个组件仍然会阻塞主线程直到这次渲染函数跑完
+  - 对比 Vue 3：Vue 3 的响应式更新调度同样运行在 JS 单线程环境里，`nextTick` 走的是微任务队列合并再统一执行，本身没有时间切片和"渲染中途让步"的概念，也就不存在协作式/抢占式调度的取舍问题——这一层调度能力是 React Fiber 架构特有的
+- 为什么用 `MessageChannel` 而不是 `setTimeout(fn, 0)`：`setTimeout` 有浏览器最小延迟 clamp 限制且不稳定，`MessageChannel` 的宏任务延迟更稳定可控；不支持时降级为 `setTimeout`
+- Scheduler 的任务队列：内部维护两个小顶堆（`taskQueue`、`timerQueue`），按 `expirationTime` 排序
+- Lane 模型的位运算细节承接第 02 篇，这里聚焦"触发场景怎么映射到具体 Lane"
+- **事件类型与 Lane 的绑定关系**（新增，重点）：不同触发来源的更新会被赋予不同的默认优先级——`requestUpdateLane` 在事件处理函数中被调用时，会根据当前事件的类型查表得到对应优先级：离散事件（`click`、`keydown`、`input` 等，用户主动触发且期待立即反馈）走 `DiscreteEventPriority` 对应 `SyncLane`；连续事件（`drag`、`scroll`、`mousemove` 等，触发频率高但不需要每次都同步处理）走 `ContinuousEventPriority` 对应 `InputContinuousLane`；没有明确事件上下文的更新（如 `setTimeout` 里的 `setState`）走 `DefaultEventPriority` 对应 `DefaultLane`；`startTransition` 内部的更新被强制标记为 `TransitionLane`，即使触发源是一次点击（离散事件），也会被降级处理——这解释了"同一次点击里，直接写的 `setState` 和被 `startTransition` 包裹的 `setState` 为什么会分别走不同优先级"这个常被问到的细节
+- Lane 位运算的核心场景：`mergeLanes`、`getNextLanes`、`includesBlockingLane`（详见第 02 篇）
+- `startTransition` 的调度降级：把内部的 update 打上 `TransitionLane`，这类 lane 的优先级远低于 `SyncLane`/`InputContinuousLane`，可以被后续的高优先级更新打断并重新调度
+- `Suspense` 与并发渲染的协作：渲染中某个组件抛出一个 Promise，Fiber 被标记为挂起，`Suspense` 边界捕获后展示 `fallback`，Promise resolve 后触发 `pingLanes` 重新调度对应 lane 的渲染
+- 优先级饿死与兜底机制的调度器视角（承接第 02 篇 `markStarvedLanesAsExpired`）：Scheduler 层面对应的是任务的 `expirationTime` 排序，两层机制（Lane 的过期兜底 + Scheduler 任务堆排序）共同保证低优先级任务不会无限期得不到执行
 
 #### 三、源码解析（重点代码，来源 GitHub 仓库）
-1. Hooks 对外 API：`packages/react/src/ReactHooks.js` — 转发给当前生效的 dispatcher
-2. Dispatcher 全局引用：`packages/react/src/ReactCurrentDispatcher.js`
-3. Dispatcher 具体实现：`packages/react-reconciler/src/ReactFiberHooks.js` — `HooksDispatcherOnMount`/`HooksDispatcherOnUpdate`，`mountState`/`updateState`、`mountEffect`/`updateEffect`
-4. 更新触发与调度：`packages/react-reconciler/src/ReactFiberHooks.js` — `dispatchSetState`/`dispatchReducerAction`
-5. `useId` 的树位置编码：`packages/react-reconciler/src/ReactFiberHooks.js` — `mountId`/`updateId`
-6. 错误边界：`packages/react-reconciler/src/ReactFiberThrow.js` — `throwException` 中向上查找最近的错误边界 Fiber
-7. `useSyncExternalStore` 实现：`packages/react-reconciler/src/ReactFiberHooks.js` — `mountSyncExternalStore`/`updateSyncExternalStore`，`checkIfSnapshotChanged` 的比较逻辑
-8. effect 链表执行：`packages/react-reconciler/src/ReactFiberCommitWork.js` — `commitHookEffectListMount`/`commitHookEffectListUnmount`
+1. 时间片主循环：`packages/scheduler/src/forks/Scheduler.js` — `workLoop` 中 `shouldYieldToHost()`
+2. MessageChannel 调度：`packages/scheduler/src/forks/SchedulerHostConfig.default.js` — `schedulePerformWorkUntilDeadline`
+3. 事件优先级映射：`packages/react-dom/src/events/ReactDOMEventListener.js` — `getEventPriority` 根据 DOM 事件类型返回对应的 `EventPriority`
+4. 优先级到 Lane 的转换：`packages/react-reconciler/src/ReactFiberWorkLoop.js` — `requestUpdateLane` 中 `getCurrentEventPriority` 与 lane 的对应关系
+5. Lane 常量与优先级计算：`packages/react-reconciler/src/ReactFiberLane.js`（与第 02 篇联动）
+6. `startTransition` 实现：`packages/react-reconciler/src/ReactFiberHooks.js` — 通过 `requestUpdateLane` 获取 `TransitionLane`
+7. Suspense 挂起处理：`packages/react-reconciler/src/ReactFiberThrow.js` — `throwException` 捕获 thenable，`attachPingListener` 注册 resolve 后的重渲染回调
 
-#### 四、手写实现（延续 `lotosv2010/react-source` monorepo，本篇给 `react-reconciler` 补上完整的 Hooks 体系）
-在 `packages/react-reconciler` 的 `ReactFiberHooks.ts` 里正式实现 `renderWithHooks`（渲染函数组件前切换 `ReactCurrentDispatcher.current`）与 `HooksDispatcherOnMount`/`HooksDispatcherOnUpdate` 两套 dispatcher，`mountState`/`updateState` 在 Fiber 上维护 Hook 链表（`fiber.memoizedState` 指向链表头），`mountEffect`/`updateEffect` 把 Effect 对象追加进第 05 篇已经搭好的 effect 环形链表（区分 `HookLayout`/`HookPassive`/`HookInsertion` 标记）；故意在 demo 里把 `useState` 放进 `if` 制造状态错位的 bug，验证"顶层调用"规则存在的必要性。再补上 `mountSyncExternalStore`/`updateSyncExternalStore`（含 `checkIfSnapshotChanged` 比较逻辑），用医生排班 store 模拟"渲染中途外部 store 变化"场景，对比有无快照比较时 tearing 是否发生；`packages/react` 补充 `ReactHooks.ts` 转发到当前 dispatcher 的机制。全部改动跑在同一个 `examples/prescription.html` demo 上。
+#### 四、手写实现（延续 `lotosv2010/react-source` monorepo，本篇给 `scheduler`/`react-reconciler` 补上优先级调度与 Suspense）
+第 01 篇的 `packages/scheduler` 只有单一优先级的任务队列，本篇补成真正的小顶堆任务队列（`taskQueue`/`timerQueue`），验证高优先级任务可以插队打断正在执行的低优先级任务；在 `packages/react-reconciler` 里实现 `requestUpdateLane`，补一个简化版"事件优先级映射表"（`click → SyncLane`、`scroll → InputContinuousLane`、`setTimeout → DefaultLane`），`startTransition` 内部更新强制打上 `TransitionLane`；再实现最小化的 Suspense：组件渲染阶段 `throw` 一个 Promise，`ReactFiberThrow.ts` 捕获后向上找最近的 Suspense 边界渲染 `fallback`，Promise resolve 后通过 `pingLanes` 重新调度。用 `examples/prescription.html` 新增一个"1000 条患者档案列表 + 检索输入框"的场景，验证高优先级的输入框更新能打断正在进行的低优先级列表渲染，并用 Chrome DevTools Performance 面板观察分片。
 
 #### 五、手写实现源码 GitHub 地址
 https://github.com/lotosv2010/react-source
@@ -67,14 +52,14 @@ https://github.com/lotosv2010/react-source
 - https://react.iamkasong.com
 - https://github.com/wbccb/Frontend-Articles
 
-
 **面试核心问**：
-- `useEffect` 和 `useLayoutEffect` 的执行时机差异是什么？`useInsertionEffect` 又插在哪个时机？
-- 为什么 Hooks 不能写在条件语句或循环里？Hook 链表结构和这条规则具体是怎么关联的？
-- mount 阶段和 update 阶段的 dispatcher 有什么不同，为什么要拆成两套实现？
-- 什么是并发渲染下的"tearing"？`useSyncExternalStore` 是怎么解决这个问题的？
-- `useImperativeHandle` 解决了什么问题？为什么不直接把整个 DOM 节点暴露给父组件？
-- 错误边界能捕获哪些类型的异常，不能捕获哪些？为什么 React 至今没有提供 Hooks 形式的错误边界？
+- 时间切片的本质是什么？为什么一定要把渲染过程拆成小任务？
+- React 的并发渲染是"抢占式调度"吗？为什么？协作式和抢占式调度的本质区别是什么？
+- 如果某个组件的渲染函数本身包含一个耗时很长的同步循环，`startTransition` 或时间切片能让它不阻塞主线程吗？为什么？
+- 为什么 Scheduler 选择 `MessageChannel` 而不是 `setTimeout(fn, 0)`？
+- 点击事件里直接 `setState` 和用 `startTransition` 包裹 `setState`，分别会被分配到哪个 Lane？为什么表现不同？
+- `startTransition` 和 `useTransition` 的区别是什么？分别在什么场景用？
+- `Suspense` 是如何知道子组件"挂起"了的？resolve 之后 React 是怎么重新渲染的？
 
 
 ## 分析角度（每个子主题都按此展开）
