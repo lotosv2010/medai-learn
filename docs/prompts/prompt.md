@@ -1,39 +1,39 @@
 # prompt
 
 ```text
-/publish 下面我们规划React 18全家桶的第8篇文章，具体如下：
+/publish 下面我们规划React 18全家桶的第9篇文章，具体如下：
 {{
 ## 知识点范围
 
-### 第 08 篇：React 18 事件系统: 合成事件、事件委托与自动批处理原理（面试收藏级）
+### 第 09 篇：React 18 Context: 依赖传播机制与手写实现（面试收藏级）
 
-**副标题**：合成事件设计、事件委托从 document 到 root、Automatic Batching 演进
+**副标题**：Context 值挂在 Fiber 节点上，Provider 变化时如何精确标记需要更新的子树
 
 #### 一、使用与实践
-- 合成事件绑定：`<button onClick={handleClick}>` 中的 `onClick` 是 React 封装的 `SyntheticEvent`
-- `e.nativeEvent` 访问原始浏览器事件对象
-- `e.stopPropagation()` 只阻止合成事件在 React 事件系统内的传播，不等价于原生 `stopPropagation`
-- React 18 中在原生事件回调、`setTimeout`、`Promise.then`、`fetch` 回调里多次 `setState` 会被自动合并为一次渲染（Automatic Batching，机制详见第 02 篇）
-- `flushSync(() => setState(...))` 强制让某次更新同步执行并立刻反映到 DOM
-- 事件委托是自动生效的：React 内部把所有事件统一委托到 root 容器上监听
+- `createContext(defaultValue)` 创建 Context 对象
+- `<XxxContext.Provider value={...}>` 提供值，`value` 变化（`Object.is` 比较）会触发消费该 Context 的组件重渲染
+- `useContext(XxxContext)` 读取最近一层匹配的 `Provider` 提供的值
+- 类组件通过 `static contextType` 或 `<XxxContext.Consumer>` 读取
+- 多个 Context 嵌套时，`useContext` 只会匹配组件树上"最近"的同一个 Context 的 `Provider`
 
 #### 二、设计与原理
-- 合成事件为什么要自己实现一套：抹平浏览器事件模型的跨浏览器差异，并让事件调度接入 React 自己的优先级和批处理机制（与第 07 篇事件优先级映射联动）
-- 事件委托机制：React 在 root 容器上对每一种事件类型委托监听一次，触发时通过 `event.target` 结合 Fiber 树向上收集所有相关的合成事件处理函数
-- React 17 之前事件绑定在 `document` 上、React 17+ 改为绑定在 root 容器上：避免多版本 React 共存（渐进式迁移、微前端场景）时事件系统互相干扰
-- 合成事件的两阶段模拟：`accumulateSinglePhaseListeners` 沿 Fiber 树向上收集捕获/冒泡阶段的处理函数
-- Automatic Batching 的本质变化：React 17 靠"是否处于 React 事件处理函数执行上下文"判断是否批处理；React 18 在 Scheduler 层面统一批处理，不再依赖事件来源（与第 02 篇 Update 队列机制呼应）
-- `flushSync` 的实现：强制把传入函数中产生的更新标记为 `SyncLane` 且立刻走一次同步渲染流程，跳过正常的批处理调度队列
+- Context 值存储位置：`Provider` 对应 Fiber 的 `memoizedProps.value`，Context 对象本身维护 `_currentValue` 字段
+- Provider 变化如何标记依赖子树更新：`propagateContextChange` 从 `Provider` 节点向下遍历整个子树，检查每个节点的 `dependencies`，匹配上就打更新标记
+- 为什么被 `memo` 包裹也无法完全规避重渲染：`propagateContextChange` 的扫描不会被 `memo` 挡住
+- 多层 Context 性能陷阱：把多个不相关状态塞进同一个 Context 的 `value`，任意字段变化都会导致所有消费组件被标记更新
+- 拆分 Context 优化策略：按变化频率和粒度拆分独立的 Context
+- `use-context-selector` 类库的实现思路：自建可订阅 store，只有 `selector` 计算结果真正变化才强制重渲染
+- 对比 Vue 3 的 `provide/inject`：基于组件实例原型链查找 + 响应式系统精确依赖追踪，粒度比 React Context 的"广播式"通知更细
 
 #### 三、源码解析（重点代码，来源 GitHub 仓库）
-1. 事件插件注册：`packages/react-dom/src/events/DOMPluginEventSystem.js` — `listenToAllSupportedEvents`
-2. 事件分发入口：`packages/react-dom/src/events/DOMPluginEventSystem.js` — `dispatchEventForPluginEventSystem`
-3. 监听器收集：`packages/react-dom/src/events/DOMPluginEventSystem.js` — `accumulateSinglePhaseListeners`
-4. 批处理调度路径：`packages/react-reconciler/src/ReactFiberWorkLoop.js` — `scheduleUpdateOnFiber` 统一走批处理调度
-5. `flushSync` 实现：`packages/react-reconciler/src/ReactFiberWorkLoop.js` — `flushSync` 临时切换执行上下文并立刻触发 `flushSyncCallbackQueue`
+1. Context 对象创建：`packages/react/src/ReactContext.js`
+2. Provider 渲染处理：`packages/react-reconciler/src/ReactFiberBeginWork.js` — `updateContextProvider`
+3. 变化传播算法：`packages/react-reconciler/src/ReactFiberNewContext.js` — `propagateContextChange_eager`
+4. Context 读取：`packages/react-reconciler/src/ReactFiberNewContext.js` — `readContext`
+5. `useContext` Hook 入口：`packages/react-reconciler/src/ReactFiberHooks.js`
 
-#### 四、手写实现（延续 `lotosv2010/react-source` monorepo，本篇给 `react-dom` 补上事件系统）
-在 `packages/react-dom` 新增事件模块：在 root 容器上对每种事件类型只挂一个原生监听器（`listenToAllSupportedEvents`），维护一份"虚拟事件注册表"，触发时通过 `event.target` 结合 Fiber 树的 `return` 指针向上收集所有相关的合成事件处理函数并模拟冒泡阶段依次调用（`accumulateSinglePhaseListeners`）；`packages/react-reconciler` 的 `scheduleUpdateOnFiber` 改造成统一走批处理调度（不再区分事件来源），并补上 `flushSync`（临时把这次更新标记为 `SyncLane` 并立刻同步渲染）。用 `examples/prescription.html` 里"处方单药品列表"验证：点击列表项能正确冒泡；原生事件回调、`setTimeout`、`Promise.then` 里连续多次 `setState` 都只触发一次渲染。
+#### 四、手写实现（延续 `lotosv2010/react-source` monorepo，本篇作为 02~09 篇 `react-reconciler` 递增实现的收尾）
+在 `packages/react` 新增 `ReactContext.ts` 实现 `createContext`（维护 `_currentValue` 字段）；在 `packages/react-reconciler` 的 `ReactFiberBeginWork.ts` 补上 `updateContextProvider` 处理 Provider 渲染，新增 `ReactFiberNewContext.ts` 实现 `propagateContextChange`（从 Provider 节点向下遍历子树、检查每个 Fiber 的 `dependencies` 并打更新标记）与 `readContext`；`useContext` 接入第 06 篇已经搭好的 dispatcher 体系。用"医生工作站患者队列广播"场景验证多消费者重渲染现象，并额外实现一个 `createContextSelector` 用重渲染次数计数器对比两种方案的差异。至此第 01 篇搭的 monorepo 骨架里 `beginWork`/`completeWork`/`commitRoot`/Diff/Hooks/调度/事件/Context 均已从占位替换为真实实现，形成一份可完整跑通、覆盖 React 18 核心链路的手写版本。
 
 #### 五、手写实现源码 GitHub 地址
 https://github.com/lotosv2010/react-source
@@ -45,11 +45,11 @@ https://github.com/lotosv2010/react-source
 - https://github.com/wbccb/Frontend-Articles
 
 **面试核心问**：
-- React 18 的自动批处理和 React 17 相比区别在哪？
-- 合成事件为什么要自己实现一套，而不是直接用原生事件？
-- React 17 把事件绑定从 `document` 改到 root 容器，解决了什么问题？
-- `e.stopPropagation()` 在合成事件里和原生事件里的行为有什么不同？
-- 什么场景下需要用 `flushSync`？滥用会有什么代价？
+- Context 的值变化会导致所有消费组件重渲染吗？具体的传播机制是怎样的？
+- 为什么被 `memo` 包裹的组件，在祖先 Context 变化时依旧会重渲染？
+- 如何优化多层 Context 导致的性能问题？
+- React 的 Context 机制和 Vue 3 的 `provide/inject` 在实现原理上有什么本质区别？
+- `use-context-selector` 之类的库是怎么绕开原生 Context 的"广播式"更新的？
 
 
 ## 分析角度（每个子主题都按此展开）

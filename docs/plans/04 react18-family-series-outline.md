@@ -554,6 +554,7 @@ https://github.com/lotosv2010/react-source
 - https://zh-hans.react.dev/
 - https://jonny-wei.github.io/blog/react/
 - https://react.iamkasong.com
+- https://github.com/wbccb/Frontend-Articles
 
 **面试核心问**：
 - Context 的值变化会导致所有消费组件重渲染吗？具体的传播机制是怎样的？
@@ -597,7 +598,8 @@ https://github.com/lotosv2010/react-source
 用 Vite + TypeScript 搭建一个不依赖 react-router 的极简客户端路由：`history.pushState` + 监听 `popstate`；简化版路径匹配函数（把 `/patients/:id` 转成正则并提取参数），支持嵌套路由和 `Outlet` 占位渲染；手写极简的 `loader` 机制。用"医生工作站 -> 患者列表 -> 患者详情"这条路径演示完整流程。
 
 #### 五、手写实现源码 GitHub 地址
-https://github.com/lotosv2010/react-source
+- https://github.com/lotosv2010/react-router-source
+- https://github.com/lotosv2010/connected-react-router-source
 
 #### 六、参考
 - https://reactrouter.com/
@@ -654,7 +656,8 @@ https://github.com/lotosv2010/react-source
 用纯 TypeScript 实现一个约 100 行的 mini-Redux（`createStore`/`applyMiddleware`/`combineReducers`），用"处方单状态机"演示；在此基础上新增一个约 30 行的 mini-Zustand（`create` 函数返回一个基于订阅者集合的 hook，直接对接一个简化版 `useSyncExternalStore` 用法），对比两者在同一个"处方单状态机"场景下的代码量和使用方式差异。
 
 #### 五、手写实现源码 GitHub 地址
-https://github.com/lotosv2010/react-source
+- https://github.com/lotosv2010/redux-source
+- https://github.com/lotosv2010/redux-saga-source
 
 #### 六、参考
 - https://redux.js.org/
@@ -711,7 +714,7 @@ https://github.com/lotosv2010/react-source
 用 Express + React 18 + TypeScript 搭建"医生工作台"SSR demo：`renderToPipeableStream` 渲染，"待诊患者列表"作为 shell 立即输出，"最近处方统计图表"包裹在 `Suspense` 中并模拟延迟；客户端用 `hydrateRoot` 接管。RSC 部分用最小化的 Next.js App Router demo 演示 Server/Client Component 边界与客户端 JS 体积对比。
 
 #### 五、手写实现源码 GitHub 地址
-https://github.com/lotosv2010/react-source
+- https://github.com/lotosv2010/react-ssr-source
 
 #### 六、参考
 - https://zh-hans.react.dev/
