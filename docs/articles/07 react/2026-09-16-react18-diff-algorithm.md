@@ -117,6 +117,8 @@ React 仍然会渲染，只是在 `mapRemainingChildren`（多节点 Diff 第三
 
 **这个算法只关心"相对顺序有没有被打乱"，不是计算最小编辑距离**。这意味着某些复杂重排场景下，React 可能比理论最优解多移动几个节点——但换来的是线性时间的判断成本，这也是为什么说 React 的 Diff 是一种启发式算法。
 
+需要区分一点：以上判断只发生在多节点场景。单节点场景（`reconcileSingleElement`/`reconcileSingleTextNode` 复用之后）走的是另一个更简单的函数 `placeSingleChild`——只有全新建的节点才打 `Placement`，复用旧 Fiber 时不需要判断"是否要移动"（单节点场景下"位置"本身没有旁边的兄弟节点可比较）。`placeChild` 和 `placeSingleChild` 是两个独立的函数，「四」会给出 `placeSingleChild` 的完整实现。
+
 📍**配图点**：`placeChild` 决策示意图——列一组新旧 index 对照表（比如新顺序 `[C, A, B]` 对应旧 index `[2, 0, 1]`），标出 `lastPlacedIndex` 在遍历过程中的变化轨迹，以及哪些节点被判定为"需要移动"。
 
 ### 5. index 作 key 为什么会错位：逐步推演
@@ -206,11 +208,13 @@ function reconcileSingleElement(
 
 官方在处理数组子节点时会对每个缺失显式 `key` 的元素调用 `warnOnInvalidKey`，在 DEV 模式打印警告提醒开发者补充稳定 `key`。**本地手写仓库当前尚未实现这个 DEV 警告**（`docs/roadmap.md` 里 Diff 算法这块列出的完成项只到"三阶段算法本身"，警告提示属于开发体验层面的补充，不影响主链路正确性），这是当前的一个已知简化边界，不是遗漏的核心逻辑。
 
+另一个边界在"判断是不是数组"这一步：本地实现里 `isArrayLike` 直接等价于 `Array.isArray`（`ReactChildFiber.ts` 第 33～35 行），只认真正的数组。官方版本这里还会兼容实现了 `Symbol.iterator` 的通用可迭代对象（比如 `Map`/`Set`、生成器函数返回值），把它们也当数组走多节点 Diff。也就是说，本地仓库如果传入一个 `Set` 作为 children，会被当成"既不是 Element、也不是数组"的普通对象直接跳过（不会渲染，也不会报错）——这同样是开发体验/覆盖面上的简化，不影响 JSX 数组（`.map()` 场景，也是实际项目里最常见的写法）这条主链路的正确性。
+
 ---
 
 ## 四、手写实现（解读已完成代码）
 
-先说清楚一件事：本节要讲的 `reconcileSingleElement`/`reconcileChildrenArray`/`placeChild`/`cloneChildFibers`，**都不是本篇新写的代码**。它们是 `D:\github\react-source` 仓库按自己的 `docs/roadmap.md` 节奏，在 Phase 3（更新与 Diff 算法，已完成）里早就落地的真实实现，`beginWork` 的 `reconcileChildren` 也已经在正式调用它们分发子节点——本篇的任务是把这些已经跑通的代码逐行讲透。
+先说清楚一件事：本节要讲的 `reconcileChildFibers`/`reconcileSingleElement`/`reconcileSingleTextNode`/`updateSlot`/`updateFromMap`/`reconcileChildrenArray`/`placeChild`/`placeSingleChild`/`cloneChildFibers` 这一整套函数，**都不是本篇新写的代码**。它们是 `D:\github\react-source` 仓库按自己的 `docs/roadmap.md` 节奏，在 Phase 3（更新与 Diff 算法，已完成）里早就落地的真实实现，`beginWork` 的 `reconcileChildren` 也已经在正式调用它们分发子节点——本篇的任务是把这些已经跑通的代码逐行讲透。
 
 ### 1. `ChildReconciler` 工厂：一套算法，两种模式
 
@@ -263,7 +267,69 @@ export function reconcileChildren(
 
 `current === null` 就是"这个 Fiber 本身是第一次渲染"的判断依据（承接上一篇 mount/update 的判断标准），走 `mountChildFibers`；否则走 `reconcileChildFibers`。
 
-### 2. `reconcileSingleElement` 的删除逻辑
+### 2. 入口分发：`reconcileChildFibers`
+
+`ChildReconciler` 工厂最终返回的就是这个函数，是整条 Diff 主线真正的起点——根据 `newChild`（也就是 `render()` 返回值或组件 `children`）的形态，分发到单节点/多节点/文本/空四条路径：
+
+```typescript
+function reconcileChildFibers(
+  returnFiber: FiberNode,
+  currentFirstChild: FiberNode | null,
+  newChild: any,
+  lanes: Lanes,
+): FiberNode | null {
+  // 顶层无 key 的 Fragment 当作数组处理（<>...</> 与 <>[...]</> 在这里语义一致）
+  const isUnkeyedTopLevelFragment =
+    typeof newChild === "object" &&
+    newChild !== null &&
+    newChild.type === REACT_FRAGMENT_TYPE &&
+    newChild.key === null;
+  if (isUnkeyedTopLevelFragment) {
+    newChild = newChild.props.children;
+  }
+
+  if (typeof newChild === "object" && newChild !== null) {
+    if (isReactElement(newChild)) {
+      return placeSingleChild(
+        reconcileSingleElement(returnFiber, currentFirstChild, newChild, lanes),
+      );
+    }
+    if (isArrayLike(newChild)) {
+      return reconcileChildrenArray(returnFiber, currentFirstChild, newChild, lanes);
+    }
+  }
+
+  if (
+    (typeof newChild === "string" && newChild !== "") ||
+    typeof newChild === "number"
+  ) {
+    return placeSingleChild(
+      reconcileSingleTextNode(returnFiber, currentFirstChild, "" + newChild, lanes),
+    );
+  }
+
+  // 剩余情况（null/undefined/boolean 等）都视为空，删除所有旧节点
+  return deleteRemainingChildren(returnFiber, currentFirstChild);
+}
+```
+
+有一条分支容易被忽略：`isUnkeyedTopLevelFragment` 这段判断——组件顶层直接返回 `<>...</>`（没写 `key`）时，React 不会把这个 Fragment 当成"一个节点"去走单节点 Diff，而是直接拆开取它的 `children`，当成数组走多节点 Diff。这也是为什么 `<>{a}{b}</>` 和 `[a, b]` 这两种写法在 Diff 层面走的是完全一样的路径——Fragment 只是 JSX 语法层面的包装，对 Diff 算法而言它"透明"地消失了，除非显式给它写了 `key`（这种情况会走 `reconcileSingleElement` 里 `elementType === REACT_FRAGMENT_TYPE` 的分支，即「三、1」代码里 `child.tag === Fragment` 那一段，被当作一个独立的可复用节点）。
+
+单节点场景（Element 或文本）复用/新建完之后还会经过 `placeSingleChild` 包一层——这个函数「二、4」末尾提过，只给全新建的节点打 `Placement`：
+
+```typescript
+function placeSingleChild(newFiber: FiberNode): FiberNode {
+  // 单节点场景只需给新建节点打 Placement
+  if (shouldTrackSideEffects && newFiber.alternate === null) {
+    newFiber.flags |= Placement;
+  }
+  return newFiber;
+}
+```
+
+`newFiber.alternate === null` 就是"这是一个全新的 Fiber，没有对应的旧 Fiber"的判断依据——对比多节点场景里 `placeChild` 要算 `lastPlacedIndex`、判断相对顺序，单节点场景因为"就这一个节点"，压根不存在"跟谁比顺序"的问题，逻辑天然简单得多。
+
+### 3. `reconcileSingleElement` 的删除逻辑
 
 `deleteChild`/`deleteRemainingChildren` 负责把不再需要的旧 Fiber 标记删除：
 
@@ -299,7 +365,120 @@ function deleteRemainingChildren(
 
 删除的节点不会立刻从内存里消失，而是收集到父 Fiber 的 `deletions` 数组里，并给父 Fiber 打上 `ChildDeletion` 标记——这正是承接上一篇「unmount 流程」讲过的：commit 阶段的 mutation 子阶段看到 `ChildDeletion` 标记后，会遍历这个数组，对每个待删除的 Fiber 执行自底向上的清理和真实 DOM 移除。Diff 阶段只负责"判断谁要删"，真正的清理动作留给 commit 阶段。
 
-### 3. `reconcileChildrenArray` 三阶段的完整代码
+### 4. `reconcileSingleTextNode`：单节点 diff 的文本分支
+
+「三、1」讲的 `reconcileSingleElement` 只处理"唯一子节点是一个 React Element"的情况。如果组件返回的是纯文本或数字（比如 `return <p>{count}</p>` 里 `count` 就是 `<p>` 唯一的子节点），走的是另一个独立函数：
+
+```typescript
+function reconcileSingleTextNode(
+  returnFiber: FiberNode,
+  currentFirstChild: FiberNode | null,
+  textContent: string,
+  lanes: Lanes,
+): FiberNode {
+  if (currentFirstChild !== null && currentFirstChild.tag === HostText) {
+    // 已有文本节点，更新并删除多余兄弟
+    deleteRemainingChildren(returnFiber, currentFirstChild.sibling);
+    const existing = useFiber(currentFirstChild, textContent);
+    existing.return = returnFiber;
+    return existing;
+  }
+  // 现有首子节点不是文本，删掉所有旧的，新建
+  deleteRemainingChildren(returnFiber, currentFirstChild);
+  const created = createFiberFromText(textContent, returnFiber.mode, lanes);
+  created.return = returnFiber;
+  return created;
+}
+```
+
+逻辑比 `reconcileSingleElement` 更简单，因为文本节点没有 `key` 也没有"类型"的区分——只需要看"旧的第一个子节点本身是不是文本节点"（`tag === HostText`）：是就直接复用换内容，不是就删掉重建。两种情况都会把除了"留下来的这一个"之外的所有旧兄弟标记删除，这一点和 `reconcileSingleElement` 里"新 children 只有一个，其余旧节点都是多余的"是同一个道理。
+
+### 5. `updateSlot`：多节点 diff 第一阶段真正的逐位匹配函数
+
+「二、3 第一阶段」说的"头部逐位匹配，key 相同则复用、不同则中断"，具体的判断逻辑都在 `updateSlot` 里：
+
+```typescript
+function updateSlot(
+  returnFiber: FiberNode,
+  oldFiber: FiberNode | null,
+  newChild: any,
+  lanes: Lanes,
+): FiberNode | null {
+  const key = oldFiber !== null ? oldFiber.key : null;
+
+  if (
+    (typeof newChild === "string" && newChild !== "") ||
+    typeof newChild === "number"
+  ) {
+    // 文本节点没有 key，旧节点有 key 则不匹配
+    if (key !== null) {
+      return null;
+    }
+    return updateTextNode(returnFiber, oldFiber, "" + newChild, lanes);
+  }
+
+  if (typeof newChild === "object" && newChild !== null) {
+    if (isReactElement(newChild)) {
+      if (newChild.key === key) {
+        return updateElement(returnFiber, oldFiber, newChild, lanes);
+      } else {
+        return null;
+      }
+    }
+    if (isArrayLike(newChild)) {
+      if (key !== null) {
+        return null;
+      }
+      return updateFragment(returnFiber, oldFiber, newChild, lanes, null);
+    }
+  }
+
+  return null;
+}
+```
+
+三种"不匹配返回 `null`"的场景值得注意，对应「二、3」说的"一旦 key 不匹配立刻跳出"：
+- 新子项是文本/数字，但这个 slot 位置的旧节点带着 `key`（说明旧节点是个 keyed 的 Element，文本节点不可能有这个 key，直接判定不匹配）
+- 新子项是 Element，但它的 `key` 和这个 slot 位置旧节点的 `key` 不相等（`newChild.key === key` 严格比较）
+- 新子项是数组/Fragment，但这个 slot 位置的旧节点带着 `key`（同第一种，无 key 的数组子项不该匹配一个有 key 的旧节点）
+
+只有"新旧都无 key 且类型对得上"或者"两边 key 相等"才会真正进入 `updateElement`/`updateTextNode`/`updateFragment` 去判断能不能复用（type 是否相同）——`updateSlot` 本身只负责判断"这个位置值不值得往下看"，真正的复用/新建决策交给下一节的三个 `update*` 函数。
+
+### 6. `updateElement`/`updateTextNode`/`updateFragment`/`createChild`：最小复用判断单元
+
+`updateSlot`（上一节）和 `updateFromMap`（下一节）最终都会落到这几个函数上，它们是"给定一个候选旧 Fiber，判断能不能复用，不能就新建"这个最小判断单元。以 `updateElement` 为例（`updateTextNode`/`updateFragment` 逻辑类似，只是判断的 `tag` 不同）：
+
+```typescript
+function updateElement(
+  returnFiber: FiberNode,
+  current: FiberNode | null,
+  element: any,
+  lanes: Lanes,
+): FiberNode {
+  const elementType = element.type;
+  if (elementType === REACT_FRAGMENT_TYPE) {
+    return updateFragment(returnFiber, current, element.props.children, lanes, element.key);
+  }
+  if (current !== null && current.elementType === elementType) {
+    // 类型相同，复用旧 fiber
+    const existing = useFiber(current, element.props);
+    existing.ref = element.ref;
+    existing.return = returnFiber;
+    return existing;
+  }
+  // 类型不同，新建（旧节点由调用方 deleteChild）
+  const created = createFiberFromElement(element, returnFiber.mode, lanes);
+  created.ref = element.ref;
+  created.return = returnFiber;
+  return created;
+}
+```
+
+`current !== null && current.elementType === elementType` 这一行，就是「三、1」`reconcileSingleElement` 里"key 相同还要看 type"这条规则在多节点场景下的对应实现——两处判断的是同一件事："候选旧 Fiber 存在，且类型对得上，才能复用"，只是单节点场景直接遍历链表找候选，多节点场景的候选是 `updateSlot`/`updateFromMap` 已经按位置或 `key` 筛出来的那一个。
+
+配合它们工作的还有 `createChild`——专门用在「二、3 第二阶段」"旧 Fiber 已经耗尽，剩余新子项全部新建"这条快路径上，因为这条路径上根本没有候选旧 Fiber 可比较，直接按新子项的类型（文本/Element/数组）建对应的 Fiber 即可，不需要 `update*` 那一套"先看有没有候选"的逻辑。
+
+### 7. `reconcileChildrenArray` 三阶段的完整代码
 
 这是本篇的核心。完整实现：
 
@@ -412,7 +591,9 @@ function reconcileChildrenArray(
 
 这正好对应 `fixtures/reconciler/index.ts` 里注释写的"b 被删除、a 移动到 c 后面"——用真实代码跑一遍断点，能清楚看到 `lastPlacedIndex` 从 0 变成 2 的那一刻,就是"c 不用动、a 需要动"这个结论的由来。
 
-### 4. `mapRemainingChildren`/`updateFromMap`：Map 查找兜底
+### 8. `mapRemainingChildren`/`updateFromMap`：Map 查找兜底的完整实现
+
+`mapRemainingChildren` 负责建 Map：
 
 ```typescript
 function mapRemainingChildren(
@@ -434,7 +615,43 @@ function mapRemainingChildren(
 
 这里就是"不写 `key` 时用 `index` 兜底"的具体代码位置——`existingChild.key !== null` 判断决定走哪条分支。这也印证了「一、3」讲的默认行为：不显式声明 `key` 并不会报错或崩溃，只是把匹配依据换成了脆弱的 `index`。
 
-### 5. `cloneChildFibers`：衔接上一篇的思考题
+建好 Map 之后，真正遍历新数组去查表的是 `updateFromMap`（「四、7」`reconcileChildrenArray` 第三阶段循环里调用的就是它）：
+
+```typescript
+function updateFromMap(
+  existingChildren: Map<string | number, FiberNode>,
+  returnFiber: FiberNode,
+  newIdx: number,
+  newChild: any,
+  lanes: Lanes,
+): FiberNode | null {
+  if (
+    (typeof newChild === "string" && newChild !== "") ||
+    typeof newChild === "number"
+  ) {
+    const matchedFiber = existingChildren.get(newIdx) || null;
+    return updateTextNode(returnFiber, matchedFiber, "" + newChild, lanes);
+  }
+
+  if (typeof newChild === "object" && newChild !== null) {
+    if (isReactElement(newChild)) {
+      const matchedFiber =
+        existingChildren.get(newChild.key === null ? newIdx : newChild.key) || null;
+      return updateElement(returnFiber, matchedFiber, newChild, lanes);
+    }
+    if (isArrayLike(newChild)) {
+      const matchedFiber = existingChildren.get(newIdx) || null;
+      return updateFragment(returnFiber, matchedFiber, newChild, lanes, null);
+    }
+  }
+
+  return null;
+}
+```
+
+查 Map 的 key 规则和建 Map 时完全对称：新子项是 Element 且有 `key` 就按 `key` 查，否则（文本、数组、或无 key 的 Element）按 `newIdx` 查——这也解释了「二、5」推演的错位场景：如果新旧数组都不写 `key`，`updateFromMap` 查表时用的是"新数组当前遍历到的下标"，和旧节点当时建 Map 时存的"旧下标"完全是两套不同的坐标系，只是恰好数值相同时才会"看起来对上"，这正是 index 作 key 不可靠的根本原因。查到之后调用的还是「四、6」讲过的 `updateElement`/`updateTextNode`/`updateFragment`——`updateSlot` 和 `updateFromMap` 只是"怎么找到候选 Fiber"的两种不同方式（按位置 vs 按 Map 查），找到候选之后"能不能复用"的判断逻辑是同一套。
+
+### 9. `cloneChildFibers`：衔接上一篇的思考题
 
 上一篇结尾的思考题问：bailout 命中时 `cloneChildFibers` 克隆出来的中间节点，`memoizedProps` 会不会被更新。看它的完整实现：
 
@@ -489,6 +706,7 @@ export function cloneChildFibers(
 - **`lastPlacedIndex` 是怎么判断一个节点"是否需要移动"的？**
 - **React 的 Diff 算法复杂度是多少？它做了哪些简化假设才达到这个复杂度？**
 - **Vue 3 的 Diff 算法和 React 相比有什么不同？各自的设计取舍是什么？**
+- **单节点 Diff 里，Element 子节点和文本/数字子节点走的是同一个函数吗？`<>...</>` 不写 key 时又是怎么分发的？**
 
 ---
 
@@ -497,18 +715,21 @@ export function cloneChildFibers(
 | 知识点 | 一句话核心 | 面试考察频率 |
 |--------|-----------|-------------|
 | 两个简化假设 | 只比同层级 + 只在 type 相同时复用，把 O(n³) 降到 O(n) | ⭐⭐⭐⭐⭐ |
-| 单节点 Diff | 遍历旧链表按 key 找，key 同再看 type，都同才复用 | ⭐⭐⭐⭐ |
-| 多节点 Diff 三阶段 | 头部逐位匹配 → 两条快路径 → Map 查找兜底 | ⭐⭐⭐⭐⭐ |
+| 入口分发 reconcileChildFibers | 按 newChild 类型分四路；顶层无 key Fragment 会被拆开当数组处理 | ⭐⭐⭐⭐ |
+| 单节点 Diff | Element 走 reconcileSingleElement，文本/数字走 reconcileSingleTextNode；key 同再看 type，都同才复用 | ⭐⭐⭐⭐ |
+| 多节点 Diff 三阶段 | updateSlot 头部逐位匹配 → 两条快路径 → mapRemainingChildren/updateFromMap 查找兜底 | ⭐⭐⭐⭐⭐ |
+| placeChild vs placeSingleChild | 多节点比 lastPlacedIndex 判断移动；单节点只给全新建节点打 Placement | ⭐⭐⭐⭐ |
 | lastPlacedIndex | oldIndex < lastPlacedIndex 才判定移动，只看相对顺序 | ⭐⭐⭐⭐⭐ |
 | index 作 key 错位 | Fiber（含内部状态）按位置复用，状态跟着位置走而非数据 | ⭐⭐⭐⭐⭐ |
 | Diff 是启发式算法 | 不是最小编辑距离，换来的是线性时间复杂度 | ⭐⭐⭐ |
 | Vue3 对比 | 最长递增子序列在倒序场景移动次数更少，代价是编译期信息依赖 | ⭐⭐⭐ |
+| 已知简化边界 | 无 DEV key 警告；isArrayLike 只认真数组，不支持通用 iterable | ⭐⭐⭐ |
 
 ---
 
 ## 📝 思考题
 
-**留个问题**：本篇「四、5」解答了上一篇的思考题——`cloneChildFibers` 克隆节点时传入的是子节点自己的 `pendingProps`，不是父节点的新 props，所以 `memoizedProps` 始终正确。那么反过来想：如果某次更新里，父节点没有命中 bailout（正常走 `reconcileChildrenArray`），但某个子节点因为 `key` 匹配、`type` 也匹配而被 `useFiber` 复用——这次复用传入的 `pendingProps` 是"新的 props"还是"旧的 props"？对比 `useFiber` 和 `cloneChildFibers` 两处 `createWorkInProgress` 调用时传入的第二个参数有什么不同，想一想这个差异对下一次渲染的正确性分别意味着什么。
+**留个问题**：本篇「四、9」解答了上一篇的思考题——`cloneChildFibers` 克隆节点时传入的是子节点自己的 `pendingProps`，不是父节点的新 props，所以 `memoizedProps` 始终正确。那么反过来想：如果某次更新里，父节点没有命中 bailout（正常走 `reconcileChildrenArray`），但某个子节点因为 `key` 匹配、`type` 也匹配而被 `useFiber` 复用——这次复用传入的 `pendingProps` 是"新的 props"还是"旧的 props"？对比 `useFiber` 和 `cloneChildFibers` 两处 `createWorkInProgress` 调用时传入的第二个参数有什么不同，想一想这个差异对下一次渲染的正确性分别意味着什么。
 
 答案留在评论区，或者在后续 commit 阶段篇（第 05 篇）讲 `completeWork`/`bubbleProperties` 时会再次提到相关细节。
 
