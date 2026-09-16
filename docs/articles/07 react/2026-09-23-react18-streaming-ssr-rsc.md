@@ -12,7 +12,7 @@
 
 React 18 给出的答案是 `renderToPipeableStream`：配合 `<Suspense>` 边界，不依赖慢数据的部分（shell）立刻流式吐给浏览器，慢的部分先用 `fallback` 占位，数据 ready 后再通过流式补丁替换。这一改动不只是 API 换了个名字，背后牵动了 hydration 的调度方式（Selective Hydration）、`onShellReady` 等回调的语义、以及"到底该在哪里划分 Suspense 边界"这些新问题。再往后一步，React Server Components（RSC）看似也是"服务端渲染"，但解决的是完全不同的问题——很多人会把 SSR 和 RSC 混为一谈，这道题几乎能筛掉大部分只会说"RSC 就是在服务端渲染组件"的候选人。
 
-这一篇要讲透的，就是从 `renderToString` 到 `renderToPipeableStream` 的完整升级路径（在真实的 `react-ssr-source` 项目上动手改），以及流式 SSR 和 RSC 这两件容易被混淆的技术分别解决什么问题。读完之后，你会同时获得两种确定感：**懂原理**（Fizz 流式渲染器、Selective Hydration、RSC 序列化机制逐个讲透）和**会讲**（面试官顺着 shell、hydration 不匹配、RSC 边界任意一个环节追问都能拆解回答）。
+这一篇要讲透的，就是从 `renderToString` 到 `renderToPipeableStream` 的完整升级路径（在真实的 `react-ssr-source` 项目上动手改），以及流式 SSR 和 RSC 这两件容易被混淆的技术分别解决什么问题。读完之后，你会同时获得三种确定感：**懂原理**（Fizz 流式渲染器、Selective Hydration、RSC 序列化机制逐个讲透）、**会讲**（面试官顺着 shell、hydration 不匹配、RSC 边界任意一个环节追问都能拆解回答）和**会用在 Next.js**（把前面手写的每一步逐条映射到 App Router 的目录与文件约定，补齐数据缓存、Server Actions、中间件三个使用面）。
 
 ---
 
@@ -1012,13 +1012,274 @@ export default function Counter() {
 
 ---
 
-## 五、手写实现源码地址
+## 五、Next.js 使用：App Router 全链路实战
+
+前面四节在 Koa 里把流式 SSR 的每个环节（shell 拆分、Suspense 边界、hydrateRoot、响应接管）都手写了一遍，为的是把原理吃透。但生产里真正承载这套能力的是 Next.js——App Router 把「RSC 架构 + 流式 SSR」打包成了一组目录与文件约定：开发者不用再手写 `renderToPipeableStream`，不用手动 `ctx.respond = false` 接管响应，也不用自己拼 HTML 模板。这一节把前面手写的每一步逐条映射到 Next.js 的约定式 API，并补齐数据缓存、Server Actions、中间件这三个 App Router 的核心使用面，让「懂原理」落地成「会用在真实项目」。
+
+> 先厘清一个前提：本篇主题是流式 SSR + RSC，Next.js 只是这两项能力的载体，这里讲的是「用」——App Router 里和渲染、数据、边界相关的使用。动态路由、Layout 分组这类纯路由话题不展开。
+
+### 1. 文件即路由：app/ 目录的角色约定
+
+App Router 用一个 `app/` 目录取代 Pages Router 的 `pages/`，路由由文件夹结构决定，每个特殊文件名承担一个固定角色：
+
+| 文件名 | 角色 | 对应本篇前面讲的哪个概念 |
+|--------|------|--------------------------|
+| `layout.tsx` | 嵌套布局，包住子路由，切换路由时保留 | 对应「四、3」里手动拼的 HTML 外壳结构 |
+| `page.tsx` | 具体页面，路由叶子节点 | 一次请求要渲染的实际内容 |
+| `loading.tsx` | 该路由的加载态，自动包成 `Suspense` 边界 | 对应「四、4」手写的 `<Suspense fallback={<Card loading />}>` |
+| `error.tsx` | 错误边界，捕获渲染/数据阶段抛错 | 对应「四、3」手写的 `onShellError` 兜底 |
+| `route.ts` | 纯 API 路由，返回 JSON 而非页面 | 对应 `react-ssr-source` 里独立的 3002 API 服务 |
+| `not-found.tsx` | 404 页面 | 对应 `render.js` 里 `key === '/notFound'` 的 404 分支 |
+
+一个医生工作台的 App Router 目录长这样：
+
+```
+app/
+├── layout.tsx              # 根布局：顶部导航 + 当前登录医生信息，所有页面共享
+├── page.tsx                # 首页：待诊患者列表（shell 核心内容）
+├── patients/
+│   ├── layout.tsx          # 患者模块的二级布局
+│   ├── page.tsx            # 患者列表页（Server Component，直接 await 数据库）
+│   ├── loading.tsx         # 列表加载骨架屏
+│   ├── error.tsx           # 列表加载失败的错误兜底
+│   └── [id]/
+│       └── page.tsx        # 患者详情页（动态路由参数）
+└── api/
+    └── prescription-stats/
+        └── route.ts        # 处方统计接口（对应前面那个人为加 3 秒延迟的接口）
+```
+
+对比前面 Koa 项目里 `src/routes/index.js` 那份「手动声明路由表 + 手动在组件里挂 `loadData`」的写法，App Router 把「路由 → 布局 → 数据 → 加载态 → 错误态」全部收敛进目录结构，约定优先于配置。
+
+### 2. Server / Client Component 边界（承接「二、8」）
+
+「一、6」「二、6」已经讲了 Server Component 的语法和边界规则，这里聚焦 App Router 里的落地：`app/` 下所有组件默认都是 Server Component，只有需要交互（`useState`/`useEffect`/`onClick`）的组件才加 `'use client'`。
+
+```tsx
+// app/patients/page.tsx —— 默认 Server Component，可以直接 await 数据库
+import { db } from '@/lib/db'
+import ReviewButton from './ReviewButton'
+
+export default async function PatientsPage() {
+  const patients = await db.query('SELECT * FROM patients WHERE reviewed = false')
+  return (
+    <ul>
+      {patients.map(p => (
+        <li key={p.id}>
+          {p.name}
+          <ReviewButton patientId={p.id} />
+        </li>
+      ))}
+    </ul>
+  )
+}
+```
+
+```tsx
+// app/patients/ReviewButton.tsx —— 唯一需要交互的叶子节点，才标 Client Component
+'use client'
+import { useState } from 'react'
+
+export default function ReviewButton({ patientId }: { patientId: number }) {
+  const [reviewed, setReviewed] = useState(false)
+  return <button onClick={() => setReviewed(true)}>{reviewed ? '已审核' : '标记审核'}</button>
+}
+```
+
+这条边界在 App Router 里是**打包器的编译约定**，不是运行时行为：Next.js 的 Turbopack/webpack 在构建时按 `'use client'` 标记把组件树切分成 Server 与 Client 两部分，Server 部分只进服务端产物，Client 部分才会被打进浏览器 bundle。这也正是「二、7」讲的 RSC 序列化在真实工程里的落地——你写的是同一个 React 组件树，构建器替你决定了哪些代码进哪个产物。边界下沉原则（「二、8」）在这里直接体现为：把 `'use client'` 标在 `ReviewButton` 这个最小叶子，而不是整个 `PatientsPage`。
+
+> 💬 **面试官会问**：App Router 里一个组件什么时候该标 `'use client'`，什么时候保持默认 Server Component？
+>
+> ✅ **标准答案**：默认全部保持 Server Component，只有这个组件确实用到了客户端专属能力（`useState`/`useEffect`/事件处理/浏览器 API）才标 `'use client'`。判断标准不是「这个组件在不在客户端渲染」，而是「它的代码需不需要被打包进客户端 bundle 执行」。标得越高，被打包进客户端的子树就越大，所以边界要尽量下沉到真正需要交互的叶子节点。
+
+### 3. loading.tsx：Suspense 边界的约定式封装
+
+「四、4」在 Koa 里手写 `PrescriptionStats` 组件 + `<Suspense fallback={<Card loading />}>` 来演示「读取即挂起」，在 App Router 里同样的能力被收敛成一个文件名：在某个路由目录下放一个 `loading.tsx`，Next.js 会自动把这个路由包裹进 `Suspense` 边界，页面里的异步内容（async Server Component、`await` 的数据）挂起时先展示 `loading.tsx` 的内容，数据 ready 后流式替换。
+
+```tsx
+// app/patients/loading.tsx —— 患者列表页的骨架屏
+export default function Loading() {
+  return <PatientListSkeleton />
+}
+```
+
+这背后就是「二、2」讲的 Fizz 流式渲染：`loading.tsx` 的骨架屏作为 `fallback` 段先写进响应流，`page.tsx` 的真实内容（`await db.query` 返回后）再作为补丁段追加进来，浏览器端做 DOM 替换。前面在 Koa 里要自己 `ctx.res.write` 手动切分 HTML、自己包 `ctx.res.end` 补 `</div>` 和 `window.context` 脚本，App Router 里这些「先占位、后补丁」的流式细节全部由框架完成，你只需要声明「这个路由的加载态长什么样」。
+
+`loading.tsx` 是路由级的粗粒度边界，整个 `page.tsx` 的异步内容共享一个加载态。如果只想让页面里的某一块（比如处方统计图表）单独挂起、其余内容（患者列表）先到，就还是用原生的 `<Suspense>` 手动圈出更细的边界：
+
+```tsx
+// app/patients/page.tsx
+import { Suspense } from 'react'
+import PrescriptionStats from './PrescriptionStats'
+
+export default function PatientsPage() {
+  return (
+    <div>
+      <PatientList />                       {/* 患者列表：shell 核心，先到 */}
+      <Suspense fallback={<ChartSkeleton />}>
+        <PrescriptionStats />               {/* 图表：慢接口，后到，不影响列表首屏 */}
+      </Suspense>
+    </div>
+  )
+}
+```
+
+这和「四、3」「四、4」在 Koa 里做的改造是同一件事，只是把「手动拆 shell、手动写 fallback」换成了「`loading.tsx` 做路由级约定 + `<Suspense>` 做块级精细控制」两层。
+
+> 💬 **面试官会问**：`loading.tsx` 和手动 `<Suspense>` 边界是什么关系？什么时候用哪个？
+>
+> ✅ **标准答案**：`loading.tsx` 是 Next.js 提供的路由级约定，本质就是给整个 `page.tsx` 包一层 `Suspense`，适合「整页数据一起加载、共用一套骨架屏」的场景；手动 `<Suspense>` 边界更细，能把「先到的核心内容」和「后到的次要内容」拆开，让 shell 更小、首屏更早。两者可以叠加：`loading.tsx` 兜住整页，页面内部再用 `<Suspense>` 圈出更慢的独立模块。
+
+### 4. error.tsx 与 not-found.tsx：错误与 404 的约定式兜底
+
+「四、3」里 `onShellError` 手动 `ctx.res.end('<h1>页面渲染失败</h1>')`、`onError` 打日志，以及 `key === '/notFound'` 的 404 分支，在 App Router 里分别是 `error.tsx` 和 `not-found.tsx` 两个文件名。
+
+`error.tsx` 必须是一个 Client Component（它要接收 React 的错误对象并交互），自动成为该路由的错误边界，捕获 `page.tsx` 渲染或数据阶段抛出的错误：
+
+```tsx
+// app/patients/error.tsx —— 必须是 Client Component
+'use client'
+export default function Error({ error, reset }: { error: Error; reset: () => void }) {
+  return (
+    <div>
+      <p>患者列表加载失败：{error.message}</p>
+      <button onClick={reset}>重试</button>
+    </div>
+  )
+}
+```
+
+`error.tsx` 的错误边界语义和「06 篇」讲的 React Error Boundary 一致——只能捕获渲染阶段的异常，捕获不到事件处理和异步回调里的异常；区别在于 Next.js 把「错误边界 + 一个带 reset 的兜底 UI」打包成了目录约定。`not-found.tsx` 则在路由找不到或组件内调用 `notFound()` 时展示，对应前面的 404 分支。
+
+和 `loading.tsx` 一样，这两个文件都有「就近生效」的层级关系：子路由目录下的 `error.tsx`/`loading.tsx` 只兜住该子路由，父级同名文件兜住更大范围，精确度和前面手写时「Suspense 边界划在哪」是同一个取舍。
+
+### 5. 数据获取与缓存：fetch 的扩展语义（SSG / SSR / ISR）
+
+前面 Koa 项目里「数据什么时候拿」只有两种：shell 渲染前用 `Promise.all` 预取（`Home.loadData`），或者渲染时挂起交给 `Suspense`（`PrescriptionStats`）。App Router 里 Server Component 直接 `await fetch` 就能拿数据，同时 Next.js 扩展了 `fetch` 的缓存语义，让「这个页面是静态生成、每次动态渲染、还是定期重建」变成一行声明。
+
+关键版本差异先讲清楚：**Next.js 15 把 `fetch` 的默认行为从「默认缓存」改成了「默认不缓存」**。Next 13/14 里 `fetch` GET 请求默认 `force-cache`、页面默认静态生成；Next 15 起 GET 请求默认 `no-store`、页面默认动态渲染。如果你还在按老版本的印象写，会在 Next 15 里得到「以为缓存了其实没有」的结果。
+
+```tsx
+// app/patients/page.tsx —— Next.js 15 默认动态渲染，每次请求都重新查数据库
+export default async function PatientsPage() {
+  const patients = await db.query('SELECT * FROM patients WHERE reviewed = false') // 每次请求都执行
+  return <ul>{patients.map(p => <li key={p.id}>{p.name}</li>)}</ul>
+}
+```
+
+要控制渲染与缓存策略，用 `fetch` 的 `cache`/`next.revalidate` 选项，或页面的段配置（Segment Config）：
+
+```tsx
+// 强制缓存（配合静态生成/ISR 使用）—— 对应「每次都拿到同一份、构建期生成」的场景
+const data = await fetch('https://api.example.com/prescriptions', { cache: 'force-cache' })
+
+// 完全动态，不缓存 —— 对应「待诊患者列表」这种每次都要最新的数据
+const data = await fetch('https://api.example.com/pending-patients', { cache: 'no-store' })
+
+// 增量再验证（ISR）—— 缓存 T 秒后，下一次请求在后台重新拉取并更新缓存
+const data = await fetch('https://api.example.com/drug-catalog', { next: { revalidate: 3600 } })
+```
+
+三种策略分别对应三种「数据新鲜度需求」，和本篇的医疗场景能对上：
+
+| 策略 | 声明方式 | 医疗场景 | 对应本篇概念 |
+|------|---------|---------|-------------|
+| SSG（静态生成） | `force-cache` 或 `export const dynamic = 'force-static'` | 药品目录、说明书这种基本不变的内容，构建期生成 | 完全不需要运行时数据，对应「没有 `Suspense` 的纯同步 shell」 |
+| SSR（动态渲染） | `no-store`（Next 15 默认） | 待诊患者列表这种每次都要最新的数据 | 「四、3」shell 前 `Promise.all` 预取 |
+| ISR（增量再验证） | `next: { revalidate: 3600 }` | 处方统计这种「可以接受几分钟延迟」的数据 | 介于静态和动态之间，后台重建 |
+
+缓存的本质是「把数据获取从请求路径上拿掉」，换取更快的首屏；代价是新鲜度。这正好呼应「四、5」最后那段设计取舍——哪些数据必须在 shell 前拿到（决定首屏是否完整可用），哪些可以延迟甚至缓存（次要模块、允许延迟），是同一个「数据新鲜度 vs 首屏速度」的判断在框架层提供了现成开关而已。
+
+### 6. Server Actions：表单提交不再手写 API 路由
+
+前面 Koa 项目里「标记审核」这类写操作，走的是「客户端 `axios` 调 `/api` → `koa-proxies` 转发 3002 → API 服务处理」一条完整链路，要自己建 API 路由、自己处理请求体。App Router 提供了 Server Actions：一个标了 `'use server'` 的函数可以直接被表单或按钮调用，函数体在服务端执行，省掉中间那层手写 API 路由。
+
+```tsx
+// app/actions/review.ts —— 服务端动作，函数体只在服务端执行
+'use server'
+import { db } from '@/lib/db'
+
+export async function markReviewed(patientId: number) {
+  await db.query('UPDATE patients SET reviewed = true WHERE id = $1', [patientId])
+}
+```
+
+客户端组件里直接用表单绑定，或调用这个函数：
+
+```tsx
+// app/patients/ReviewButton.tsx
+'use client'
+import { markReviewed } from '@/actions/review'
+
+export default function ReviewButton({ patientId }: { patientId: number }) {
+  return (
+    <form action={markReviewed.bind(null, patientId)}>
+      <button type="submit">标记审核</button>
+    </form>
+  )
+}
+```
+
+这个 `action` 会在服务端执行 `markReviewed` 完成数据库更新，然后触发一次当前路由的重新渲染。它的本质仍然是一次「客户端发起、服务端执行」的 RPC，只是 Next.js 把端点、序列化、重新验证这些样板代码都替你生成好了。
+
+两个使用边界要注意：
+
+- Server Action 内部跑的是一段会在服务端执行的代码，参数和返回值都要能被 RSC 的序列化机制（「二、7」的 Flight）处理，所以不能传函数、不能返回不可序列化的对象。
+- 需要提交中的 loading 态用 `useFormStatus`，需要拿到返回结果/错误用 `useActionState`——这两个 Hook 是 React 为 Server Action 场景专门提供的，替代手写 `useState` 管提交状态。
+
+### 7. middleware：请求进入前的统一拦截
+
+`middleware.ts`（注意放在项目根或 `src/` 下，不在 `app/` 里）在请求进入页面渲染之前执行，适合做鉴权、重定向、请求头改写这类「和具体页面无关」的全局逻辑。前面 Koa 项目里登录态校验散在 `render.js` 和 `getServerStore` 里，App Router 里收敛到中间件：
+
+```tsx
+// middleware.ts
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+
+export function middleware(request: NextRequest) {
+  const session = request.cookies.get('session')?.value
+  // 未登录访问需要鉴权的页面，重定向到登录页
+  if (!session && request.nextUrl.pathname.startsWith('/patients')) {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+  return NextResponse.next()
+}
+
+export const config = {
+  matcher: ['/patients/:path*'], // 只拦截患者相关路径，其余路径不经过中间件
+}
+```
+
+中间件默认跑在 Edge Runtime 上（轻量运行时，不保证有完整的 Node API），所以它适合「读 cookie、做重定向、改请求头」这类轻逻辑，不适合在里面直接查数据库。需要查库的鉴权逻辑放回 Server Component 或 `layout.tsx` 里做。这个「中间件只做轻拦截、重逻辑下沉到渲染层」的边界，和前面 Koa 里「`koa-session` 管会话、`render.js` 管渲染」的分工是一致的。
+
+### 8. 一张对照表：Koa 手写 vs Next.js 约定
+
+把这一节和前面四节的每个手写环节对齐，就是这一篇「从原理到工程」的完整闭环：
+
+| 本篇前面的手写环节 | Koa 里的做法 | Next.js App Router 的约定 |
+|--------------------|-------------|--------------------------|
+| 流式输出 HTML | `renderToPipeableStream` + `ctx.res.write` 手动切分 | 框架内置，`loading.tsx`/`Suspense` 自动流式 |
+| shell 与慢内容拆分 | 手动 `<Suspense fallback>` 包裹图表组件 | `loading.tsx`（路由级）+ 手动 `<Suspense>`（块级） |
+| 响应接管 | `ctx.respond = false` + 包 `ctx.res.end` | 框架内部处理，无需接管 |
+| 客户端接管 DOM | `hydrateRoot` | 框架内部自动 hydrate |
+| 数据预取 | `Promise.all(loadData)` 在 shell 前 | async Server Component 直接 `await` |
+| 错误兜底 | `onShellError`/`onError` 回调 | `error.tsx`（错误边界约定） |
+| 404 处理 | `key === '/notFound'` 判断 | `not-found.tsx` / `notFound()` |
+| Server/Client 边界 | 无（纯 React 项目没有 RSC 拆分能力） | `'use client'` 标记 + 构建器切分 |
+| 写操作 | 手写 API 路由 + axios 调用 | Server Actions（`'use server'`） |
+| 全局拦截 | `koa-session` + `render.js` 里散落判断 | `middleware.ts` |
+
+这张表就是「手写流式 SSR」和「用 Next.js 做流式 SSR」之间的距离：原理没变（还是 Fizz 流式、还是 Suspense 边界、还是 RSC 序列化），变的只是「这些机制被谁触发」——前者你一行行写出来，后者你通过目录和文件约定声明出来。面试里能把这张表的每一行讲清楚「Next.js 的约定背后对应的是哪段手写代码」，比只会背「Next.js 能做 SSR」要深一个层次。
+
+---
+
+## 六、手写实现源码地址
 
 - https://github.com/lotosv2010/react-ssr-source
 
 ---
 
-## 六、参考资料
+## 七、参考资料
 
 - https://zh-hans.react.dev/
 - https://nextjs.org/docs/app/building-your-application/rendering/server-components
@@ -1050,6 +1311,9 @@ export default function Counter() {
 | RSC vs SSR | SSR 解决首屏 HTML 谁生成，RSC 解决组件代码要不要打包 | ⭐⭐⭐⭐⭐ |
 | RSC 序列化 | Client Component 编码为模块引用占位标记，不序列化源码 | ⭐⭐⭐⭐ |
 | use client 边界下沉 | 边界越靠近叶子节点，保留的"不打包"收益越大 | ⭐⭐⭐⭐ |
+| loading.tsx 约定 | 路由级 Suspense 边界，整页骨架屏的声明式写法 | ⭐⭐⭐⭐ |
+| fetch 缓存语义 | SSG/SSR/ISR 三种新鲜度策略（Next 15 默认不缓存） | ⭐⭐⭐ |
+| Server Actions | `'use server'` 函数直接在服务端执行，省手写 API 路由 | ⭐⭐⭐ |
 
 ---
 
