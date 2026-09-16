@@ -1,55 +1,72 @@
 # prompt
 
 ```text
-/publish 下面我们规划React 18全家桶的第9篇文章，具体如下：
+/publish 下面我们规划React 18全家桶的第11篇文章，具体如下：
 {{
 ## 知识点范围
 
-### 第 09 篇：React 18 Context: 依赖传播机制与手写实现（面试收藏级）
+### 第 11 篇：React 状态管理: Redux Toolkit 源码解析与 MobX/Zustand 选型对比（生产收藏级）
 
-**副标题**：Context 值挂在 Fiber 节点上，Provider 变化时如何精确标记需要更新的子树
+**副标题**：Redux 发布订阅与 Immer、RTK Query、Zustand 极简订阅、MobX 响应式、dva 历史方案
+
+> 说明：本篇合并原大纲中并列的 Redux/MobX/dva/umi 四篇——Redux Toolkit 是主线（篇幅占比最大），MobX 与 Zustand 降级为对比小节，dva 降级为"历史方案"小节，umi 的路由部分已并入第 10 篇。
 
 #### 一、使用与实践
-- `createContext(defaultValue)` 创建 Context 对象
-- `<XxxContext.Provider value={...}>` 提供值，`value` 变化（`Object.is` 比较）会触发消费该 Context 的组件重渲染
-- `useContext(XxxContext)` 读取最近一层匹配的 `Provider` 提供的值
-- 类组件通过 `static contextType` 或 `<XxxContext.Consumer>` 读取
-- 多个 Context 嵌套时，`useContext` 只会匹配组件树上"最近"的同一个 Context 的 `Provider`
+- `createStore(reducer)`（或 RTK 的 `configureStore`）、`store.getState()`、`store.dispatch(action)`、`store.subscribe(listener)`
+- reducer 纯函数约定：`(state, action) => newState`
+- `react-redux` 的 `<Provider store={store}>`、`useSelector`、`useDispatch()`
+- Redux Toolkit 的 `createSlice({ name, initialState, reducers })`：Immer 允许"看似直接修改"的写法
+- `createAsyncThunk` 处理异步逻辑，自动生成 `pending`/`fulfilled`/`rejected`
+- RTK Query：`createApi` 声明式定义接口，自动生成带缓存、去重能力的 hooks
+- **Zustand 基本用法**（新增）：`create((set) => ({ count: 0, inc: () => set(s => ({ count: s.count + 1 })) }))`，不需要 `Provider` 包裹，直接在组件里调用返回的 hook 读取状态
+- **MobX 基本用法**（保留自原 10 篇，压缩篇幅）：`observable`/`computed`/`action`/`makeAutoObservable`/`observer`
 
 #### 二、设计与原理
-- Context 值存储位置：`Provider` 对应 Fiber 的 `memoizedProps.value`，Context 对象本身维护 `_currentValue` 字段
-- Provider 变化如何标记依赖子树更新：`propagateContextChange` 从 `Provider` 节点向下遍历整个子树，检查每个节点的 `dependencies`，匹配上就打更新标记
-- 为什么被 `memo` 包裹也无法完全规避重渲染：`propagateContextChange` 的扫描不会被 `memo` 挡住
-- 多层 Context 性能陷阱：把多个不相关状态塞进同一个 Context 的 `value`，任意字段变化都会导致所有消费组件被标记更新
-- 拆分 Context 优化策略：按变化频率和粒度拆分独立的 Context
-- `use-context-selector` 类库的实现思路：自建可订阅 store，只有 `selector` 计算结果真正变化才强制重渲染
-- 对比 Vue 3 的 `provide/inject`：基于组件实例原型链查找 + 响应式系统精确依赖追踪，粒度比 React Context 的"广播式"通知更细
+- 发布订阅模式的核心：`createStore` 内部维护 `currentState` 和监听器数组，`dispatch` 调用 `reducer` 得到新 state 再遍历执行监听器
+- `applyMiddleware` 的柯里化链条：三层柯里化函数串联成"洋葱模型"
+- `combineReducers` 的分治思想：只有字段真正变化才返回新的顶层对象引用
+- **`react-redux` 的精确订阅机制**：`useSelector` 内部基于 `useSyncExternalStore`（与第 06 篇联动回顾）——把 `store.subscribe` 作为订阅函数传入，每次变化重新执行 `selector` 并用 `Object.is` 比较，只有真正不同才触发重渲染，且天然规避了并发模式下的 tearing 问题
+- RTK 的 Immer 集成原理：reducer 收到的 `state` 是 Immer 生成的 Proxy，"看似直接修改"的操作被记录下变更路径，最终生成结构共享的新 state
+- RTK Query 的缓存和去重原理：`endpoint` 名称 + 参数序列化作为缓存 key，`invalidatesTags`/`providesTags` 机制自动让相关缓存失效
+- **Zustand 的实现原理**（新增）：`create` 内部本质是一个极简的发布订阅 store（比 Redux 更薄的一层），配套的 `useStore` hook 直接基于 `useSyncExternalStore` 实现（React 18 之后的版本），这意味着 Zustand 不需要 `Provider`、不需要 `combineReducers`，用最少的抽象直接暴露"读取状态 + 订阅变化"两个能力；相比 Redux 的"严格 action/reducer 约定"，Zustand 允许在 `set` 里直接写更新逻辑，灵活度更接近 MobX，但状态更新仍然是不可变式的（`set` 替换引用，不是 Proxy 拦截可变写法），这是它和 MobX 的本质区别
+- **MobX 的响应式原理**（压缩自原篇）：Proxy 拦截 `get`/`set`，自动依赖收集与派发通知，`observer` 把组件渲染函数包装成 Reaction；细粒度追踪但 React 渲染单元是组件级，收益主要体现在"减少整组件重渲染"而非精确 DOM 更新
+- **dva 作为历史方案回顾**（原 11 篇内容大幅压缩）：dva 本质是 Redux + Redux-Saga 的约定式封装，用 Generator 函数配合 `call`/`put`/`select` 等 effect 描述符让异步流程"看起来像同步代码"，`dva-loading` 自动跟踪 effect 的 loading 状态；这套方案在 Generator/Saga 心智负担较重、且社区已转向 `async/await` 配合 `createAsyncThunk` 或 Zustand 的今天，新项目已经很少选择，了解其设计思路（描述式副作用、可测试性）即可，不建议新项目采用
+- 三种方案的核心差异总结：Redux Toolkit 是"显式 action + 严格不可变"换取大团队可追踪性；MobX 是"隐式响应式 + 面向对象"换取样板代码最少；Zustand 是"极简发布订阅 + 无 Provider"换取最低的心智负担和包体积，是当前中小型项目和库作者最常见的"轻量替代方案"选择
 
 #### 三、源码解析（重点代码，来源 GitHub 仓库）
-1. Context 对象创建：`packages/react/src/ReactContext.js`
-2. Provider 渲染处理：`packages/react-reconciler/src/ReactFiberBeginWork.js` — `updateContextProvider`
-3. 变化传播算法：`packages/react-reconciler/src/ReactFiberNewContext.js` — `propagateContextChange_eager`
-4. Context 读取：`packages/react-reconciler/src/ReactFiberNewContext.js` — `readContext`
-5. `useContext` Hook 入口：`packages/react-reconciler/src/ReactFiberHooks.js`
+1. store 核心实现：`redux/src/createStore.ts`
+2. 中间件链条：`redux/src/applyMiddleware.ts`
+3. reducer 合并：`redux/src/combineReducers.ts`
+4. 精确订阅：`react-redux/src/hooks/useSelector.ts` — 基于 `useSyncExternalStore` 的选择器订阅实现
+5. Immer 集成：`@reduxjs/toolkit/src/createSlice.ts`
+6. Zustand 核心实现：`zustand/src/vanilla.ts`（极简 store）与 `zustand/src/react.ts`（`useSyncExternalStore` 绑定）
+7. MobX Proxy 拦截：`mobx/src/types/observableobject.ts`
 
-#### 四、手写实现（延续 `lotosv2010/react-source` monorepo，本篇作为 02~09 篇 `react-reconciler` 递增实现的收尾）
-在 `packages/react` 新增 `ReactContext.ts` 实现 `createContext`（维护 `_currentValue` 字段）；在 `packages/react-reconciler` 的 `ReactFiberBeginWork.ts` 补上 `updateContextProvider` 处理 Provider 渲染，新增 `ReactFiberNewContext.ts` 实现 `propagateContextChange`（从 Provider 节点向下遍历子树、检查每个 Fiber 的 `dependencies` 并打更新标记）与 `readContext`；`useContext` 接入第 06 篇已经搭好的 dispatcher 体系。用"医生工作站患者队列广播"场景验证多消费者重渲染现象，并额外实现一个 `createContextSelector` 用重渲染次数计数器对比两种方案的差异。至此第 01 篇搭的 monorepo 骨架里 `beginWork`/`completeWork`/`commitRoot`/Diff/Hooks/调度/事件/Context 均已从占位替换为真实实现，形成一份可完整跑通、覆盖 React 18 核心链路的手写版本。
+#### 四、手写实现（可独立跑通）
+用纯 TypeScript 实现一个约 100 行的 mini-Redux（`createStore`/`applyMiddleware`/`combineReducers`），用"处方单状态机"演示；在此基础上新增一个约 30 行的 mini-Zustand（`create` 函数返回一个基于订阅者集合的 hook，直接对接一个简化版 `useSyncExternalStore` 用法），对比两者在同一个"处方单状态机"场景下的代码量和使用方式差异。
 
 #### 五、手写实现源码 GitHub 地址
-https://github.com/lotosv2010/react-source
+- https://github.com/lotosv2010/redux-source
+- https://github.com/lotosv2010/redux-saga-source
 
 #### 六、参考
+- https://redux.js.org/
+- https://react-redux.js.org/
+- https://redux-toolkit.js.org/
+- https://zustand-demo.pmnd.rs/
+- https://mobx.js.org/
+- https://github.com/dvajs/dva
 - https://zh-hans.react.dev/
 - https://jonny-wei.github.io/blog/react/
 - https://react.iamkasong.com
 - https://github.com/wbccb/Frontend-Articles
 
 **面试核心问**：
-- Context 的值变化会导致所有消费组件重渲染吗？具体的传播机制是怎样的？
-- 为什么被 `memo` 包裹的组件，在祖先 Context 变化时依旧会重渲染？
-- 如何优化多层 Context 导致的性能问题？
-- React 的 Context 机制和 Vue 3 的 `provide/inject` 在实现原理上有什么本质区别？
-- `use-context-selector` 之类的库是怎么绕开原生 Context 的"广播式"更新的？
+- Redux 的核心是什么？用一句话描述它的数据流转过程
+- `react-redux` 的 `useSelector` 是怎么做到"只有相关字段变化才重渲染"的，和并发渲染的 tearing 问题有什么关系？
+- RTK 的 `createSlice` 为什么可以"直接修改" state？背后的 Immer 是怎么工作的？
+- Zustand 为什么不需要 `Provider`？它和 Redux 在状态更新方式上的本质区别是什么？
+- 给一个多团队协作的中大型后台系统选型，Redux Toolkit、MobX、Zustand 之间你会怎么权衡？dva 现在还值得选吗？
 
 
 ## 分析角度（每个子主题都按此展开）
