@@ -658,6 +658,8 @@ https://github.com/lotosv2010/react-source
 #### 五、手写实现源码 GitHub 地址
 - https://github.com/lotosv2010/redux-source
 - https://github.com/lotosv2010/redux-saga-source
+- https://github.com/lotosv2010/mobx-source
+- https://github.com/lotosv2010/dva-source
 
 #### 六、参考
 - https://redux.js.org/
@@ -718,8 +720,11 @@ https://github.com/lotosv2010/react-source
 
 #### 六、参考
 - https://zh-hans.react.dev/
-- https://jonny-wei.github.io/blog/react/
 - https://nextjs.org/docs/app/building-your-application/rendering/server-components
+- https://jonny-wei.github.io/blog/react/
+- https://react.iamkasong.com
+- https://github.com/wbccb/Frontend-Articles
+
 
 **面试核心问**：
 - `renderToString` 和 `renderToPipeableStream` 的本质区别是什么？
