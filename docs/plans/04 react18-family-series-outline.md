@@ -4,6 +4,11 @@
 > 写作原则：使用与实践 → 设计与原理 → 源码解析（重点代码，来源 GitHub 仓库）→ 手写实现 → GitHub → 参考
 > 目标读者：5-10 年前端经验、有 Vue 全家桶背景、正在转型或补齐 React 技术栈、备战面试或寻求晋升为 AI 应用工程师的工程师
 > 与 Vue 3 系列关系：结构对称，涉及响应式/渲染/组件通信等可对照的知识点会显式标注「对比 Vue 3」
+>
+> **篇目结构约定**：本系列分两类篇目，采用不同的章节结构——
+> - **面试收藏级（01–09，React 核心原理）**：用**六段式**（使用与实践 → 设计与原理 → 源码解析 → 手写实现 → GitHub → 参考）。这类篇目的核心增量是"源码怎么实现"，按知识深度纵向切合理。
+> - **生产收藏级（10–14，生态与工程化）**：用**经验主线式**（问题驱动的排查/选型主线，源码只做内联回顾、指向前篇，不单独成段）。这类篇目的核心增量是"经验与取舍"，按"遇到什么问题、用什么手段"横向组织，避免与前篇原理重复。
+> 第 13 篇（性能优化）是本约定下"经验主线式"的代表：以「系统化排查三步法」为主线，把优化手段按「渲染次数过多 / 单次耗时过长 / 加载慢」三类问题分组，不再按 API 平铺。
 
 ---
 
@@ -737,48 +742,43 @@ https://github.com/lotosv2010/react-source
 
 ### 第 13 篇：React 18 性能优化: memo/useMemo/虚拟列表与 React Compiler（生产收藏级）
 
-**副标题**：bailout 机制应用、虚拟列表原理、系统化排查方法论、React Compiler 未来方向
+**副标题**：系统化排查三步法、三类性能问题与对应手段、虚拟列表原理、React Compiler 未来方向
 
 > 说明：内容承接原大纲第 14 篇，编号顺移；`memo`/bailout 的源码细节已在第 03 篇讲透，本篇聚焦"怎么系统化排查和应用"。
+> **本篇采用「经验主线式」结构，不用六段式**——核心增量是"优化经验"而非源码原理，所以以「系统化排查三步法」为主线，把手段按「渲染次数过多 / 单次耗时过长 / 加载慢」三类问题分组；原理只做内联回顾并指向前篇（03/04/06/07），源码不再单独成段。
 
-#### 一、使用与实践
-- `React.memo(Component)`、`useMemo`、`useCallback`
-- 虚拟列表（`react-window`/`@tanstack/react-virtual`）
-- `React.lazy` + `Suspense`
-- `useTransition`/`useDeferredValue`
-- React DevTools Profiler
+#### 一、总纲：系统化排查三步法（全文主线，先立框架）
+- **第一步量化定位**：Profiler 火焰图 / 排名图 / why did this render
+- **第二步问题分类**：渲染次数过多 → 第二章；单次渲染耗时过长 → 第三章；加载慢 → 第四章
+- **第三步验证收口**：优化前后数据对比
+- 关键认知：三类问题解法几乎不重叠，用错手段等于白做（"渲染次数过多"和"单次耗时过长"是两回事）
 
-#### 二、设计与原理
-- `memo` 的浅比较机制与 bailout 的关系（详见第 03 篇，这里回顾结论）
-- `useMemo`/`useCallback` 的依赖比较：`Object.is` 逐项比较
-- 虚拟列表的核心原理：只渲染可视区域内的列表项
-- `React.lazy` 的实现：惰性初始化的 thenable，配合 Suspense 挂起机制
-- `useTransition`/`useDeferredValue` 的调优原理（详见第 07 篇，这里聚焦应用场景）
-- 性能优化的系统化排查方法论：先用 Profiler 定位"谁在重渲染、耗时多少"，区分"渲染次数过多"和"单次渲染耗时过长"两类问题分别用不同手段解决
-- **React Compiler（原 React Forget）的未来方向**（新增）：编译器在编译期自动分析组件函数体内"哪些变量影响了 JSX 输出"，自动在必要位置插入 `memo`/`useMemo`/`useCallback` 等价物，把开发者从"这里要不要手动加 `useCallback`"的决策负担中解放出来——它要解决的历史包袱正是第 03 篇讲的"bailout 依赖 props 引用稳定、需要开发者主动配合"。与 Vue 3 编译优化的方向对比：Vue 3 模板编译生成 PatchFlag 静态标记、静态提升、Block Tree，运行时只 diff 动态节点；React 的 JSX 完全动态无法做静态节点分析，只能在编译期做"自动依赖分析 + 自动插入 memo"。当前（2026 年）仍是实验性特性，Meta 内部已在部分产品线落地，社区可通过 `babel-plugin-react-compiler` 试用，正式 GA 预计随 React 19+ 逐步成熟；短期仍需手动优化并理解本篇原理，长期大部分优化会下沉到编译器
+#### 二、第一类问题：减少「不必要的重渲染」
+- `React.memo`/`useMemo`/`useCallback` 三件套配合（真实案例：`onClick` 未包 `useCallback` 导致几十个 `DrugRow` 跟着重渲染）
+- 原理回顾 box：`memo` 的浅比较与 bailout 的关系（指 03 篇，不重复贴源码）
+- `useMemo`/`useCallback` 依赖比较：`Object.is` 逐项比较（`areHookInputsEqual`）
+- Immutable.js 历史方案（简述，标注"新项目不建议，用 Immer"）
+- key 的优化与 Diff 策略回顾（指 04 篇；列表用稳定 id 而非 index）
 
-#### 三、源码解析（重点代码，来源 GitHub 仓库）
-1. `memo` 的比较逻辑：`packages/react/src/ReactMemo.js` 与 `packages/shared/src/shallowEqual.js`
-2. `useMemo`/`useCallback` 依赖比较：`packages/react-reconciler/src/ReactFiberHooks.js` — `areHookInputsEqual`
-3. `React.lazy` 挂起机制：`packages/react/src/ReactLazy.js`
+#### 三、第二类问题：降低「单次渲染开销」
+- 虚拟列表：核心原理三步（算总高度 / 算可视索引范围 / 占位元素模拟滚动条）+ `react-window` vs `@tanstack/react-virtual` 选型 + 手写固定高度虚拟列表（万级药品目录 demo，Profiler 录制对比全量渲染）
+- `useTransition`/`useDeferredValue`：可中断渲染、不阻塞交互（指 07 篇；`useDeferredValue` 与 debounce/throttle 本质区别）
 
-#### 四、手写实现（可独立跑通）
-用 Vite + TypeScript + React 18 实现一个固定高度虚拟列表组件，用"万级药品目录"模拟数据演示流畅滚动效果，并和"不做虚拟化直接渲染全部万级节点"的版本做 Profiler 录制对比。
+#### 四、第三类问题：缩短「加载时间」
+- `React.lazy` + `Suspense` + Error Boundary 代码分割（真实案例：首屏 JS 从 1.2MB 降到 380KB）
+- 预渲染（与第 12 篇流式 SSR 互补）
+- 图片懒加载（`IntersectionObserver`）
 
-#### 五、手写实现源码 GitHub 地址
-https://github.com/lotosv2010/react-source
-
-#### 六、参考
-- https://zh-hans.react.dev/
-- https://github.com/bvaughn/react-window
-- https://tanstack.com/virtual
+#### 五、未来方向：React Compiler 把手动优化自动化
+- 编译期自动分析依赖、自动插入 `memo`/`useMemo`/`useCallback` 等价物
+- 对比 Vue 3 编译优化路线；当前（2026）仍实验性，短期手动优化仍必要
 
 **面试核心问**：
+- 系统化排查 React 性能问题的思路是什么？
 - `memo`、`useMemo`、`useCallback` 三者各自解决什么问题？滥用会有什么代价？
 - 虚拟列表的核心原理是什么？
 - `React.lazy` 是怎么和 `Suspense` 配合实现代码分割的？
 - `useDeferredValue` 具体是怎么实现"输入流畅、结果滞后"效果的？和 debounce/throttle 有什么本质区别？
-- 系统化排查 React 性能问题的思路是什么？
 
 ---
 
@@ -817,7 +817,7 @@ https://github.com/lotosv2010/react-source
 搭建一个完整可运行的 Monorepo 脚手架：`pnpm-workspace.yaml` + `turbo.json`；`packages/ui` 提供基础组件；`packages/request` 封装统一请求实例；`apps/admin` 用 Vite + React 18 + TypeScript + React Router 6/7 + Redux Toolkit + RTK Query + Ant Design 搭建"医院管理系统"后台（登录页、患者列表页、处方审核页）。额外新增：用 TypeScript 手写一个简化版 `useRequest`（`Fetch` 类 + 竞态处理 + 一个防抖插件 + 一个简单缓存插件），验证插件化架构可以正常工作。
 
 #### 五、手写实现源码 GitHub 地址
-https://github.com/lotosv2010/react-source
+https://github.com/lotosv2010/vite-react-ts
 
 #### 六、参考
 - https://turbo.build/repo/docs
