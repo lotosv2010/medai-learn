@@ -5,53 +5,56 @@
 {{
 ## 知识点范围
 
-### 第 13 篇：React 18 性能优化: memo/useMemo/虚拟列表与 React Compiler（生产收藏级）
+### 第 14 篇：React 18 工程化实战: Turborepo + Monorepo 后台管理系统从零搭建（生产收藏级）
 
-**副标题**：bailout 机制应用、虚拟列表原理、系统化排查方法论、React Compiler 未来方向
+**副标题**：Monorepo 架构设计、自定义 Hook 插件化设计、前13篇知识点工程化落地
 
-> 说明：内容承接原大纲第 14 篇，编号顺移；`memo`/bailout 的源码细节已在第 03 篇讲透，本篇聚焦"怎么系统化排查和应用"。
+> 说明：内容承接原大纲第 16 篇，编号顺移；原独立成篇的「第 15 篇 ahooks 源码解析」降级为本篇的第五小节「自定义 Hook 设计模式」。
 
 #### 一、使用与实践
-- `React.memo(Component)`、`useMemo`、`useCallback`
-- 虚拟列表（`react-window`/`@tanstack/react-virtual`）
-- `React.lazy` + `Suspense`
-- `useTransition`/`useDeferredValue`
-- React DevTools Profiler
+- 目录结构规划：`apps/`、`packages/` 的 Monorepo 布局
+- `pnpm-workspace.yaml` 声明工作区范围，`turbo.json` 声明任务依赖图
+- Vite 创建 React 18 + TypeScript 项目模板
+- 集成 Ant Design 搭建后台管理系统整体布局
+- 集成 React Router 6/7 + 状态管理方案（第 10/11 篇结论）
+- **`useRequest` 基本用法**（原 ahooks 篇内容）：自动请求、`manual: true` 手动模式、`onSuccess`/`onError`、防抖节流配置、`pollingInterval` 轮询、`cacheKey` 缓存与 SWR 策略
 
 #### 二、设计与原理
-- `memo` 的浅比较机制与 bailout 的关系（详见第 03 篇，这里回顾结论）
-- `useMemo`/`useCallback` 的依赖比较：`Object.is` 逐项比较
-- 虚拟列表的核心原理：只渲染可视区域内的列表项
-- `React.lazy` 的实现：惰性初始化的 thenable，配合 Suspense 挂起机制
-- `useTransition`/`useDeferredValue` 的调优原理（详见第 07 篇，这里聚焦应用场景）
-- 性能优化的系统化排查方法论：先用 Profiler 定位"谁在重渲染、耗时多少"，区分"渲染次数过多"和"单次渲染耗时过长"两类问题分别用不同手段解决
-- **React Compiler（原 React Forget）的未来方向**（新增）：编译器在编译期自动分析组件函数体内"哪些变量影响了 JSX 输出"，自动在必要位置插入 `memo`/`useMemo`/`useCallback` 等价物，把开发者从"这里要不要手动加 `useCallback`"的决策负担中解放出来——它要解决的历史包袱正是第 03 篇讲的"bailout 依赖 props 引用稳定、需要开发者主动配合"。与 Vue 3 编译优化的方向对比：Vue 3 模板编译生成 PatchFlag 静态标记、静态提升、Block Tree，运行时只 diff 动态节点；React 的 JSX 完全动态无法做静态节点分析，只能在编译期做"自动依赖分析 + 自动插入 memo"。当前（2026 年）仍是实验性特性，Meta 内部已在部分产品线落地，社区可通过 `babel-plugin-react-compiler` 试用，正式 GA 预计随 React 19+ 逐步成熟；短期仍需手动优化并理解本篇原理，长期大部分优化会下沉到编译器
+- Turborepo 的任务图与缓存机制：基于内容哈希判断任务是否需要重新执行
+- pnpm workspace 的依赖管理原理：内容寻址存储 + 符号链接，避免幽灵依赖
+- Vite 的开发体验优化原理：原生 ESM 按需编译 + esbuild 预构建
+- Monorepo 下状态管理选型的落地考量（承接第 11 篇结论）：Redux Toolkit / MobX / Zustand 选型对比表
+- **自定义 Hook 设计模式：ahooks 的插件化架构**（原独立篇内容压缩并入）：`useRequest` 核心是一个精简的 `Fetch` 类管理请求生命周期，"高级功能"（防抖、节流、轮询、缓存、竞态处理）都是以插件形式挂载——每个插件是一个自定义 Hook，接收 `Fetch` 实例并返回一组生命周期钩子（`onBefore`/`onRequest`/`onSuccess`/`onError`/`onFinally`）；请求竞态处理用自增的 `fetchId` 判断结果是否过期，比 `AbortController` 更轻量；SWR 缓存策略用模块级 Map 共享缓存并支持"先展示旧数据、后台静默更新"；这套"小核心 + 可插拔能力模块"的设计思路可以推广到任何需要"渐进增强、按需组合"的自定义 Hook 设计中
 
 #### 三、源码解析（重点代码，来源 GitHub 仓库）
-1. `memo` 的比较逻辑：`packages/react/src/ReactMemo.js` 与 `packages/shared/src/shallowEqual.js`
-2. `useMemo`/`useCallback` 依赖比较：`packages/react-reconciler/src/ReactFiberHooks.js` — `areHookInputsEqual`
-3. `React.lazy` 挂起机制：`packages/react/src/ReactLazy.js`
+1. Turborepo 任务调度：`turborepo` 仓库 `crates/turborepo-lib/src/run/`（概览级介绍）
+2. pnpm 的内容寻址存储：`pnpm` 仓库 `packages/store/`（概览级介绍）
+3. Vite 预构建：`vite` 仓库 `packages/vite/src/node/optimizer/index.ts`（概览级介绍）
+4. useRequest 入口：`packages/hooks/src/useRequest/src/useRequest.ts` — 组装 `Fetch` 实例和所有插件
+5. Fetch 核心类：`packages/hooks/src/useRequest/src/Fetch.ts` — 竞态处理的 `fetchId` 机制
+6. 缓存插件：`packages/hooks/src/useRequest/src/plugins/useCachePlugin.ts`
+
+> 说明：本篇聚焦"工程化整合与选型落地"，Turborepo/pnpm/Vite 源码解析部分以理解核心机制为主，重点仍是前 13 篇已深入讲解的 React 生态自身源码。
 
 #### 四、手写实现（可独立跑通）
-用 Vite + TypeScript + React 18 实现一个固定高度虚拟列表组件，用"万级药品目录"模拟数据演示流畅滚动效果，并和"不做虚拟化直接渲染全部万级节点"的版本做 Profiler 录制对比。
+搭建一个完整可运行的 Monorepo 脚手架：`pnpm-workspace.yaml` + `turbo.json`；`packages/ui` 提供基础组件；`packages/request` 封装统一请求实例；`apps/admin` 用 Vite + React 18 + TypeScript + React Router 6/7 + Redux Toolkit + RTK Query + Ant Design 搭建"医院管理系统"后台（登录页、患者列表页、处方审核页）。额外新增：用 TypeScript 手写一个简化版 `useRequest`（`Fetch` 类 + 竞态处理 + 一个防抖插件 + 一个简单缓存插件），验证插件化架构可以正常工作。
 
 #### 五、手写实现源码 GitHub 地址
-https://github.com/lotosv2010/react-source
+https://github.com/lotosv2010/vite-react-ts
 
 #### 六、参考
-- https://zh-hans.react.dev/
-- https://github.com/bvaughn/react-window
-- https://tanstack.com/virtual
-- https://jonny-wei.github.io/blog/react/
-- https://react.iamkasong.com
-- https://github.com/wbccb/Frontend-Articles
+- https://turbo.build/repo/docs
+- https://pnpm.io/
+- https://vitejs.dev/
+- https://redux.js.org/
+- https://ahooks.js.org/
 
 **面试核心问**：
-- `memo`、`useMemo`、`useCallback` 三者各自解决什么问题？滥用会有什么代价？
-- 虚拟列表的核心原理是什么？
-- `React.lazy` 是怎么和 `Suspense` 配合实现代码分割的？
-- `useDeferredValue` 具体是怎么实现"输入流畅、结果滞后"效果的？和 debounce/throttle 有什么本质区别？
-- 系统化排查 React 性能问题的思路是什么？
+- Turborepo 的缓存机制是怎么判断"任务是否需要重新执行"的？
+- pnpm 的符号链接结构是怎么避免"幽灵依赖"问题的？
+- Vite 的开发环境为什么比 Webpack 启动更快？
+- `useRequest` 的插件化架构是怎么设计的？核心状态机和插件之间是怎么协作的？
+- 请求竞态问题是怎么产生的？ahooks 是怎么用 `fetchId` 机制解决的，相比 `AbortController` 有什么优劣？
 
 
 
