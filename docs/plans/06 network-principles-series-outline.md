@@ -1,6 +1,6 @@
-# 网络原理系列公众号文章大纲（系列 08）
+# 网络原理系列公众号文章大纲（系列 09）
 
-> 所属系列：网络原理（对齐 `docs/plans/frontend-engineering-outline.md` 系列 08，先于 Node.js 全栈系列写）
+> 所属系列：网络原理（对齐 `docs/plans/frontend-engineering-outline.md` 系列 09，承接 Node.js 全栈系列之后写）
 > 写作原则：使用与实践 → 设计与原理 → 源码/规范解析 → 实践演示与验证 → 参考
 > 目标读者：5-10 年前端或全栈经验，正在系统补齐网络协议底层原理，备战高级/专家岗面试
 > 与其他系列的分工：本系列讲的是协议本身的原理（不绑定具体语言/运行时），是 Node.js 系列的前置地基。凡是"协议是什么、为什么这样设计"的内容都在本系列讲透；Node.js 系列不再重复协议理论，只讲"Node.js 怎么基于这些协议实现具体能力"——例如 WebSocket 的握手/帧格式/心跳原理在本系列第 06 篇讲，Node.js 系列「Node 核心 API 大全」篇只讲怎么用 `crypto`/`net`/`http` 模块实现一个 WebSocket 服务端；RESTful/GraphQL 的设计原则对比在本系列第 09 篇讲，Node.js 系列「GraphQL+Apollo」篇负责 Resolver 源码级机制和手写实现。

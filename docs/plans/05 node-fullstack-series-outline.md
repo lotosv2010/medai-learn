@@ -17,7 +17,7 @@
 ### 2. 编号冲突修正
 
 - 原目录 `16` 号同时被"链表"和"Nest+TS"占用，`17` 号同时被"树"和"MySQL"占用——已将链表/树移出后消除冲突。
-- 仓库内 `docs/articles/` 下 Node 文章目录原为 `00 node/`，与 `07 react/` 编号体系不连续，已重命名为 `09 node/`（衔接在 `08 network/` 网络原理系列之后，详见下方第 6 点顺序调整说明）。
+- 仓库内 `docs/articles/` 下 Node 文章目录原为 `00 node/`，与 `07 react/` 编号体系不连续，已重命名为 `08 node/`（衔接在 `07 react/` 之后，本系列编号为 08，详见下方第 7 点顺序调整说明）。
 
 ### 3. JS 基础章节合并
 
@@ -51,7 +51,7 @@
 
 ### 7. 三次修订：系列顺序调整（本次修订）
 
-《网络原理》系列是本系列多处引用的前置地基知识（HTTP 演进/TLS/WebSocket 帧格式/RESTful-GraphQL 设计对比），因此在总大纲 `docs/plans/frontend-engineering-outline.md` 中把两个系列的编号顺序互换：**网络原理系列改为 08，Node.js 全栈系列改为 09**（小程序系列相应顺移为 10），先写地基知识再写运行时实现，读者阅读顺序更符合"协议原理 → 具体实现"的知识依赖关系。仓库内文章目录 `docs/articles/08 node/`（此前为空目录）已同步重命名为 `docs/articles/09 node/`，为网络原理系列预留 `08 network/` 目录位。
+《网络原理》系列是本系列多处引用的前置地基知识（HTTP 演进/TLS/WebSocket 帧格式/RESTful-GraphQL 设计对比）。系列编号与目录对应关系最终确认为：**Node.js 全栈系列为 08，网络原理系列为 09**，仓库内文章目录分别对应 `docs/articles/08 node/` 与 `docs/articles/09 network/`。Node.js 系列先写（第一优先），网络原理系列承接其后（第二优先）。
 
 ---
 
@@ -74,8 +74,8 @@
 
 | 编号 | 标题 | 核心主题 | 状态 |
 |------|------|----------|------|
-| 01 | JS 异步基石: 高阶函数/发布订阅/Promise/函数柯里化深度拆解（面试收藏级） | JS异步基础 | ⬜ 待写 |
-| 02 | JS 调度引擎: Generator/async-await 与 EventLoop 浏览器/Node 差异全解（面试收藏级） | 事件循环 | ⬜ 待写 |
+| 01 | Node.js 事件驱动内核: EventEmitter 源码/Promise A+ 规范与手写/并发控制（面试收藏级） | 事件驱动 | ⬜ 待写 |
+| 02 | Node.js 事件循环: 浏览器与 Node 宏任务/微任务差异全解（面试收藏级） | 事件循环 | ⬜ 待写 |
 | 03 | Node.js 运行时内核: V8+libuv 架构/CommonJS 加载机制/ESM 深度拆解（面试收藏级） | Node架构 | ⬜ 待写 |
 | 04 | Node.js I/O 体系: Buffer/Stream/path/fs 全解析与背压机制（面试收藏级） | I/O能力 | ⬜ 待写 |
 | 05 | Node.js 核心 API 大全: process/crypto/net/os/worker_threads 深度拆解（面试收藏级） | 核心 API | ⬜ 待写 |
@@ -96,39 +96,36 @@
 
 ## 各篇详细大纲
 
-### 第 01 篇：JS 异步基石: 高阶函数/发布订阅/Promise/函数柯里化深度拆解（面试收藏级）
+### 第 01 篇：Node.js 事件驱动内核: EventEmitter 源码/Promise A+ 规范与手写/并发控制（面试收藏级）
 
-**副标题**：函数是一等公民的设计哲学、EventEmitter 发布订阅内核、Promise/A+ 规范与链式调用原理、柯里化与函数组合
+**副标题**：Node 视角的高阶函数/发布订阅/Promise 落地，聚焦 EventEmitter 源码、Promise/A+ 规范与手写、医疗场景并发控制
+
+> 与已发布《JS 函数式编程完全指南》（`docs/articles/01 javascript/2026-07-28-js-functional-programming.md`）、《JS 异步编程完全指南》（`docs/articles/01 javascript/2026-07-27-js-async-evolution.md`）的查重分工：那两篇已完整覆盖高阶函数/一等公民、`once`/`memoize`/`throttle`/`debounce`、`curry`/`compose`/`pipe` 手写、纯函数/副作用、Promise 三态与演进史、发布订阅/哨兵变量。本篇**不复述这些 JS 基础概念**，正文中涉及处一律用「搜索关键词」索引到 JS 系列，只展开以下 Node 视角增量——EventEmitter 源码解析、Promise/A+ 三条规范约束与手写（过官方测试套件）、医疗场景并发控制、手写实现仓库。
 
 #### 一、使用与实践
 
-**高阶函数**：
-- `Array.prototype.map/filter/reduce` 作为高阶函数的典型：`patients.filter(p => p.age > 60).map(p => p.name)` 筛选老年患者姓名
-- 函数作为参数（回调）与函数作为返回值（装饰/柯里化）两种模式
-- `once`/`memoize`/`throttle`/`debounce` 工具函数实战：医嘱提交按钮防重复点击、患者搜索框防抖
-
-**发布订阅**：
-- Node.js 内置 `EventEmitter`：`emitter.on`/`emit`/`off`/`once` 基本用法
+**发布订阅 → Node 内置 EventEmitter**：
+- `emitter.on`/`emit`/`off`/`once` 基本用法
 - 自定义事件总线：医院系统"检验报告完成"事件驱动多个订阅方（HIS 系统、短信通知服务、统计报表）解耦
 - 发布订阅 vs 观察者模式：核心区别在于是否存在"事件中心"这一层解耦——观察者模式是目标对象直接维护观察者列表并主动通知，发布订阅通过独立的事件中心转发，发布者和订阅者互不知道对方存在
 
-**Promise**：
+**Promise → Promise/A+ 规范与手写**：
 - `new Promise((resolve, reject) => {...})` 包装处方审核这类异步结果
 - `.then(onFulfilled, onRejected)`/`.catch()`/`.finally()` 链式调用与错误穿透规则
-- `Promise.all`/`Promise.race`/`Promise.allSettled`/`Promise.any` 四种聚合模式的适用场景对比
-- 并发控制：批量拉取药品说明书详情时用简单的"分批 + Promise.all"或计数器限制最大并发数
+- `Promise.all`/`Promise.race`/`Promise.allSettled`/`Promise.any` 四种聚合模式的适用场景决策表
 
-**函数柯里化**：
-- `curry(fn)` 典型场景：参数复用与延迟执行，如 `const checkAdult = curry(validateAge)(18)`
-- `compose`/`pipe` 函数组合：把"校验 → 格式化 → 落库"多个单一职责函数串成处理管道
+**并发控制（本篇实用增量）**：
+- 批量拉取药品说明书详情时用"分批 + Promise.all"或计数器限制最大并发数
+- 医嘱提交按钮防重复点击（`once` 思想）、患者搜索框防抖（`debounce`）——仅场景落地，实现索引到 JS 函数式篇
+
+> 前置基础（已发布）：搜索关键词「JS 函数式编程 高阶函数 柯里化 函数组合」「JS 异步编程 Promise 发布订阅」——本篇只讲 Node 视角的增量落地，不重复概念讲解。
 
 #### 二、设计与原理
 
-- 高阶函数的本质：JS 中函数是一等公民（first-class citizen），可以像值一样被传递、赋值、作为返回值，这是函数式编程范式在 JS 里落地的基础
 - 发布订阅的内核实现思路：用 `Map<eventName, Set<listener>>`（或对象+数组）维护"事件名 → 监听器集合"的映射；`emit` 遍历对应事件名下的监听器集合依次同步调用；`once` 的实现技巧是包一层"调用后立刻从集合中移除自身"的包装函数，而不是在 `emit` 内部特殊判断
 - Promise/A+ 规范的三条核心约束：① 状态机只有 pending/fulfilled/rejected 三态，且落定后不可逆转（这保证了"结果一旦确定就不会被后续代码意外改变"）；② 每次 `.then` 调用都返回一个**新的** Promise 对象（这是链式调用能够进行下去的关键，不是原 Promise 被复用）；③ `onFulfilled`/`onRejected` 必须以微任务方式异步执行，即使 Promise 已经落定，也不能同步调用回调（避免"有时同步有时异步"的不确定行为）
 - Promise 链式调用的值传递机制：每个 `.then` 内部创建的新 Promise，会根据 `onFulfilled` 的返回值来决定自己的状态——如果返回普通值，新 Promise 直接以该值 `resolve`；如果返回的是另一个 Promise（或 thenable），则需要等待这个返回的 Promise 落定后再把结果透传下去，这也是"Promise 可以扁平化嵌套异步"的原理
-- 柯里化原理：本质是用闭包保存"已经收集到的参数"，每次调用返回一个新函数继续收集参数，直到收集到的参数数量达到原函数的形参个数（`fn.length`）才真正执行原函数
+- 并发控制原理：当"要并发执行的任务数"远大于"下游服务/数据库能承受的并发数"时，一次性 `Promise.all` 全部任务会瞬间打满下游连接池；分批或计数器限流把同时 in-flight 的请求数控制在阈值内，超出部分排队等待——这是"背压"思想在应用层 Promise 聚合上的体现
 - 对比前端框架：Vue 的响应式系统底层也用了发布订阅思想（`dep.notify()` 遍历 `subs` 通知订阅者），和 `EventEmitter` 的设计内核是同一套模式，只是 Vue 把"订阅"这个动作做成了自动依赖收集，而 `EventEmitter` 需要手动 `on`
 
 #### 三、源码解析（重点代码，来源 GitHub 仓库）
@@ -141,7 +138,7 @@
 
 1. 搭建 `packages/event-emitter`：手写 `EventEmitter` 完整实现（`on`/`off`/`emit`/`once`），验证同一事件多个监听器都能被触发、`once` 触发后自动解绑
 2. 搭建 `packages/promise-polyfill`：手写符合 Promise/A+ 规范的 Promise（三态状态机、微任务调度用 `queueMicrotask`、链式 `.then` 返回新 Promise、`Promise.all`/`race`/`allSettled` 静态方法），用官方 [Promise/A+ 测试套件](https://github.com/promises-aplus/promises-tests) 跑通验证
-3. 搭建 `packages/fp-utils`：手写 `curry`、`compose`/`pipe`，用"处方单校验管道"场景演示
+3. 搭建 `packages/fp-utils`：`curry`/`compose`/`pipe` 的医疗场景落地（"处方单校验管道"），实现原理索引到 JS 函数式篇，此处只演示 Node 后端校验链的组合方式
 
 #### 五、手写实现源码 GitHub 地址
 （新建仓库，待补充地址）
@@ -152,31 +149,30 @@
 - https://github.com/promises-aplus/promises-tests
 
 **面试核心问**：
-- 高阶函数和普通函数的本质区别是什么？JS 里"函数是一等公民"具体指什么？
-- 发布订阅模式和观察者模式的区别是什么？
+- 发布订阅模式和观察者模式的区别是什么？（事件中心这一层解耦）
+- Node 的 EventEmitter 内部用什么结构维护监听器？`once` 是怎么实现的？
 - Promise 的状态机为什么设计成不可逆？如果状态可以来回变化会有什么问题？
 - `.then` 每次调用都返回新 Promise 意味着什么？如果返回的是同一个 Promise 会怎样？
-- `Promise.all` 中只要有一个 reject 整体会怎样？`allSettled` 和 `all` 分别适用什么场景？
-- 手写 `curry(fn)`，解释它是怎么利用闭包收集参数、怎么判断参数收集完毕的？
+- `Promise.all` 怎么保证结果顺序与传入顺序一致？`allSettled` 和 `all` 分别适用什么场景？
+- 手写一个"限制最大并发数"的批量请求工具，关键点是什么？
 
 ---
 
-### 第 02 篇：JS 调度引擎: Generator/async-await 与 EventLoop 浏览器/Node 差异全解（面试收藏级）
+### 第 02 篇：Node.js 事件循环: 浏览器与 Node 宏任务/微任务差异全解（面试收藏级）
 
-**副标题**：Generator 惰性求值与协程雏形、async/await 是 Generator+Promise 的语法糖、浏览器与 Node.js 事件循环阶段差异
+**副标题**：libuv 六阶段模型、`process.nextTick` 与 Promise 优先级、`setImmediate` vs `setTimeout`、浏览器 vs Node 的本质差异
+
+> 与已发布《JS 异步编程完全指南》（`docs/articles/01 javascript/2026-07-27-js-async-evolution.md`）的查重分工：那篇已完整覆盖 Generator 语法/`yield`/`next()` 双向通信、`async/await` 是 Generator+Promise 语法糖、co 库实现（约 20 行）。本篇**不复述这些 JS 语法糖**，正文涉及处用「搜索关键词」索引到 JS 异步篇，只展开以下 Node 视角增量——libuv 六阶段模型、`process.nextTick` 优先级、`setImmediate` vs `setTimeout`、浏览器 vs Node 事件循环的本质差异。
 
 #### 一、使用与实践
 
-- `function* gen() { yield ...; }`：Generator 函数的基本语法，`gen().next()` 手动驱动执行、双向通信（`next(value)` 向生成器内部传值）
-- Generator 实现简易迭代器：遍历处方单里的药品列表
-- `async function` / `await`：把异步流程写成"看起来同步"的代码，请求患者信息 → 请求处方记录 → 请求检验报告的串行链路
-- `for await...of` 遍历异步迭代器
 - Node.js 中常见的宏任务/微任务实战：`setImmediate` vs `setTimeout(fn, 0)` 的执行顺序差异；`process.nextTick` 的插队特性
+- 用实验脚本打印实际执行顺序（`console.log` + 时间戳）作为证据
+
+> 前置基础（已发布）：搜索关键词「JS 异步编程 Generator async/await co」——Generator/async/await 语法糖与 co 自动执行器实现见 JS 异步篇，本篇只讲 Node 事件循环的增量。
 
 #### 二、设计与原理
 
-- Generator 的本质：函数执行权可以被"挂起并归还调用者"，再由调用者决定何时"归还执行权继续执行"——这是 JS 里最接近协程（coroutine）概念的语言特性，`yield` 挂起、`next()` 恢复
-- `async/await` 是 Generator + Promise 自动执行器的语法糖：`async function` 可以等价理解为一个自动依次调用 `next()`、并在每次 `yield` 一个 Promise 时等待其落定后再继续驱动的封装（历史上 co 库、koa 早期版本就是用这种"Generator 自动执行器"手动实现的，`async/await` 是这一模式被语言原生化）
 - **浏览器事件循环**：一个宏任务执行完毕后清空当前微任务队列，再进行一次渲染（如果需要），然后取下一个宏任务；常见宏任务来源：`setTimeout`、UI 事件、`postMessage`
 - **Node.js 事件循环（libuv）**：由多个明确划分的阶段（phase）构成一个循环——`timers`（`setTimeout`/`setInterval` 到期回调）→ `pending callbacks` → `idle/prepare` → `poll`（处理 I/O 事件，最核心的阶段）→ `check`（`setImmediate` 回调）→ `close callbacks`；每个阶段执行完毕后，都会清空一次微任务队列（`process.nextTick` 队列 + Promise 微任务队列），而不是像浏览器一样只在一个宏任务结束后清空一次
 - **`process.nextTick` 与 Promise 微任务的优先级差异**（重点，常考细节）：`process.nextTick` 的回调队列优先级高于 Promise 微任务队列——每次清空微任务时，会先把 `nextTick` 队列全部执行完（包括执行过程中新增的 `nextTick`），再执行 Promise 微任务队列
@@ -187,12 +183,10 @@
 
 1. libuv 事件循环主体：`libuv` 仓库 `src/unix/core.c` — `uv_run` 函数中各阶段（timers/pending/idle/poll/check/close）的调用顺序
 2. Node.js `process.nextTick` 队列实现：`lib/internal/process/task_queues.js`（nodejs/node 仓库）— `nextTick` 队列与微任务队列的执行时机划分
-3. V8 Generator 底层：Generator 函数被编译为一个可以在多个"入口点"之间保存/恢复执行上下文的状态机（概念级介绍，不深入 V8 字节码）
 
 #### 四、手写实现（延续 `medai-node-source` monorepo）
 
-1. 搭建 `packages/async-utils`：手写一个"Generator 自动执行器"（`function co(genFn) {...}`），自动驱动 `next()`，遇到 Promise 就等待其落定后继续——用这个自制的 `co` 函数跑通一段异步流程，直观感受 `async/await` 语法糖背后到底做了什么
-2. 用 `packages/event-loop-lab` 写几个实验脚本：验证 `process.nextTick` 优先于 Promise 微任务；验证 I/O 回调内 `setImmediate` 先于 `setTimeout(fn,0)`；用 `console.log` + 时间戳输出实际执行顺序作为证据
+搭建 `packages/event-loop-lab`：写几个实验脚本——验证 `process.nextTick` 优先于 Promise 微任务；验证 I/O 回调内 `setImmediate` 先于 `setTimeout(fn,0)`；用 `console.log` + 时间戳输出实际执行顺序作为证据。（Generator 自动执行器 `co` 的手写实现索引到 JS 异步篇，本篇不再重复，聚焦事件循环实验。）
 
 #### 五、手写实现源码 GitHub 地址
 （新建仓库，待补充地址）
@@ -200,11 +194,8 @@
 #### 六、参考
 - https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick/
 - https://github.com/libuv/libuv
-- https://github.com/tj/co
 
 **面试核心问**：
-- Generator 和普通函数的本质区别是什么？`yield` 具体做了什么？
-- `async/await` 底层可以理解成什么？为什么说它是 Generator + Promise 的语法糖？
 - Node.js 事件循环分几个阶段？每个阶段大致处理什么？
 - `process.nextTick` 和 Promise 微任务谁的优先级更高？
 - 在 `fs.readFile` 回调里同时写 `setTimeout(fn,0)` 和 `setImmediate(fn)`，谁先执行，为什么？
