@@ -1,7 +1,7 @@
 # 网络原理系列公众号文章大纲（系列 09）
 
 > 所属系列：网络原理（对齐 `docs/plans/frontend-engineering-outline.md` 系列 09，承接 Node.js 全栈系列之后写）
-> 写作原则：使用与实践 → 设计与原理 → 源码/规范解析 → 实践演示与验证 → 参考
+> 写作原则：使用与实践 → 设计与原理 → 工程落地参考 → 实践演示与验证 → 参考
 > 目标读者：5-10 年前端或全栈经验，正在系统补齐网络协议底层原理，备战高级/专家岗面试
 > 与其他系列的分工：本系列讲的是协议本身的原理（不绑定具体语言/运行时），是 Node.js 系列的前置地基。凡是"协议是什么、为什么这样设计"的内容都在本系列讲透；Node.js 系列不再重复协议理论，只讲"Node.js 怎么基于这些协议实现具体能力"——例如 WebSocket 的握手/帧格式/心跳原理在本系列第 06 篇讲，Node.js 系列「Node 核心 API 大全」篇只讲怎么用 `crypto`/`net`/`http` 模块实现一个 WebSocket 服务端；RESTful/GraphQL 的设计原则对比在本系列第 09 篇讲，Node.js 系列「GraphQL+Apollo」篇负责 Resolver 源码级机制和手写实现。
 
@@ -25,7 +25,7 @@
 
 - 篇数：10 篇
 - 核心主线：DNS 域名解析 → TCP 传输层机制 → HTTPS/TLS 安全传输 → HTTP 协议演进 → HTTP 语义基础（内容协商/状态码/方法语义）→ WebSocket 实时通信 → 跨域与浏览器安全 → HTTP 缓存体系 → API 设计范式（RESTful vs GraphQL）→ 反向代理与负载均衡——按"协议栈自底向上"排列，每篇涉及的底层机制都已在前面篇章讲过，不再需要前向引用
-- 内容结构：五段式（使用与实践 → 设计与原理 → 源码/规范解析 → 实践演示与验证 → 参考）——协议类文章的"源码/规范解析"部分以 RFC 规范原文 + 权威开源实现（如 Chromium/Node.js 网络栈）为主，"实践演示与验证"部分侧重用 Node.js 原生 `net`/`tls`/`dgram` 模块还原协议关键步骤，重在理解而非产出独立工程
+- 内容结构：五段式（使用与实践 → 设计与原理 → 工程落地参考 → 实践演示与验证 → 参考）——协议类文章的"工程落地参考"部分以 RFC 规范原文 + 权威开源实现（如 Chromium/Node.js 网络栈）为主，"实践演示与验证"部分侧重用 Node.js 原生 `net`/`tls`/`dgram` 模块还原协议关键步骤，重在理解而非产出独立工程
 - 特色：每篇 3-5 个「面试官会问」；示例统一沿用医疗场景命名（药品/处方/患者/医院管理系统 HIS）；涉及可与后续 Node.js 系列对照的知识点显式标注「对比 Node.js 实现」
 
 ---
@@ -70,7 +70,7 @@
 - **DNS 的隐私与安全问题**：传统 DNS 查询是明文 UDP 传输，运营商或中间网络设备可以看到用户访问了哪些域名（甚至篡改返回错误的 IP，即 DNS 污染/劫持）；**DNS-over-HTTPS（DoH）**和 **DNS-over-TLS（DoT）**把 DNS 查询封装进加密的 HTTPS/TLS 连接，防止查询内容被窃听或篡改，代价是引入了额外的连接建立开销，且集中把 DNS 查询交给少数几个大型 DoH 服务商（如 Cloudflare/Google），存在"隐私集中化"的新争议
 - 对比 Node.js 实现：Node.js `dns` 模块的 `dns.lookup()`（走操作系统的解析器，会用到本地 hosts 文件和系统缓存）与 `dns.resolve()`（直接发起网络查询，不查 hosts 文件）是两条不同的代码路径，这是"同一个域名在 Node.js 里用不同 API 解析结果不一致"这类问题的根源，也是 Node.js 系列「核心 API 大全」篇里 `dns` 小节要重点区分的地方
 
-#### 三、源码解析（重点参考 RFC 规范）
+#### 三、工程落地参考
 
 1. DNS 报文格式与递归查询流程：RFC 1035 — 报文结构、查询类型（A/AAAA/CNAME/NS）
 2. DNS-over-HTTPS 规范：RFC 8484 — DoH 请求如何把 DNS 查询封装进 HTTP GET/POST
@@ -116,7 +116,7 @@
 - **滑动窗口与流量控制**：滑动窗口本质是接收方通过 TCP 头部的 `Window Size` 字段告诉发送方"我还能接收多少数据”，发送方据此控制未确认数据的发送量，防止发送速度超过接收方处理能力——这是"流量控制”（保护接收方），和拥塞控制（保护网络整体）是两个不同维度的问题，容易被混淆
 - 对比 Node.js 实现：Node.js `net.Socket` 对象在遇到接收方处理不过来时同样会体现"背压”（写入缓冲区堆积、`write()` 返回 `false`），这和 TCP 层的滑动窗口流量控制是两个不同抽象层级但目标一致的机制——理解 TCP 层的流量控制有助于理解 Node.js Stream 背压设计为什么要采用类似的"暂停/恢复”思路（呼应 Node.js 系列 04 篇 I/O 体系）
 
-#### 三、源码解析（重点参考 RFC 规范）
+#### 三、工程落地参考
 
 1. TCP 状态机与连接管理：RFC 9293（TCP 现行规范，取代 RFC 793）— 连接建立/关闭状态转换图
 2. 拥塞控制算法：RFC 5681（TCP Congestion Control）— 慢启动/拥塞避免/快速重传/快速恢复的具体算法定义
@@ -164,7 +164,7 @@
 - **Certificate Pinning**：客户端（通常是移动端 App 或内部服务）预置了目标服务器证书的哈希（或公钥哈希），在 TLS 握手时比对服务端实际证书是否与预置的哈希一致，不一致则拒绝连接——可有效对抗企业内网抓包工具（如 Charles）伪装成受信任中间人
 - 对比 Node.js 实现：Node.js `tls` 模块的 `tls.createServer()`、`tls.createSecureContext()`，以及 `https` 模块如何在 TCP 连接上封装 TLS 握手——这些是 Node.js 系列「核心 API 大全」篇 `net`/`tls` 小节的直接前置知识
 
-#### 三、源码解析
+#### 三、工程落地参考
 
 1. TLS 1.3 握手流程：RFC 8446 — 握手消息序列、密钥派生函数（HKDF）、0-RTT 重连的安全注意事项
 2. X.509 证书格式与信任链：RFC 5280 — SubjectPublicKeyInfo/Issuer/Validity 字段结构，浏览器路径验证算法
@@ -212,7 +212,7 @@
 - **连接迁移**：QUIC 用连接 ID 而不是 TCP 的四元组（源 IP/端口 + 目的 IP/端口）标识连接，切换网络（如从 WiFi 切到移动网络）时连接可以不中断地迁移，这是移动端场景 HTTP/3 相比 HTTP/2 的额外优势
 - 对比 Node.js 实现：Node.js `http2` 核心模块提供了 `Http2Session`/`Http2Stream` 抽象，对应"一个连接多个流"的模型；HTTP/3/QUIC 在 Node.js 中支持情况随版本更新，实际写作时需按当时最新版核实
 
-#### 三、源码解析
+#### 三、工程落地参考
 
 1. HTTP/2 二进制分帧格式：RFC 9113 第 4-6 章 — 帧头结构（长度/类型/标志/流标识符）、`HEADERS`/`DATA`/`SETTINGS` 帧的作用
 2. QUIC 传输协议：RFC 9000 — 连接建立、stream 多路复用、连接迁移的规范定义
@@ -259,7 +259,7 @@
 - **401 vs 403**：401 Unauthorized 语义是"未认证"（没有提供有效的身份凭证，或凭证已过期/无效，通常应配合 `WWW-Authenticate` 响应头）；403 Forbidden 语义是"已认证但无权限"——这一区分是设计需要登录+权限分级的系统（如医院 HIS 不同科室医生的数据访问权限）时的接口设计规范基本要求
 - **请求方法的安全性（Safe）与幂等性（Idempotent）**：安全方法指该方法不会对服务端资源产生副作用（只读），幂等方法指多次重复执行和执行一次的效果相同——GET/HEAD/OPTIONS 既安全又幂等；PUT/DELETE 幂等但不安全（会修改资源，但重复执行结果一致）；POST 既不安全也不幂等（每次提交都可能创建新资源，重复提交会产生副作用，如重复提交处方可能导致重复开单）——这组概念是 09 篇 RESTful 设计"用 HTTP 方法表达操作语义"的理论基础，也是"为什么幂等的接口更适合安全重试"这类高可用设计题的答案来源
 
-#### 三、源码解析（重点参考 RFC 规范）
+#### 三、工程落地参考
 
 1. 内容协商机制：RFC 9110 第 12 章 — `Accept`/`Accept-Encoding`/`Accept-Language` 的权重（`q` 参数）匹配算法
 2. 状态码语义：RFC 9110 第 15 章 — 3xx/4xx 各状态码的规范定义
@@ -304,7 +304,7 @@
 - **WebSocket 的负载均衡挑战**：WebSocket 是长连接，传统基于请求的负载均衡策略（每次请求随机分配）不再适用——一旦连接建立，后续所有帧都必须路由到同一个后端实例，这要求负载均衡器支持"连接保持"（sticky session）或采用一致性哈希（详见 10 篇负载均衡算法）
 - 对比 Node.js 实现：`ws` 库是 Node.js 生态最常用的 WebSocket 实现，其核心正是用 `http` 模块监听 `upgrade` 事件拿到底层 TCP socket，然后手动完成 `Sec-WebSocket-Accept` 计算和帧的编解码——具体实现留给 Node.js 系列「核心 API 大全」篇的手写实现小节展开，本篇聚焦协议原理本身
 
-#### 三、源码解析
+#### 三、工程落地参考
 
 1. WebSocket 协议规范：RFC 6455 — 握手过程（第 4 章）、帧格式定义（第 5 章）、`Sec-WebSocket-Accept` 计算算法（第 1.3 节）
 2. SSE 规范：WHATWG HTML 标准 Server-Sent Events 章节 — `text/event-stream` 格式与浏览器自动重连行为
@@ -350,7 +350,7 @@
 - **CSP（内容安全策略）**：通过 `Content-Security-Policy` 响应头显式声明页面允许加载脚本/样式/图片等资源的来源白名单，即使页面存在 XSS 漏洞被注入了恶意脚本标签，只要该脚本的来源不在白名单内，浏览器也会拒绝执行——这是"纵深防御"思路的典型体现
 - 对比 Node.js 实现：Express/Koa 生态的 `helmet` 中间件本质是一次性设置好一整套安全响应头（CSP/HSTS/X-Content-Type-Options 等）的合集，理解每个响应头背后防御的具体攻击类型才能正确配置——这部分留给 Node.js 系列「工程化」篇的安全实践小节具体展开
 
-#### 三、源码解析
+#### 三、工程落地参考
 
 1. CORS 规范：Fetch 标准（WHATWG）CORS 协议章节 — 简单请求判定条件、预检请求流程
 2. CSP 规范：W3C Content Security Policy Level 3 — 各 `-src` 指令的白名单匹配规则
@@ -395,7 +395,7 @@
 - **Service Worker 作为可编程缓存层**（重点）：Service Worker 运行在独立于页面主线程的 Worker 线程，能拦截页面发出的所有 `fetch` 请求，完全由开发者用 JS 代码决定缓存策略——这把浏览器内置的、规则相对固定的 HTTP 缓存策略，升级为完全可编程的缓存逻辑，是 PWA 离线能力的核心基础设施；常见策略模式包括 Cache First（缓存优先，适合静态资源）、Network First（网络优先，缓存兜底）、Stale-While-Revalidate（先返回缓存，同时后台请求新数据更新缓存，下次生效）
 - 对比 Node.js 实现：Node.js 后端在响应静态资源时（如 `express.static`）需要正确设置 `ETag`/`Cache-Control`，理解背后原理才能在"资源更新了但用户看到的还是旧版本"这类问题排查时，快速判断是强缓存过期时间设置不合理，还是 CDN 层缓存未及时刷新（呼应 Node.js 系列 04 篇静态资源服务器实现）
 
-#### 三、源码解析
+#### 三、工程落地参考
 
 1. HTTP 缓存规范：RFC 9111（HTTP Caching）— `Cache-Control` 各指令的定义与优先级
 2. 条件请求规范：RFC 9110 第 13 章 — `If-None-Match`/`If-Modified-Since` 的服务端处理逻辑
@@ -440,7 +440,7 @@
 - **RESTful 与 GraphQL 的选型权衡**：不是"GraphQL 更先进所以永远优先"——GraphQL 引入了额外的复杂度（Schema 设计、Resolver 性能陷阱、客户端缓存不能直接复用 HTTP 缓存机制），对于字段结构相对固定、以资源为中心、需要利用 HTTP 缓存基础设施的场景，RESTful 依然是更简单直接的选择；GraphQL 更适合客户端需求多变、数据关联层级深的场景
 - 对比前端消费方式：Apollo Client/React Query 这类客户端库为了弥补"GraphQL 不能直接用 HTTP 缓存"的短板，各自实现了一套应用层的规范化缓存（Normalized Cache），本质上是在应用层重新发明了一部分 HTTP 缓存体系试图解决的问题
 
-#### 三、源码解析
+#### 三、工程落地参考
 
 1. RESTful 设计约束：Roy Fielding 论文 *Architectural Styles and the Design of Network-based Software Architectures* 第 5 章（REST 六大约束的原始出处）
 2. GraphQL 执行模型：GraphQL 官方规范（spec.graphql.org）"Execution"章节 — 字段树递归解析的规范定义
@@ -483,7 +483,7 @@
 - **图片防盗链原理与局限**：服务端检查请求头里的 `Referer`，判断请求是否从本站页面发出，非本站则拒绝——但 `Referer` 完全可以被客户端伪造或清空（如 `Referrer-Policy` 主动不发送），因此防盗链本质上是一道"提高盗链成本"的墙，而不是可靠的安全边界，这与 07 篇 CSRF 防御里"校验 Referer/Origin 只能作为辅助手段"的结论是同一个局限性的两种应用场景
 - 对比 Node.js 实现：`http-proxy`（或更底层直接用 `http` 模块转发请求流）是 Node.js 生态实现反向代理的常见方式，理解 Nginx 层的虚拟主机路由和负载均衡算法原理，是判断"什么场景该用 Nginx 做网关、什么场景可以直接在 Node.js 应用层做请求转发"的前提
 
-#### 三、源码解析
+#### 三、工程落地参考
 
 1. `Host` 请求头规范：RFC 9110 第 7.2 节 — `Host` 头的语义与服务端处理要求
 2. Nginx 负载均衡模块：`ngx_http_upstream_module` 官方文档 — 轮询/加权轮询/`ip_hash` 的配置语义与选择逻辑
@@ -550,5 +550,5 @@ https://developer.mozilla.org/zh-CN/docs/Web/API/Service_Worker_API
 
 ---
 
-*规划时间：2026-09-11（本次修订：篇章顺序重排为协议栈依赖序 DNS→TCP→TLS→HTTP→语义→WS→安全→缓存→API→代理，HTTP演进篇拆分内容协商/状态码为独立第05篇，全系列由9篇扩展为10篇）| 参考：RFC 系列规范 / MDN Web 文档 / OWASP / GraphQL 官方规范*
+*规划时间：2026-09-11（本次修订：篇章顺序重排为协议栈依赖序 DNS→TCP→TLS→HTTP→语义→WS→安全→缓存→API→代理，HTTP演进篇拆分内容协商/状态码为独立第05篇，全系列由9篇扩展为10篇；2026-09-21 篇章结构统一为《数据结构与算法》系列五段式，「源码/规范解析」段更名为「工程落地参考」）| 参考：RFC 系列规范 / MDN Web 文档 / OWASP / GraphQL 官方规范*
 
