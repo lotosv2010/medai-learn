@@ -1,59 +1,64 @@
 # prompt
 
 ```text
-/publish 下面我们规划nodejs系列的第2篇文章，具体如下：
+/publish 下面我们规划nodejs系列的第3篇文章，具体如下：
 {{
 ## 知识点范围
 
-###第 02 篇：Node.js 事件循环: 浏览器与 Node 宏任务/微任务差异全解（面试收藏级）
+### 第 03 篇：Node.js 运行时内核: V8+libuv 架构/CommonJS 加载机制/ESM 深度拆解（面试收藏级）
 
-**副标题**：libuv 六阶段模型、`process.nextTick` 与 Promise 优先级、`setImmediate` vs `setTimeout`、浏览器 vs Node 的本质差异
+**副标题**：V8+libuv 双引擎架构、CommonJS 模块加载机制、ESM 三阶段加载与 CJS 互操作、模块解析算法与幽灵依赖成因
 
-> 与已发布《JS 异步编程完全指南》（`docs/articles/01 javascript/2026-07-27-js-async-evolution.md`）的查重分工：那篇已完整覆盖 Generator 语法/`yield`/`next()` 双向通信、`async/await` 是 Generator+Promise 语法糖、co 库实现（约 20 行）。本篇**不复述这些 JS 语法糖**，正文涉及处用「搜索关键词」索引到 JS 异步篇，只展开以下 Node 视角增量——libuv 六阶段模型、`process.nextTick` 优先级、`setImmediate` vs `setTimeout`、浏览器 vs Node 事件循环的本质差异。
+> 与已发布《JS 有几种模块化规范》（`docs/articles/03 module/2026-08-01-js-module-systems.md`）的分工：那篇讲的是 IIFE/AMD/CMD/UMD/ESM 等**语言规范层面**的演进对比与 Tree Shaking 原理，本篇不再重复这部分内容，只讲 Node.js **运行时**具体怎么加载、解析、缓存模块——即"规范之上，Node.js 是怎么实现的"
 
 #### 一、使用与实践
 
-- Node.js 中常见的宏任务/微任务实战：`setImmediate` vs `setTimeout(fn, 0)` 的执行顺序差异；`process.nextTick` 的插队特性
-- 用实验脚本打印实际执行顺序（`console.log` + 时间戳）作为证据
-
-> 前置基础（已发布）：搜索关键词「JS 异步编程 Generator async/await co」——Generator/async/await 语法糖与 co 自动执行器实现见 JS 异步篇，本篇只讲 Node 事件循环的增量。
+- `package.json` 里 `"type": "module"` 对模块解析规则的影响，`.mjs`/`.cjs` 双扩展名并存策略
+- Node.js 全局对象：`process`、`__dirname`/`__filename`（CJS 独有）、`global`、`Buffer`
+- 在 ESM 模块中获取等价的 `__dirname`：`import.meta.url` + `fileURLToPath`
+- `require.cache` 查看已加载模块缓存，手动清除缓存实现"热重载"的原理性演示
+- 动态 `import()` 在 CJS 文件中按需加载 ESM 模块的实际写法
 
 #### 二、设计与原理
 
-- **浏览器事件循环**：一个宏任务执行完毕后清空当前微任务队列，再进行一次渲染（如果需要），然后取下一个宏任务；常见宏任务来源：`setTimeout`、UI 事件、`postMessage`
-- **Node.js 事件循环（libuv）**：由多个明确划分的阶段（phase）构成一个循环——`timers`（`setTimeout`/`setInterval` 到期回调）→ `pending callbacks` → `idle/prepare` → `poll`（处理 I/O 事件，最核心的阶段）→ `check`（`setImmediate` 回调）→ `close callbacks`；每个阶段执行完毕后，都会清空一次微任务队列（`process.nextTick` 队列 + Promise 微任务队列），而不是像浏览器一样只在一个宏任务结束后清空一次
-- **`process.nextTick` 与 Promise 微任务的优先级差异**（重点，常考细节）：`process.nextTick` 的回调队列优先级高于 Promise 微任务队列——每次清空微任务时，会先把 `nextTick` 队列全部执行完（包括执行过程中新增的 `nextTick`），再执行 Promise 微任务队列
-- **`setTimeout(fn, 0)` 与 `setImmediate` 的执行顺序**：在 `main` 模块顶层（不在任何 I/O 回调内）执行时，两者顺序不确定（受进程启动开销影响）；但如果放在一个 I/O 回调（如 `fs.readFile` 的回调）内部，`setImmediate` 一定先于 `setTimeout(fn, 0)` 执行，因为 I/O 回调发生在 `poll` 阶段，`poll` 阶段结束后立即进入 `check` 阶段（`setImmediate` 所在阶段），而 `timers` 阶段要等到下一轮循环才会被检查
-- 对比前端（浏览器）：同样一段"事件循环阶段划分"的知识点，浏览器规范里没有 `setImmediate`、没有独立的 `poll` 阶段概念，这是 Node.js 基于 libuv 实现、专门为处理大量 I/O 设计的产物；理解这个差异是"前端转 Node.js"最容易踩坑的点之一
+- Node.js 的双引擎架构：V8 负责执行 JS 代码本身（解析、编译、GC），libuv 负责跨平台的异步 I/O、事件循环、线程池——Node.js 是"V8 + libuv + 一层 C++ 绑定"组成的运行时，JS 代码本身不具备任何 I/O 能力，全部依赖 libuv 提供的异步接口
+- **CommonJS 模块加载机制**：`require` 是同步的——Node.js 在遇到 `require` 时会立即读取目标文件内容、编译执行，并缓存到 `require.cache`（以绝对路径为 key），后续对同一模块的 `require` 直接返回缓存的 `module.exports`，不会重新执行；模块包装：Node.js 会把每个 CJS 文件包装成一个函数 `function(exports, require, module, __filename, __dirname) { ...文件内容... }` 再执行，这解释了为什么 CJS 文件里能直接用这几个"看起来像全局变量"的标识符
+- **循环依赖问题**：CJS 遇到循环 `require` 时，后加载的模块拿到的是"当前已执行部分"的 `exports`（可能是不完整的），这是"运行时求值 + 提前缓存占位"机制的直接后果
+- **ESM 模块机制**：`import`/`export` 是静态的、编译期可分析的（这也是"tree-shaking"能够实现的基础），Node.js 对 ESM 的加载分为"解析（parse）→ 实例化（instantiate，建立模块间的绑定关系）→ 求值（evaluate）"三个阶段，和 CJS "读取即执行"的同步模型完全不同
+- **ESM 与 CJS 互操作规则**：ESM 可以 `import` CJS 模块（CJS 的 `module.exports` 会被当作默认导出）；但 CJS 不能直接 `require` 一个 ESM 模块（同步的 `require` 无法等待 ESM 异步的实例化过程），只能用动态 `import()`（返回 Promise）
+- 模块解析算法：Node.js 按"核心模块 → 相对/绝对路径 → `node_modules` 逐级向上查找"的顺序解析裸模块名（bare specifier），这是"幽灵依赖"问题的成因——`node_modules` 逐级查找机制让一个包可能访问到并非自己直接声明依赖的其他包
+- 对比前端打包工具：Webpack/Vite 在打包阶段模拟了一套自己的模块解析和加载逻辑（不直接依赖 Node.js 运行时的 `require` 实现），但解析算法的思路（裸模块名 → `node_modules` 查找）与 Node.js 保持了兼容，这是前端生态"约定俗成"的一部分
 
 #### 三、工程落地参考
 
-1. libuv 事件循环主体：`libuv` 仓库 `src/unix/core.c` — `uv_run` 函数中各阶段（timers/pending/idle/poll/check/close）的调用顺序
-2. Node.js `process.nextTick` 队列实现：`lib/internal/process/task_queues.js`（nodejs/node 仓库）— `nextTick` 队列与微任务队列的执行时机划分
+1. CJS 模块包装与加载：`lib/internal/modules/cjs/loader.js`（nodejs/node 仓库）— `Module.prototype._compile`、`Module._cache`、`Module._resolveFilename` 路径解析算法
+2. ESM 加载器：`lib/internal/modules/esm/loader.js` — 解析/实例化/求值三阶段的实现入口
+3. libuv 线程池与异步 I/O 的 C++ 绑定：概览级介绍 `deps/uv` 目录结构和 `lib/internal/bootstrap` 中 JS 层如何调用底层绑定
 
 #### 四、实践演示与验证
 
-搭建 `packages/event-loop-lab`：写几个实验脚本——验证 `process.nextTick` 优先于 Promise 微任务；验证 I/O 回调内 `setImmediate` 先于 `setTimeout(fn,0)`；用 `console.log` + 时间戳输出实际执行顺序作为证据。（Generator 自动执行器 `co` 的手写实现索引到 JS 异步篇，本篇不再重复，聚焦事件循环实验。）
-
-（新建仓库，待补充地址）
+1. 搭建 `packages/mini-require`：手写一个简化版 `require` 实现——读取文件、用 `vm` 模块或 `new Function` 包装执行、维护自己的模块缓存 Map，验证"同一模块二次 require 不会重新执行"与"循环依赖时后加载方拿到不完整 exports"两个现象
+2. 写一组对照 demo：同一份逻辑分别用 CJS 和 ESM 实现一次循环依赖场景，观察两者行为差异
 
 #### 五、参考
-- https://nodejs.org/en/docs/guides/event-loop-timers-and-nexttick/
-- https://github.com/libuv/libuv
+- https://nodejs.org/api/modules.html
+- https://nodejs.org/api/esm.html
+- https://github.com/nodejs/node
 
 **面试核心问**：
-- Node.js 事件循环分几个阶段？每个阶段大致处理什么？
-- `process.nextTick` 和 Promise 微任务谁的优先级更高？
-- 在 `fs.readFile` 回调里同时写 `setTimeout(fn,0)` 和 `setImmediate(fn)`，谁先执行，为什么？
-- 浏览器事件循环和 Node.js 事件循环最本质的差异是什么？
+- Node.js 的运行时架构是怎样的？V8 和 libuv 分别负责什么？
+- `require` 的模块缓存机制是怎样的？为什么二次 `require` 同一个模块不会重新执行代码？
+- CJS 遇到循环依赖会发生什么？和 ESM 处理循环依赖的方式有什么不同？
+- ESM 为什么不能被 CJS 用 `require` 直接引入，只能用动态 `import()`？
+- 什么是"幽灵依赖"？它是怎么由 Node.js 的模块解析算法导致的？
 
 
 
 ## 已有笔记
 
-- @docs\notes\08 node\05 generator.md
-- @docs\notes\08 node\06 async...await.md
-- @docs\notes\08 node\07 eventloop.md
+- @docs\notes\08 node\08 Node基本概念.md
+- @docs\notes\08 node\09 Node中的模块.md
+- @docs\notes\08 node\11 NPM.md
 
 ## plans 地址
 
