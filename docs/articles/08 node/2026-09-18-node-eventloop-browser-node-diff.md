@@ -10,10 +10,10 @@
 
 这篇文章是「Node.js 全栈深度拆解」系列的第 2 篇。它不讲 Generator/async-await 这些 JS 语法糖（那些在 JS 异步编程篇已经讲透，文末有搜索关键词索引），只讲四件 Node 事件循环的硬核增量：
 
-1. **libuv 六阶段模型**——Node 事件循环的完整骨架
-2. **`process.nextTick` 与 Promise 微任务的优先级**——最容易被问倒的细节
-3. **`setImmediate` vs `setTimeout(fn, 0)`**——顺序为什么「有时确定、有时不确定」
-4. **浏览器 vs Node 的本质差异**——前端转后端的认知分水岭
+- **libuv 六阶段模型**——Node 事件循环的完整骨架
+- **`process.nextTick` 与 Promise 微任务的优先级**——最容易被问倒的细节
+- **`setImmediate` vs `setTimeout(fn, 0)`**——顺序为什么「有时确定、有时不确定」
+- **浏览器 vs Node 的本质差异**——前端转后端的认知分水岭
 
 ---
 
@@ -141,17 +141,176 @@ fs.readFile('somefile.txt', () => {
 
 ---
 
+## 🔬 源码解析：uv_run 的六阶段 + nextTick 队列的优先级
+
+前面讲的是「结论」，这一节把结论对应到真实源码，让你面试时能「从源码层面」讲清为什么。libuv 的事件循环主体在 `src/unix/core.c` 的 `uv_run` 函数里，Node 的 nextTick 队列在 `lib/internal/process/task_queues.js` 里。
+
+### uv_run：六阶段就是六个函数调用
+
+libuv 的 `uv_run` 是一个 `while` 循环，每一轮依次调用几个阶段函数（源码有精简，但顺序和结构完全一致）：
+
+```c
+int uv_run(uv_loop_t* loop, uv_run_mode mode) {
+  int timeout;
+  int r;
+  int ran_pending;
+
+  r = uv__loop_alive(loop);
+  if (!r)
+    uv__update_time(loop);
+
+  while (r != 0 && loop->stop_flag == 0) {
+    uv__update_time(loop);              // 更新当前时间
+    uv__run_timers(loop);               // timers：setTimeout/setInterval
+    ran_pending = uv__run_pending(loop); // pending callbacks
+    uv__run_idle(loop);                 // idle
+    uv__run_prepare(loop);              // prepare
+    timeout = 0;
+    if ((mode == UV_RUN_ONCE && !ran_pending) || mode == UV_RUN_DEFAULT)
+      timeout = uv_backend_timeout(loop); // 计算 poll 该阻塞多久
+    uv__io_poll(loop, timeout);         // poll：处理 I/O，可能阻塞
+    uv__run_check(loop);                // check：setImmediate
+    uv__run_closing_handles(loop);      // close callbacks
+    ...
+    r = uv__loop_alive(loop);
+  }
+  return r;
+}
+```
+
+对照前面那张六阶段图，你会发现 `uv_run` 里的函数调用顺序和阶段顺序**一一对应**：
+
+- `uv__run_timers` → `timers` 阶段
+- `uv__run_pending` → `pending callbacks` 阶段
+- `uv__run_idle` / `uv__run_prepare` → `idle/prepare` 阶段
+- `uv__io_poll` → `poll` 阶段（`timeout` 决定它阻塞多久）
+- `uv__run_check` → `check` 阶段（`setImmediate` 在这里）
+- `uv__run_closing_handles` → `close callbacks` 阶段
+
+### 为什么 poll 阶段会「阻塞等待」
+
+`uv__io_poll(loop, timeout)` 的 `timeout` 由 `uv_backend_timeout(loop)` 算出，它回答的问题是「poll 阶段该等多久」。计算逻辑（面试能提一句就加分）：
+
+- 如果 `loop->stop_flag` 已设置，`timeout = 0`（不等待）
+- 如果没有活跃的 handle / request，`timeout = 0`（循环该退出了）
+- 如果有 `idle` 句柄待处理，`timeout = 0`
+- 如果有 pending 的回调，`timeout = 0`
+- 如果有到期的 timer，`timeout = 0`（赶紧回到 timers 阶段）
+- **否则**，`timeout = 距离下一个 timer 到期的时间`——poll 会阻塞这段时间，等 I/O 事件，或等到期后返回 timers 阶段
+
+这就是 poll 阶段「最核心」的原因：它既负责处理 I/O，又通过 `timeout` 机制避免「空转」——没有 I/O 事件时就在 `epoll` / `kqueue` 上休眠，直到有事件或定时器到期才醒来。这是 Node 能扛住高并发 I/O 的底层原因之一。
+
+### nextTick 队列：Node 的「阶段间隙插队」
+
+`process.nextTick` 的实现不在 libuv，而在 Node 自身的 `lib/internal/process/task_queues.js`。核心是一个 FIFO 队列：
+
+```javascript
+// lib/internal/process/task_queues.js（精简示意）
+const nextTickQueue = new FixedQueue();  // 固定大小的环形队列
+
+function processNextTick() {
+  // 遍历并执行 nextTickQueue 里的所有回调
+  while (nextTickQueue.length > 0) {
+    const tickObject = nextTickQueue.shift();
+    // ...执行回调
+  }
+}
+```
+
+关键在**它被调用的时机**。Node 在每个「C++ 层回到 JS 层」的边界（`InternalCallbackScope` 析构时），会先执行 `processNextTick()` 清空 nextTick 队列，**再**让 V8 执行 Promise 微任务队列。这正是「nextTick 优先于 Promise」的源码级原因：
+
+> 每次要进入微任务检查点（microtask checkpoint）时，Node 先跑自己的 `nextTick` 队列，跑完才轮到 V8 的 Promise 微任务。
+
+理解这一点，「nextTick 优先于 Promise」就不再是一句要背的结论，而是一条能从源码推导出来的必然结果。
+
+> 💬 **面试官**：`process.nextTick` 为什么不直接实现成 Promise 微任务？
+>
+> ✅ 标准答案：`process.nextTick` 比 Promise 早诞生，是 Node 自己造的、独立于 V8 微任务的机制。它要解决的是「在进入下一个阶段之前，立刻、同步地处理某些回调」，比如在发出事件前先同步修改状态、在抛错前先清理资源。
+>
+> 🎁 加分答案：`nextTick` 比 Promise 微任务「插队更狠」——它不仅在宏任务间隙执行，还在**每个 phase 之间**执行。如果把它换成 Promise 微任务，就失去了「阶段间立即执行」这个能力，Node 内部大量「C++ 回 JS 边界」的清理逻辑就没法保证时机了。
+
+🔧 **真实场景**：医疗场景里 `process.nextTick` 最常见的用法是「保证事件触发前状态已同步」。比如订单状态从「待支付」变「已支付」，你要先更新内存里的订单对象，再 `emit('orderPaid')` 通知下游。如果直接 `emit`，监听器可能读到还没更新完的状态；用 `nextTick` 包裹 `emit`，就能确保「本轮所有同步代码跑完后、进入下一阶段前」再触发事件，监听器读到的永远是最新状态。
+
+---
+
 ## 🔀 浏览器 vs Node：本质差异在哪
 
 理解了上面三节，就可以回答那个最本质的问题了：**为什么 Node 的事件循环和浏览器不一样？**
 
 **浏览器**的事件循环是**规范驱动**的（WHATWG HTML 规范），设计目标是「渲染用户界面」。所以它的模型是：一个宏任务 → 清空微任务 → 渲染 → 下一个宏任务。它没有 `setImmediate`、没有独立的 `poll` 阶段、没有 `process.nextTick`。
 
+它的完整运转过程，用一张图看得更清楚（`JS 引擎线程` 执行栈里的代码 → 异步事件触发后回调进宏任务队列 → 每次取一个宏任务执行 → 清空微任务队列 → GUI 渲染）：
+
+![](https://cdn.nlark.com/yuque/0/2020/png/738210/1607137707447-4fa29db8-e686-4eb4-a82a-cf2eb64150ac.png)
+
+浏览器里「宏任务」和「微任务」有明确的来源划分：
+
+- **宏任务**（宿主环境提供）：`script` 整体代码、`setTimeout` / `setInterval`、UI 事件（click / input）、`postMessage` / `MessageChannel`
+- **微任务**（语言标准提供）：`Promise.then` / `catch` / `finally`、`MutationObserver`、`queueMicrotask`
+
+记住这个划分的底层逻辑，判断一个 API 是宏任务还是微任务就不靠背：**看它是谁提供的——宿主环境（浏览器）提供的归宏任务，JS 语言标准（ECMAScript）提供的归微任务**。`setTimeout`、UI 事件是浏览器塞给你的异步能力，所以是宏任务；`Promise`、`MutationObserver` 是语言标准自己的异步能力，所以是微任务。这条判断准则，面试时比背清单更值钱。
+
 **Node**的事件循环是 **libuv 驱动**的，设计目标是「处理大量 I/O」。所以它把循环拆成六个明确的阶段，专门用 `poll` 阶段来高效处理 I/O 事件，用 `check` 阶段跑 `setImmediate`，用 `process.nextTick` 提供「阶段之间立即执行」的插队能力。
 
 一句话概括：**浏览器的事件循环为了「渲染」而设计，Node 的事件循环为了「I/O」而设计**。这就是为什么前端那套「宏任务/微任务」心智，搬到 Node 里会不完整——Node 多出来的 `setImmediate`、`nextTick`、六阶段，都是 libuv 为「高并发 I/O」量身定做的产物。
 
 这也是「前端转 Node.js」最该重新建立的心智：**不要用浏览器的事件循环去硬套 Node**，而是从「libuv 为什么要这样分阶段」出发，理解每个阶段各自承担什么 I/O 职责。
+
+---
+
+## 🧪 动手验证：三个脚本亲手跑一遍
+
+面试结论背得再熟，不如自己跑一遍记得牢。下面三个脚本覆盖了本文三个核心结论，用 `console.log` + 时间戳把执行顺序「钉死」成证据。
+
+### 验证一：nextTick 优先于 Promise 微任务
+
+```javascript
+// 01-nexttick-vs-promise.js
+Promise.resolve().then(() => console.log('1. promise 微任务'))
+process.nextTick(() => console.log('2. nextTick'))
+Promise.resolve().then(() => console.log('3. promise 微任务'))
+process.nextTick(() => console.log('4. nextTick'))
+
+// 预期输出：
+// 2. nextTick
+// 4. nextTick
+// 1. promise 微任务
+// 3. promise 微任务
+```
+
+不管怎么交替写，**所有 `nextTick` 一定先于所有 Promise 微任务执行**。这是「nextTick 队列整体优先于 Promise 队列」最直观的证据。
+
+### 验证二：顶层 setTimeout vs setImmediate「看运气」
+
+```javascript
+// 02-top-level-order.js
+const start = Date.now()
+setTimeout(() => console.log(`setTimeout 先执行（+${Date.now() - start}ms）`), 0)
+setImmediate(() => console.log(`setImmediate 先执行（+${Date.now() - start}ms）`))
+
+// 多跑几次，两种结果都可能出现：
+// 有时 setTimeout 先，有时 setImmediate 先
+```
+
+如果你在 `package.json` 里用 `node 02-top-level-order.js` 连续跑十次，大概率会看到两种结果交替出现——这就是「顶层顺序受进程启动开销影响」的活证据。
+
+### 验证三：I/O 回调里 setImmediate 一定先执行
+
+```javascript
+// 03-io-callback-order.js
+const fs = require('fs')
+
+fs.readFile(__filename, () => {
+  setTimeout(() => console.log('timeout'))
+  setImmediate(() => console.log('immediate'))
+})
+
+// 预期输出（每次都是这个顺序）：
+// immediate
+// timeout
+```
+
+这个脚本你跑一百遍，输出也不会变——因为 `fs.readFile` 回调落在 `poll` 阶段，`poll` 结束后紧跟着 `check`（`setImmediate`），而 `setTimeout` 要等下一轮的 `timers` 阶段。**确定性来自阶段顺序，不是玄学。**
 
 ---
 
