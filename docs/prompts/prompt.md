@@ -1,64 +1,70 @@
 # prompt
 
 ```text
-/publish 下面我们规划nodejs系列的第3篇文章，具体如下：
+/publish 下面我们规划nodejs系列的第6篇文章，具体如下：
 {{
 ## 知识点范围
 
-### 第 03 篇：Node.js 运行时内核: V8+libuv 架构/CommonJS 加载机制/ESM 深度拆解（面试收藏级）
+### ### 第 06 篇：Web 认证体系: Cookie/Session/JWT/OAuth2 设计原理与安全实践（面试收藏级）
 
-**副标题**：V8+libuv 双引擎架构、CommonJS 模块加载机制、ESM 三阶段加载与 CJS 互操作、模块解析算法与幽灵依赖成因
-
-> 与已发布《JS 有几种模块化规范》（`docs/articles/03 module/2026-08-01-js-module-systems.md`）的分工：那篇讲的是 IIFE/AMD/CMD/UMD/ESM 等**语言规范层面**的演进对比与 Tree Shaking 原理，本篇不再重复这部分内容，只讲 Node.js **运行时**具体怎么加载、解析、缓存模块——即"规范之上，Node.js 是怎么实现的"
+**副标题**：Cookie 属性与安全标记、Session 服务端状态存储、JWT 无状态令牌与签名验证、OAuth2 四种授权模式
 
 #### 一、使用与实践
 
-- `package.json` 里 `"type": "module"` 对模块解析规则的影响，`.mjs`/`.cjs` 双扩展名并存策略
-- Node.js 全局对象：`process`、`__dirname`/`__filename`（CJS 独有）、`global`、`Buffer`
-- 在 ESM 模块中获取等价的 `__dirname`：`import.meta.url` + `fileURLToPath`
-- `require.cache` 查看已加载模块缓存，手动清除缓存实现"热重载"的原理性演示
-- 动态 `import()` 在 CJS 文件中按需加载 ESM 模块的实际写法
+- `Set-Cookie` 响应头与 `document.cookie`：`HttpOnly`/`Secure`/`SameSite` 三个安全相关属性的实际效果
+- Express/Koa 中间件设置 Session：`express-session` + Redis 存储会话数据
+- JWT 结构：`header.payload.signature` 三段式，`jwt.sign()`/`jwt.verify()` 基本用法，医生登录后签发带角色信息的 token
+- 前端请求携带认证信息的两种主流方式：Cookie 自动携带 vs `Authorization: Bearer <token>` 手动携带
+- OAuth2 第三方登录接入的基本流程（如微信/GitHub 登录）
 
 #### 二、设计与原理
 
-- Node.js 的双引擎架构：V8 负责执行 JS 代码本身（解析、编译、GC），libuv 负责跨平台的异步 I/O、事件循环、线程池——Node.js 是"V8 + libuv + 一层 C++ 绑定"组成的运行时，JS 代码本身不具备任何 I/O 能力，全部依赖 libuv 提供的异步接口
-- **CommonJS 模块加载机制**：`require` 是同步的——Node.js 在遇到 `require` 时会立即读取目标文件内容、编译执行，并缓存到 `require.cache`（以绝对路径为 key），后续对同一模块的 `require` 直接返回缓存的 `module.exports`，不会重新执行；模块包装：Node.js 会把每个 CJS 文件包装成一个函数 `function(exports, require, module, __filename, __dirname) { ...文件内容... }` 再执行，这解释了为什么 CJS 文件里能直接用这几个"看起来像全局变量"的标识符
-- **循环依赖问题**：CJS 遇到循环 `require` 时，后加载的模块拿到的是"当前已执行部分"的 `exports`（可能是不完整的），这是"运行时求值 + 提前缓存占位"机制的直接后果
-- **ESM 模块机制**：`import`/`export` 是静态的、编译期可分析的（这也是"tree-shaking"能够实现的基础），Node.js 对 ESM 的加载分为"解析（parse）→ 实例化（instantiate，建立模块间的绑定关系）→ 求值（evaluate）"三个阶段，和 CJS "读取即执行"的同步模型完全不同
-- **ESM 与 CJS 互操作规则**：ESM 可以 `import` CJS 模块（CJS 的 `module.exports` 会被当作默认导出）；但 CJS 不能直接 `require` 一个 ESM 模块（同步的 `require` 无法等待 ESM 异步的实例化过程），只能用动态 `import()`（返回 Promise）
-- 模块解析算法：Node.js 按"核心模块 → 相对/绝对路径 → `node_modules` 逐级向上查找"的顺序解析裸模块名（bare specifier），这是"幽灵依赖"问题的成因——`node_modules` 逐级查找机制让一个包可能访问到并非自己直接声明依赖的其他包
-- 对比前端打包工具：Webpack/Vite 在打包阶段模拟了一套自己的模块解析和加载逻辑（不直接依赖 Node.js 运行时的 `require` 实现），但解析算法的思路（裸模块名 → `node_modules` 查找）与 Node.js 保持了兼容，这是前端生态"约定俗成"的一部分
+- **Cookie 的安全属性**：`HttpOnly` 禁止 JS 通过 `document.cookie` 读取，防范 XSS 窃取会话凭证；`Secure` 要求只能通过 HTTPS 传输；`SameSite=Strict/Lax/None` 控制跨站请求时是否携带 Cookie，是防范 CSRF 的关键机制之一（`Lax` 是现代浏览器默认值）
+- **Session 的本质**：服务端维护一个"会话 ID → 用户状态"的存储（内存/Redis/数据库），只把这个会话 ID 通过 Cookie 下发给客户端，客户端每次请求带上会话 ID，服务端据此查找完整状态——这是"有状态"认证方案，扩缩容时需要考虑会话存储的共享（多实例部署时不能用进程内存存储 Session，必须用 Redis 等外部存储）
+- **JWT 的本质**：把用户身份信息本身编码进令牌（payload 部分是 base64url 编码的 JSON，不是加密，任何人都能解码看到内容），用签名（HMAC 或 RSA/ECDSA）保证内容没有被篡改——服务端验证时只需要用密钥重新计算签名并比对，不需要查询任何存储，这是"无状态"认证方案的核心优势（适合分布式/微服务场景，任意节点都能独立验证）
+- **JWT 的安全注意点**：payload 不加密，绝对不能放密码等敏感信息；`exp` 过期时间字段必须设置，否则令牌一旦泄露永久有效；JWT 一旦签发很难主动失效（不像 Session 可以直接从存储里删除），常见解决方案是配合一个短期 access token + 长期 refresh token 的双令牌机制，或维护一个"黑名单"存储已注销的 token
+- **Session vs JWT 的选型权衡**：Session 天然支持"服务端主动使某个会话失效"（删存储记录即可），JWT 天然支持无状态水平扩展但撤销机制复杂；单体应用/需要即时踢人下线的场景更适合 Session，微服务/多端多域场景更适合 JWT
+- **OAuth2 四种授权模式**：授权码模式（Authorization Code，最常见，用于有后端的 Web 应用，通过一次性授权码换取 token，token 不经过浏览器地址栏暴露）、隐式模式（Implicit，纯前端应用直接从重定向 URL 拿 token，已被认为不够安全逐渐弃用）、密码模式（Resource Owner Password Credentials，用户把账号密码直接交给第三方应用，只在高度信任场景使用）、客户端模式（Client Credentials，机器间调用，无用户参与）——理解"OAuth2 解决的是‘第三方应用代表用户访问资源’的授权问题，而不是身份认证协议本身"这个常见误解（OpenID Connect 才是建立在 OAuth2 之上的身份认证层）
+- 对比前端：CSRF 防御在前端视角常见的还有"双重 Cookie 验证"和自定义请求头方案，这些都是在 `SameSite` 属性普及之前的历史防御手段，理解其演进有助于理解现代安全实践为什么逐渐收敛到 `SameSite` + `HttpOnly` 组合
 
 #### 三、工程落地参考
 
-1. CJS 模块包装与加载：`lib/internal/modules/cjs/loader.js`（nodejs/node 仓库）— `Module.prototype._compile`、`Module._cache`、`Module._resolveFilename` 路径解析算法
-2. ESM 加载器：`lib/internal/modules/esm/loader.js` — 解析/实例化/求值三阶段的实现入口
-3. libuv 线程池与异步 I/O 的 C++ 绑定：概览级介绍 `deps/uv` 目录结构和 `lib/internal/bootstrap` 中 JS 层如何调用底层绑定
+1. `express-session` 中间件实现：`expressjs/session` 仓库 — Session 的创建、Cookie 签发、`store.get`/`store.set` 存储接口抽象
+2. JWT 签名与验证：`auth0/node-jsonwebtoken` 仓库 — `sign`/`verify` 中 HMAC/RSA 签名算法的调用与 `exp` 过期校验逻辑
+3. OAuth2 授权码流程参考实现：`simov/grant` 或 Passport.js 的 `passport-oauth2` 策略 — 授权码换取 access token 的完整请求链路
 
 #### 四、实践演示与验证
 
-1. 搭建 `packages/mini-require`：手写一个简化版 `require` 实现——读取文件、用 `vm` 模块或 `new Function` 包装执行、维护自己的模块缓存 Map，验证"同一模块二次 require 不会重新执行"与"循环依赖时后加载方拿到不完整 exports"两个现象
-2. 写一组对照 demo：同一份逻辑分别用 CJS 和 ESM 实现一次循环依赖场景，观察两者行为差异
+1. 搭建 `packages/mini-session`：手写一个基于内存 Map 的 Session 中间件（生成会话 ID、设置 Cookie、请求时查找会话状态），再替换为 Redis 存储版本对比两者在多实例部署下的行为差异
+2. 搭建 `packages/mini-jwt`：手写 JWT 的签发与验证（HMAC-SHA256 签名，base64url 编解码，`exp` 校验），不依赖第三方库，验证篡改 payload 后签名校验会失败
 
 #### 五、参考
-- https://nodejs.org/api/modules.html
-- https://nodejs.org/api/esm.html
-- https://github.com/nodejs/node
+- https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Cookies
+- https://jwt.io/
+- https://oauth.net/2/
+- https://mp.weixin.qq.com/s/Trq9-FN6wuxvonmpCd269A
+- https://juejin.cn/post/6933115003327217671
+- https://zhuanlan.zhihu.com/p/591434948
+- https://zhuanlan.zhihu.com/p/34608415
+- https://www.jianshu.com/p/be7d264fe1b3
 
 **面试核心问**：
-- Node.js 的运行时架构是怎样的？V8 和 libuv 分别负责什么？
-- `require` 的模块缓存机制是怎样的？为什么二次 `require` 同一个模块不会重新执行代码？
-- CJS 遇到循环依赖会发生什么？和 ESM 处理循环依赖的方式有什么不同？
-- ESM 为什么不能被 CJS 用 `require` 直接引入，只能用动态 `import()`？
-- 什么是"幽灵依赖"？它是怎么由 Node.js 的模块解析算法导致的？
+- `HttpOnly`、`Secure`、`SameSite` 三个 Cookie 属性分别防范什么风险？
+- Session 和 JWT 的本质区别是什么？各自的优劣和适用场景？
+- JWT 的 payload 是加密的吗？可以放哪些信息，不能放哪些？
+- JWT 令牌泄露后要怎么让它失效？为什么这比 Session 复杂？
+- OAuth2 的授权码模式解决了什么问题？为什么比隐式模式更安全？
+- OAuth2 和 OpenID Connect 的关系是什么？
 
 
 
 ## 已有笔记
 
-- @docs\notes\08 node\08 Node基本概念.md
-- @docs\notes\08 node\09 Node中的模块.md
-- @docs\notes\08 node\11 NPM.md
+- @docs\notes\08 node\22 COOKIE.md
+- @docs\notes\08 node\23 SESSION.md
+- @docs\notes\08 node\24 JWT.md
+- @docs\notes\08 node\25 OAuth.md
+- @docs\notes\08 node\26 RBAC.md
 
 ## plans 地址
 
