@@ -656,6 +656,21 @@ Serverless 不是银弹，它有明确的「甜区」和「禁区」：
 
 ---
 
+## 参考资料
+
+- https://cloud.tencent.com/document/product/1154 （Serverless Framework 官方文档）
+- https://cloud.tencent.com/document/product/1154/42990 （安装 Serverless Framework）
+- https://cloud.tencent.com/document/product/1154/39271 （Serverless Components 与云函数 SCF 组件）
+- https://cloud.tencent.com/document/product/1154/39268 （API 网关组件）
+- https://cloud.tencent.com/document/product/1154/39276 （部署静态网站）
+- https://cloud.tencent.com/document/product/1154/43224 （快速部署 Express 应用）
+- https://cloud.tencent.com/document/product/583/40159 （云函数层管理 layer）
+- https://cloud.tencent.com/document/product/1154/50933 （快速创建全栈应用模板）
+
+> 概念层对照：AWS Lambda 与阿里云函数计算 FC 的「冷启动 / 无状态 / 按量计费」模型与腾讯云 SCF 通用，读者可按自己所在云平台查阅对应官方文档。
+
+---
+
 ## 💡 一张图总结（面试速记表）
 
 | 知识点 | 一句话内核 | 考察频率 |
