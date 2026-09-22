@@ -24,7 +24,7 @@
 | 05 | Vue 2 源码 | ✅ 完成 | 13 | — |
 | 06 | Vue 3 源码 | ✅ 完成 | 12 | — |
 | 07 | React 18 | 🚧 进行中（大纲已定稿 14 篇，详见 `docs/plans/04 react18-family-series-outline.md`） | 0/14 | 核心主线 |
-| 08 | Node.js 全栈 | 📋 规划中（大纲已定稿 17 篇，详见 `docs/plans/05 node-fullstack-series-outline.md`） | — | ① 第一优先 |
+| 08 | Node.js 全栈 | 📋 规划中（大纲已定稿 18 篇，详见 `docs/plans/05 node-fullstack-series-outline.md`） | — | ① 第一优先 |
 | 09 | 网络原理 | 📋 规划中（大纲已定稿 10 篇，详见 `docs/plans/06 network-principles-series-outline.md`） | — | ② |
 | 10 | 泛客户端（小程序） | 📋 规划中（大纲已定稿 12 篇，详见 `docs/plans/09 miniprogram-series-outline.md`） | — | ⑤ |
 | 11 | 数据结构与算法 | 📋 规划中（大纲已定稿 13 篇，详见 `docs/plans/07 data-structures-algorithms-outline.md`） | — | ③ |
@@ -148,9 +148,9 @@
 
 ---
 
-## 08 Node.js 全栈（📋 规划中，大纲已定稿 17 篇，详见 `docs/plans/05 node-fullstack-series-outline.md`）
+## 08 Node.js 全栈（📋 规划中，大纲已定稿 18 篇，详见 `docs/plans/05 node-fullstack-series-outline.md`）
 
-> 写作顺序第一优先；协议原理部分见《09 网络原理》系列，本系列聚焦 Node.js 运行时、框架、数据库的实现层
+> 写作顺序第一优先；协议原理部分见《09 网络原理》系列，本系列聚焦 Node.js 运行时、框架、数据库的实现层；第 11 篇起统一「基本使用 / 企业最佳实践 / 注意事项」三段式
 
 - JS 异步基石：高阶函数 / 发布订阅 / Promise / 函数柯里化
 - JS 调度引擎：Generator / async-await / EventLoop 浏览器与 Node 差异
@@ -162,10 +162,11 @@
 - Koa 深度：洋葱模型 / compose 原理 / 手写实现
 - NestJS+TypeScript：IoC / DI / 装饰器元编程 / 模块化架构
 - BFF 架构模式：API Gateway vs BFF / 多端数据聚合与裁剪
-- MySQL 全栈：事务 / 索引原理 / 慢查询优化 / 设计范式
-- MongoDB 深度：文档模型 / 聚合管道 / 索引策略 / Mongoose
-- Redis 深度：五大数据结构 / 持久化 / 分布式锁 / 接口限流
-- PostgreSQL 进阶：窗口函数 / 高级索引 / pgvector 向量扩展
+- Serverless 架构：云函数 / API 网关 / 部署形态演进
+- MySQL 全栈：基本使用 / 索引与事务最佳实践 / 慢查询与设计范式
+- MongoDB 深度：文档模型 / 聚合管道 / 索引策略 / Mongoose 最佳实践
+- Redis 深度：五大数据结构 / 持久化 / 缓存与分布式锁最佳实践 / 接口限流
+- PostgreSQL 进阶：窗口函数 / JSONB / 高级索引 / pgvector 向量扩展
 - GraphQL+Apollo：Schema 设计 / Resolver / DataLoader N+1
 - Node.js 测试与部署：测试分层 / supertest / Docker 多阶段构建 / PM2 与 Cluster
 - Node.js 可观测性与安全：消息队列解耦 / 安全实践 / 内存泄漏排查 / APM 链路追踪
