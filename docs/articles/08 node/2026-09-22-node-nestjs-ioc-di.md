@@ -17,7 +17,7 @@
 - IoC/DI 到底解决了什么问题（痛点：`new` 出来的高耦合）
 - 元数据反射怎么支撑 IoC（地基：`Reflect Metadata` + `design:paramtypes`）
 - NestJS 怎么用这套机制构建企业级架构（模块化 / 作用域 / 横切关注点 / 适配层）
-- 手写验证（落地：Container + 装饰器 + 路由分发）
+- 手写验证（落地：手写 IoC/DI 容器）
 
 读完之后，你既懂 IoC 思想，又会答面试 5 问，还能自己手写一个简化版容器。
 
@@ -104,8 +104,8 @@ export class AppModule {}
 
 | 方式 | 写法 | 实例怎么来 |
 |------|------|-----------|
-| 简写（类） | `AppService` | 等价于 `{ provide: AppService, useClass: AppService }`，容器 `new` 一个 |
-| `useClass` | `{ provide: X, useClass: X }` | 每次注入时按 `useClass` 实例化（可用不同类替换） |
+| 简写（类） | `AppService` | 等价于 `{ provide: AppService, useClass: AppService }`，容器 `new` 一个（默认单例） |
+| `useClass` | `{ provide: X, useClass: Y }` | 容器按 `useClass` 指定的类 `new` 一个实例；`Y` 可以和 `provide` 的 `X` 不同，实现「注入接口、换实现类」 |
 | `useValue` | `{ provide: X, useValue: new X() }` | 直接用现成的值（实例、常量、配置对象） |
 | `useFactory` | `{ provide: X, useFactory: () => new X() }` | 调用工厂函数生成实例（可带依赖参数） |
 
@@ -152,12 +152,13 @@ export class AppService {
   ) {}
 
   getHello(): string {
+    // 依次调用四种不同注册方式的 Logger，验证都注入成功
     this.useClassLoggerService.log('useClassLoggerService');
     this.useValueLoggerService.log('useValueLoggerService');
     this.useFactoryLoggerService.log('useFactoryLoggerService');
     this.useStringTokenLoggerService.log('useStringTokenLoggerService');
 
-    return 'Hello World! 四种 Logger 已依次打印';
+    return 'Hello World!';
   }
 }
 ```
@@ -240,7 +241,7 @@ export class CreatePatientDto {
 ```
 
 ```typescript
-import { Controller, Post, Body, ValidationPipe } from '@nestjs/common';
+import { Controller, Post, Body, ValidationPipe, UsePipes } from '@nestjs/common';
 import { CreatePatientDto } from './dto/create-patient.dto';
 
 @Controller('patients')
@@ -562,6 +563,30 @@ function decorator(): string {
 
 `@Inject()` 在这里的职责是「覆盖默认 token」：默认 token 是参数的类型本身；当你要注入的是一个接口实现、或一个自定义字符串 token，参数类型对不上，就用 `@Inject(token)` 显式指定。
 
+**循环依赖**：递归解析依赖时，会遇到一个经典边界情况——A 注入 B、B 又注入 A。容器实例化 A 时去解析 B，实例化 B 时又回来拿 A，此时 A 还没创建完，于是陷入死循环、抛错。
+
+NestJS 的解法是 `forwardRef`——把「取另一个类的引用」这个动作，延迟到真正需要时才执行：
+
+```typescript
+import { Inject, forwardRef } from '@nestjs/common';
+
+@Injectable()
+export class PatientService {
+  constructor(
+    @Inject(forwardRef(() => PrescriptionService))  // 👈 传箭头函数，而不是类本身
+    private prescriptionService: PrescriptionService,
+  ) {}
+}
+```
+
+`forwardRef(() => PrescriptionService)` 传的是一个「返回类的函数」而非类本身，容器解析到这一步才调用它取类，绕开了「类定义还没完成、互相拿不到」的时序问题。模块之间互相 `imports` 也会成环，同样用 `forwardRef(() => OtherModule)` 打破。
+
+> 💬 **面试官**：NestJS 里两个 Service 互相注入会怎样？怎么解决？
+>
+> ✅ 标准答案：形成循环依赖，容器递归解析时死循环、抛错。用 `forwardRef` 打破——`@Inject(forwardRef(() => X))` 延迟取类引用，或模块级 `forwardRef(() => XxxModule)` 打破模块间的环。
+>
+> 🎁 加分答案：能说出「循环依赖本质是设计问题，`forwardRef` 是补救不是正解」——优先通过抽出公共 Service、或改为事件/回调解耦来消除环，`forwardRef` 只在确实无法避免时用。
+
 ### 6. 单例作用域：默认每个 Provider 只实例化一次
 
 NestJS 里 Provider 的**默认作用域是单例（singleton）**——整个应用生命周期里，每个 Provider 只实例化一次，所有注入它的地方共享同一个实例。
@@ -859,7 +884,7 @@ export class ExpressAdapter extends AbstractHttpAdapter {
   }
 
   public listen(port: string | number, callback?: () => void): Server {
-    return this.httpServer.listen(port, ...args);   // 👈 最终还是 Express 在监听
+    return this.httpServer.listen(port, callback);   // 👈 最终还是 Express 在监听
   }
 }
 ```
@@ -868,11 +893,9 @@ export class ExpressAdapter extends AbstractHttpAdapter {
 
 ---
 
-## 四、手写实现（packages/mini-nest）
+## 四、手写 IoC/DI 容器
 
-理解了原理与源码，这一节分两步手写：先把笔记里的 IoC 容器完整实现一遍，再往上补一个极简路由层，组成一个能跑通的 `mini-nest`。
-
-### 1. 手写 IoC 容器（笔记完整实现）
+理解了原理，这一节把笔记里的 IoC 容器完整实现一遍——这是本篇「手写验证」的落地，只聚焦 IoC/DI 这一件事，不往上叠路由层（路由分发属于另一个正交维度，「三、源码解析」里的 `express-adapter.ts` 已经覆盖）。
 
 一个 IoC 容器需要四样东西：Token 类型、Provider 类型、`@Inject` 装饰器、Container 容器类。下面完整给出。
 
@@ -1066,122 +1089,39 @@ export * from './container';
 >
 > 🎁 加分答案：能说出「为什么要区分 ClassProvider/ValueProvider/FactoryProvider 三种类型并用类型守卫判断」——不同类型实例化方式不同（`new` / 直接用值 / 调工厂函数），需要先判断再分发。再补一句「单例」的实现方式：解析出的实例缓存到 Map 里，下次同 token 直接返回，避免重复实例化。
 
-### 2. 手写 mini-nest：补上路由层
-
-容器只解决了「依赖注入」，一个完整的 `mini-nest` 还需要「装饰器 + 路由分发」。下面用 Node 原生 `http` 模块补齐：
-
-**装饰器**：`@Injectable()`/`@Controller()`/`@Get()` 只做一件事——贴元数据标签：
+上面的面试官 Q&A 已经点出手写容器的关键步骤。这里再用一个「患者模块」的最小验证收个尾——不引入路由层，只用 `container.inject()` 证明「你没 `new`，但依赖已注入」：
 
 ```typescript
-import 'reflect-metadata';
-
-export const INJECTABLE_METADATA = 'injectable';
-export const CONTROLLER_METADATA = 'controller';
-export const PATH_METADATA = 'path';
-export const METHOD_METADATA = 'method';
-
-export function Injectable(): ClassDecorator {
-  return (target) => {
-    Reflect.defineMetadata(INJECTABLE_METADATA, true, target);
-  };
-}
-
-export function Controller(prefix = ''): ClassDecorator {
-  return (target) => {
-    Reflect.defineMetadata(CONTROLLER_METADATA, prefix, target);
-  };
-}
-
-export function Get(path = '/'): MethodDecorator {
-  return (target, key, descriptor) => {
-    Reflect.defineMetadata(PATH_METADATA, path, descriptor.value);
-    Reflect.defineMetadata(METHOD_METADATA, 'GET', descriptor.value);
-    return descriptor;
-  };
-}
-
-export function Post(path = '/'): MethodDecorator {
-  return (target, key, descriptor) => {
-    Reflect.defineMetadata(PATH_METADATA, path, descriptor.value);
-    Reflect.defineMetadata(METHOD_METADATA, 'POST', descriptor.value);
-    return descriptor;
-  };
-}
-```
-
-**患者模块 + 启动**：用「PatientController 注入 PatientService」验证依赖自动注入链路：
-
-```typescript
-import * as http from 'http';
-import { Container } from './container';
-import { Injectable, Controller, Get, Post,
-  CONTROLLER_METADATA, PATH_METADATA, METHOD_METADATA } from './decorators';
-
-@Injectable()
+// 验证：患者服务自动注入链路
 class PatientService {
-  private patients = [
-    { id: 'P10086', name: '张三', age: 45 },
-    { id: 'P10087', name: '李四', age: 38 },
-  ];
-  list() {
-    return this.patients;
+  getPatients() {
+    return ['张三', '李四'];
   }
 }
 
-@Controller('patients')
 class PatientController {
-  // 依赖注入：只声明需要 PatientService，容器自动注入实例
+  // 只声明需要 PatientService，不手动 new
   constructor(private readonly patientService: PatientService) {}
-
-  @Get('')
   list() {
-    return this.patientService.list();
-  }
-
-  @Post('')
-  create() {
-    return { code: 201, message: '患者已创建' };
+    return this.patientService.getPatients();
   }
 }
 
-// 注册 Provider 并实例化控制器
 const container = new Container();
 container.addProvider({ provide: PatientService, useClass: PatientService });
 container.addProvider({ provide: PatientController, useClass: PatientController });
-const controller = container.inject(PatientController);  // 👈 这里自动注入了 PatientService
 
-// 扫描路由元数据
-const prefix = Reflect.getMetadata(CONTROLLER_METADATA, PatientController);
-const routes = [];
-for (const key of Object.getOwnPropertyNames(PatientController.prototype)) {
-  const fn = PatientController.prototype[key];
-  const path = Reflect.getMetadata(PATH_METADATA, fn);
-  if (path !== undefined) {
-    const method = Reflect.getMetadata(METHOD_METADATA, fn);
-    routes.push({ method, path: prefix + path, handler: fn.bind(controller) });
-  }
-}
-
-// 用原生 http 分发请求到对应控制器方法
-http.createServer((req, res) => {
-  const route = routes.find(r => r.method === req.method && r.path === req.url);
-  res.setHeader('Content-Type', 'application/json');
-  if (route) {
-    res.end(JSON.stringify(route.handler()));
-  } else {
-    res.statusCode = 404;
-    res.end(JSON.stringify({ code: 404, message: 'Not Found' }));
-  }
-}).listen(3000, () => console.log('mini-nest listening on 3000'));
+const controller = container.inject(PatientController); // 👈 自动注入 PatientService
+controller.list(); // ['张三', '李四']
 ```
 
-跑起来后，`GET http://localhost:3000/patients` 会返回患者列表。关键验证点：`container.inject(PatientController)` 这一行，容器读到了 `PatientController` 构造函数的 `design:paramtypes` 是 `[PatientService]`，自动实例化并注入了 `PatientService`——**你没有手动 `new PatientService()`，但 `controller.patientService` 已经可用了**。这就是 NestJS 依赖注入的完整链路，在一个 100 行的 mini-nest 里全部复现。
+关键验证点：`container.inject(PatientController)` 这一行，容器读到了 `PatientController` 构造函数的 `design:paramtypes` 是 `[PatientService]`，自动实例化并注入了 `PatientService`——**你没有手动 `new PatientService()`，但 `controller.patientService` 已经可用了**。这就是 NestJS 依赖注入的完整链路，浓缩在这几十行手写容器里。
 
 ---
 
-## 五、手写实现源码地址
+## 五、手写源码地址
 
-- GitHub：https://github.com/...（`medai-node-source` 仓库，按 `packages/mini-nest` 分模块搭建，含 `provider.ts`/`type.ts`/`inject.ts`/`container.ts`/`decorators.ts`/`app.ts`，地址待补充）
+- GitHub：https://github.com/...（`medai-node-source` 仓库，含手写 IoC/DI 容器的 `provider.ts`/`type.ts`/`inject.ts`/`container.ts`，地址待补充）
 
 ---
 
@@ -1203,6 +1143,7 @@ http.createServer((req, res) => {
 - **NestJS 和 Express 是什么关系？NestJS 是重新造了一个 HTTP 框架吗？**（不是，是构建在 Express/Fastify 之上的架构框架）
 - **`useClass`、`useValue`、`useFactory` 三种 Provider 的区别是什么？**
 - **为什么要用 `InjectionToken` 类而不是直接拿字符串当 token？**（字符串可能重名）
+- **两个 Service 互相注入（循环依赖）会怎样？怎么解决？**（递归解析死循环，用 `forwardRef` 打破）
 
 ---
 
@@ -1217,8 +1158,9 @@ http.createServer((req, res) => {
 | 执行顺序 | Guard→Interceptor 前置→Pipe→handler→Interceptor 后置→ExceptionFilter | ⭐⭐⭐ 必考 |
 | 模块化 | Module 四字段（controllers/providers/imports/exports）显式声明边界 | ⭐⭐ 高频 |
 | 适配层 | NestJS 是架构框架，内部持 Express/Fastify 实例，路由最终调 `app.get/post` | ⭐⭐ 高频 |
+| 循环依赖 | 递归解析死循环，用 `forwardRef(() => X)` 延迟取引用打破 | ⭐⭐ 高频 |
 
-> 💡 记住这条主线：**IoC（为什么）→ 元数据反射（怎么支撑）→ 装饰器贴标签 + 容器递归装配（怎么实现）→ 模块化/作用域/横切关注点（怎么组织企业级代码）→ 手写 mini-nest（验证全链路）**。NestJS 的每一步，都在把「依赖的复杂性」从业务代码里抽出来，交给一个可控的容器。
+> 💡 记住这条主线：**IoC（为什么）→ 元数据反射（怎么支撑）→ 装饰器贴标签 + 容器递归装配（怎么实现）→ 手写 IoC/DI 容器（验证落地）→ 模块化/作用域/横切关注点（怎么组织企业级代码）**。NestJS 的每一步，都在把「依赖的复杂性」从业务代码里抽出来，交给一个可控的容器。
 
 ---
 
