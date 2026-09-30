@@ -1,67 +1,66 @@
 # prompt
 
 ```text
-/publish 下面我们规划网络系列的第5篇文章，具体如下：
+/publish 下面我们规划网络系列的第8篇文章，具体如下：
 {{
 ## 知识点范围
 
-### 第 05 篇：HTTP 语义基础：内容协商/状态码语义/请求方法安全性与幂等性
+### 第 08 篇：HTTP 缓存体系：强缓存/协商缓存/Service Worker 缓存策略实战
 
-**副标题**：压缩算法与语言协商如何工作、重定向与认证状态码的精确语义、安全方法与幂等方法的设计契约
-
-> 从原「HTTP 演进」篇拆分而来：版本演进（队头阻塞/多路复用/QUIC）讲的是"HTTP 怎么传输"，本篇讲的是"HTTP 报文本身的语义约定"，是两个独立的知识维度，合在一篇会互相冲淡，拆开后各自更聚焦。
+**副标题**：强缓存的到期时间控制、协商缓存的内容校验机制、Service Worker 作为可编程缓存层
 
 #### 一、使用与实践
 
-- `curl --compressed example.com` 观察请求头自动带上 `Accept-Encoding: gzip, deflate, br`，对比响应头 `Content-Encoding` 实际选中的算法
-- `curl -H "Accept-Language: zh-CN,en;q=0.9" example.com` 观察服务端按语言偏好返回内容
-- 用浏览器 DevTools 观察一次登录失效请求返回 401、一次越权访问请求返回 403 的实际响应头差异
-- 用 Postman 分别发起 301/302/307/308 重定向请求，观察浏览器/客户端对请求方法和请求体的处理差异
-- 医院 HIS 系统"处方提交"接口设计评审：确认 `POST`（非幂等）与 `PUT /prescriptions/:id`（幂等更新）的语义边界
+- Chrome DevTools Network 面板观察请求的 `from disk cache`/`from memory cache`/`304 Not Modified` 状态
+- 服务端设置 `Cache-Control: max-age=3600`、`ETag`、`Last-Modified` 响应头
+- Service Worker 注册基本流程：`navigator.serviceWorker.register()`，`fetch` 事件拦截网络请求
+- 医院 HIS 系统里"药品说明书 PDF 静态资源"用强缓存 + 文件名哈希（content hash）实现"内容变更即 URL 变更"的缓存更新策略
+- 浏览器强制刷新（`Ctrl+Shift+R`）与普通刷新在缓存命中行为上的差异
 
 #### 二、设计与原理
 
-> 本篇按"请求头协商 → 状态码语义 → 方法契约"三组展开：先讲客户端如何通过请求头声明偏好、服务端如何选择（内容协商），再讲响应如何用状态码精确传达结果（状态码语义），最后讲请求方法本身承载的契约（安全性与幂等性）。
-
-- **内容协商三兄弟**：HTTP 允许客户端在请求头里声明自己的偏好，服务端从多个可用表示里选出最匹配的一种返回，这套机制统称"内容协商"——`Accept-Encoding: gzip, br` 声明客户端能解压的压缩格式；`Accept-Language: zh-CN,en;q=0.9` 声明语言偏好及优先级权重；`User-Agent` 声明客户端类型。三者的设计动机相同，但各自的权衡与局限差异很大
-- **压缩算法选型：gzip vs Brotli（br）**（重点）：gzip 基于 DEFLATE 算法（LZ77 字典压缩 + 哈夫曼编码），压缩率适中、压缩/解压速度快、CPU 开销低、几乎所有客户端都兼容；Brotli（br）使用更大的静态字典（内置了大量 Web 常见文本模式）加上更优的熵编码，对文本类资源压缩率通常比 gzip 高 15%-25%，但压缩耗时明显更长——**能提前离线压缩好、一次压缩多次复用的静态资源**（如打包后的 JS/CSS 产物）优先用 br 的最高压缩级别；**每次请求都需要实时生成的动态响应**（如接口返回的 JSON）更倾向 gzip 或 br 的低压缩级别，避免实时压缩的 CPU 开销抵消传输时间节省；CDN/Nginx 层通常两者都配置，按客户端 `Accept-Encoding` 声明自动选择
-- **User-Agent 嗅探的局限与 Client Hints 的设计动机**：`User-Agent` 字符串历史上用于识别客户端类型，但存在两个根本问题：① UA 字符串可以被客户端随意伪造；② UA 字符串格式历史遗留问题严重，服务端嗅探解析逻辑复杂且容易随浏览器版本更新失效——**User-Agent Client Hints** 提案反转了这个模式：客户端按服务端请求（`Accept-CH` 响应头声明需要哪些信息）主动上报结构化的能力信息（如 `Sec-CH-UA`），且默认只上报低熵信息，高熵信息需要显式申请，这也缓解了"UA 字符串是一种设备指纹追踪手段"的隐私争议
-- **重定向状态码语义**：301（Moved Permanently，永久重定向）与 302（Found，临时重定向）是最基础的一对；307（Temporary Redirect）和 308（Permanent Redirect）是它们的严格版本——301/302 在规范上允许浏览器在重定向时把 POST 改成 GET（历史遗留的不严谨行为），307/308 则明确要求**必须保持原始请求方法和请求体不变**，这是"提交表单时的重定向该用 307 还是 302"这类问题的关键区分点
-- **304 与协商缓存的关系**：304 Not Modified 不是一个独立的缓存机制，而是协商缓存校验后的结果状态码——服务端比对请求头里的 `If-None-Match`/`If-Modified-Since` 后发现内容未变，返回 304 且不带响应体（详见 08 篇缓存体系）
-- **401 vs 403**：401 Unauthorized 语义是"未认证"（没有提供有效的身份凭证，或凭证已过期/无效，通常应配合 `WWW-Authenticate` 响应头）；403 Forbidden 语义是"已认证但无权限"——这一区分是设计需要登录+权限分级的系统（如医院 HIS 不同科室医生的数据访问权限）时的接口设计规范基本要求
-- **请求方法的安全性（Safe）与幂等性（Idempotent）**：安全方法指该方法不会对服务端资源产生副作用（只读），幂等方法指多次重复执行和执行一次的效果相同——GET/HEAD/OPTIONS 既安全又幂等；PUT/DELETE 幂等但不安全（会修改资源，但重复执行结果一致）；POST 既不安全也不幂等（每次提交都可能创建新资源，重复提交会产生副作用，如重复提交处方可能导致重复开单）——这组概念是 09 篇 RESTful 设计"用 HTTP 方法表达操作语义"的理论基础，也是"为什么幂等的接口更适合安全重试"这类高可用设计题的答案来源
-- **PUT vs PATCH 的语义区分**（重点，REST 设计高频题）：PUT 语义是"完整替换"——客户端必须把资源的完整表示发过来，服务端用这个完整表示覆盖旧资源，因此 PUT 是幂等的（同一个完整表示覆盖多少次结果都一样）；PATCH 语义是"局部更新"——客户端只发需要修改的那几个字段，服务端把这些字段合并进现有资源，因此 PATCH **不保证幂等**（如 `{ "age": "+1" }` 这种增量操作重复执行两次 age 就 +2）。**能全量提交用 PUT，只改个别字段用 PATCH**，这是 REST 接口设计里最容易含糊、又最常被追问方法语义的场景
+- **强缓存**：`Cache-Control: max-age=N`（或历史遗留的 `Expires` 绝对时间）告诉浏览器"这份资源在 N 秒内直接使用本地缓存，完全不发请求到服务端确认"——这是性能最好的缓存策略，但代价是"如果资源内容变了，浏览器在 max-age 到期前完全不知道"，因此生产环境通常给资源文件名加上内容哈希（如 `app.a1b2c3.js`），内容变化即 URL 变化，配合超长 `max-age` 既能长期强缓存又能保证内容更新立即生效
+- **协商缓存**：当强缓存过期或设置为 `Cache-Control: no-cache`（注意 `no-cache` 不是"不缓存"，而是"每次都要向服务端验证"）时，浏览器会发请求带上 `If-None-Match`（对应上次响应的 `ETag`）或 `If-Modified-Since`（对应上次的 `Last-Modified`），服务端比对后如果内容没变，返回 `304 Not Modified`（不返回响应体，节省带宽，详见 05 篇 304 状态码语义），浏览器继续使用本地缓存；如果变了则返回 `200` 和新内容
+- **`ETag` 与 `Last-Modified` 的优先级与差异**：`Last-Modified` 精度只到秒级，且只能反映"文件修改时间"，如果文件内容没变但被重新保存会误判为需要更新；`ETag` 是内容的哈希指纹（或版本标识），能精确反映"内容是否真的变化"，两者都存在时浏览器优先使用 `ETag` 校验
+- **`Cache-Control` 的常见指令组合**：`no-store`（完全不缓存）、`no-cache`（缓存但每次都要协商验证）、`private`/`public`（是否允许中间代理/CDN 缓存）、`immutable`（明确告诉浏览器这个资源永远不会变，配合强缓存彻底跳过协商，常用于带内容哈希的静态资源）
+- **Service Worker 作为可编程缓存层**（重点）：Service Worker 运行在独立于页面主线程的 Worker 线程，能拦截页面发出的所有 `fetch` 请求，完全由开发者用 JS 代码决定缓存策略——这把浏览器内置的、规则相对固定的 HTTP 缓存策略，升级为完全可编程的缓存逻辑，是 PWA 离线能力的核心基础设施；常见策略模式包括 Cache First（缓存优先，适合静态资源）、Network First（网络优先，缓存兜底）、Stale-While-Revalidate（先返回缓存，同时后台请求新数据更新缓存，下次生效）
+- 对比 Node.js 实现：Node.js 后端在响应静态资源时（如 `express.static`）需要正确设置 `ETag`/`Cache-Control`，理解背后原理才能在"资源更新了但用户看到的还是旧版本"这类问题排查时，快速判断是强缓存过期时间设置不合理，还是 CDN 层缓存未及时刷新（呼应 Node.js 系列 04 篇静态资源服务器实现）
 
 #### 三、工程落地参考
 
-1. 内容协商机制：RFC 9110 第 12 章 — `Accept`/`Accept-Encoding`/`Accept-Language` 的权重（`q` 参数）匹配算法
-2. 状态码语义：RFC 9110 第 15 章 — 3xx/4xx 各状态码的规范定义
-3. 方法安全性与幂等性：RFC 9110 第 9 章 — 各方法的 Safe/Idempotent 属性表
+1. HTTP 缓存规范：RFC 9111（HTTP Caching）— `Cache-Control` 各指令的定义与优先级
+2. 条件请求规范：RFC 9110 第 13 章 — `If-None-Match`/`If-Modified-Since` 的服务端处理逻辑
+3. Service Worker 规范：W3C Service Workers 标准 — `fetch` 事件拦截与 `Cache` API 的基本模型
 
 #### 四、实践演示与验证
 
-用 `curl` 一组命令完整走一遍内容协商与状态码语义：`curl --compressed` 观察请求头自动带上 `Accept-Encoding: gzip, deflate, br` 并对比响应头 `Content-Encoding` 实际选中的算法；`curl -H "Accept-Language: zh-CN,en;q=0.9"` 观察服务端按语言偏好返回内容；`curl -I`/`-L` 分别对 301/302/307/308 重定向站点发起请求，观察重定向时请求方法（GET/POST）是否被改变；`curl -i` 看一次 401 与一次 403 响应头的差异，对照 `WWW-Authenticate` 字段的有无。压缩流本身是 Stream/Transform 的一个具体应用（Stream API 原理见 Node.js 系列 04 篇），本篇聚焦"为什么选这个算法、协议层怎么协商"。
+用 Chrome DevTools Network 面板观察一次真实请求的缓存状态：对比普通刷新、强制刷新（`Ctrl+Shift+R`）、`from disk cache`、`from memory cache`、`304 Not Modified` 几种情况在响应头和耗时上的差异；用 `curl -I` 查看一个静态资源响应里的 `Cache-Control`/`ETag`/`Last-Modified` 头，再用 `curl -H "If-None-Match: <上次的 ETag>"` 手动发起一次协商缓存请求，验证服务端返回 `304 Not Modified` 且不返回响应体；最后在 Chrome DevTools Application 面板里观察一个 PWA 站点 Service Worker 的注册、`fetch` 事件拦截与 `Cache Storage` 里的缓存条目，直观理解"可编程缓存层"相比浏览器内置 HTTP 缓存的本质区别。
 
 #### 五、参考
-- https://www.rfc-editor.org/rfc/rfc9110
-- https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Content_negotiation
+- https://www.rfc-editor.org/rfc/rfc9111
+- https://developer.mozilla.org/zh-CN/docs/Web/API/Service_Worker_API
+- https://web.dev/articles/service-worker-caching-and-http-caching
 
 **面试核心问**：
-- gzip 和 br 该怎么选？内容协商具体协商的是什么？
-- UA 嗅探有什么局限？User-Agent Client Hints 是怎么设计来解决这些局限的？
-- 304 状态码和强缓存是什么关系？
-- 307 和 302 的本质区别是什么？为什么表单重定向要考虑这个区别？
-- 401 和 403 分别表示什么语义？
-- 什么是请求方法的安全性和幂等性？POST/GET/PUT/DELETE 分别属于哪一类？
-- PUT 和 PATCH 的区别是什么？各自的幂等性如何？
+- 强缓存和协商缓存的本质区别是什么？`no-cache` 是不缓存的意思吗？
+- `ETag` 和 `Last-Modified` 分别有什么局限？为什么 `ETag` 优先级更高？
+- 静态资源文件名加内容哈希这种做法解决了什么问题？
+- Service Worker 相比浏览器内置 HTTP 缓存机制的本质区别是什么？
+- Cache First、Network First、Stale-While-Revalidate 三种缓存策略分别适合什么场景？
 
 
 
 ## 已有笔记
 
-- @docs\notes\09 network\06 HTTP.md
-- @docs\notes\09 network\07 HTTP_2.0.md
-- @docs\notes\09 network\08 实现HTTP.md
+- @docs\notes\09 network\10 application\01 压缩和解压缩.md
+- @docs\notes\09 network\10 application\02 加密和解密 .md
+- @docs\notes\09 network\10 application\03 多语言切换.md
+- @docs\notes\09 network\10 application\04 图片防盗链.md
+- @docs\notes\09 network\10 application\05 跨域.md
+- @docs\notes\09 network\10 application\06 代理服务器.md
+- @docs\notes\09 network\10 application\07 虚拟主机.md
+- @docs\notes\09 network\10 application\08 user-agent.md
+- @docs\notes\09 network\10 application\09 Web缓存.md
 
 ## plans 地址
 
