@@ -2096,22 +2096,15 @@ type Patient {
 
 ---
 
-## 参考资料
+## 四、对比与面试
 
-- https://graphql.org/
-- https://graphql.cn/
-- https://spec.graphql.org/
-- https://www.apollographql.com/docs/
-- https://github.com/graphql/dataloader
-- https://www.npmjs.com/package/graphql
-- https://www.npmjs.com/package/express-graphql
-- https://www.npmjs.com/package/apollo-boost
-- https://www.npmjs.com/package/@apollo/client
-- http://www.mongoosejs.net/docs/index.html
+> 前面三层走完了「怎么用 → 怎么选 → 怎么避坑」，这一节站高一步收口：先把 GraphQL 放进 API 设计的坐标系看横向对比，再看面试官最常追问的点。
 
----
+### 对比梳理
 
-## 💡 面试核心问
+GraphQL 和 RESTful/BFF 解决的是同一个「多端按需取数」问题——RESTful 字段由服务端写死（易过度获取/获取不足），手写 BFF 用「每端专属 endpoint」显式裁剪，GraphQL 用一个 Schema 让客户端声明要什么字段（把裁剪权交给客户端）。端少需求简单时手写 BFF REST 更直接，端多字段碎片化严重时 GraphQL 优势明显；代价是缓存失效复杂化、越权风险放大，需要字段级缓存 + resolver 层鉴权来补。
+
+### 面试核心问
 
 - **GraphQL 相比 RESTful 解决了什么核心问题？分别对应「过度获取」和「获取不足」的哪种场景？**（过度获取=服务端返回不需要的字段；获取不足=客户端要多次请求拼装数据）
 - **什么是 N+1 查询问题？它是怎么在 GraphQL 的 Resolver 模型下产生的？DataLoader 怎么解决？**（字段级递归执行 → 1 次主查询 + N 次关联查询；DataLoader 批处理合并 `IN` 查询 + 去重）
@@ -2145,6 +2138,21 @@ DataLoader 有两条机制——**批处理（batching）**和**去重（dedupli
 提示：想一个场景——同一次请求里，`Patient.prescriptions` 和 `Patient.latestPrescription`（最近一次处方）两个字段都要用到「患者的处方数据」，它们可能 `load` 了同一个 `patientId`。如果没有去重，`IN` 子句里会出现重复 ID，批量函数也会重复查询。DataLoader 的缓存是怎么保证「同一个 ID 在一次批量里只出现一次」的？这个缓存又是怎么做到**请求级隔离、跨请求不串数据**的？
 
 欢迎评论区写出你的答案 👇
+
+---
+
+## 参考资料
+
+- https://graphql.org/
+- https://graphql.cn/
+- https://spec.graphql.org/
+- https://www.apollographql.com/docs/
+- https://github.com/graphql/dataloader
+- https://www.npmjs.com/package/graphql
+- https://www.npmjs.com/package/express-graphql
+- https://www.npmjs.com/package/apollo-boost
+- https://www.npmjs.com/package/@apollo/client
+- http://www.mongoosejs.net/docs/index.html
 
 ---
 

@@ -413,11 +413,11 @@ Express 和 Koa 在「请求/响应对象」上的设计分野，是理解两者
 
 ---
 
-## 三、源码解析（对齐 g-express 四层结构）
+## 三、源码印证（对齐 g-express 四层结构）
 
 > 参考实现：笔记基于 g-express 这个精简版 Express（四层结构：application → router → layer → route），代码结构和真实 Express 源码一一对应。真实 Express 仓库地址：https://github.com/expressjs/express（本篇对齐 `lib/application.js`、`lib/router/index.js`、`lib/router/layer.js`、`lib/router/route.js` 的职责划分）
 
-这一章把 g-express 的完整源码拆开逐层讲。先看整体架构，再一层层深入。
+「二、设计与原理」已经讲透了设计思路，这一章把 g-express 的完整源码拆开逐层贴出，作为上一节每一条结论的**代码证据**。先看整体架构，再一层层深入。
 
 ### 整体架构：四层分工
 
@@ -1483,23 +1483,22 @@ Content-Type: application/json
 
 ---
 
-## 五、手写实现源码地址
+### 手写实现源码地址
 
 - 手写仓库：`medai-node-source`（`packages/mini-express`，渐进式单文件版 + 四层对齐版，地址待补充）
 - 参考实现：https://github.com/lotosv2010/g-express
 
 ---
 
-## 六、参考资料
+## 五、对比与面试
 
-- https://expressjs.com/
-- https://github.com/expressjs/express
-- https://github.com/pillarjs/path-to-regexp
-- 源码解析辅助：搜索关键词「三步法解析 Express 源码」「从 express 源码中探析其路由机制」
+> 前面四层走完了「怎么用 → 为什么 → 怎么实现」的完整链路，这一节站高一步收口：先看它和 Koa 的分野，再看面试官最常追问的点。
 
----
+### 对比 Koa
 
-## 💡 面试核心问
+同样是中间件模式，Express 是「数组 + 索引 + `next` 递归」的**单向线性**模型，`next()` 同步把控制权交出去、不回溯；Koa 是 `await next()` 的**双向洋葱**模型，内层跑完会回来。这个分野直接决定了三件事：环绕逻辑在 Express 要拆成两个中间件、错误处理靠 `fn.length === 4` 的四参数约定、`req`/`res` 直接扩展原生对象而非新抽象一层 `ctx`——理解这个边界，就是理解「什么场景该选谁」的判断力。
+
+### 面试核心问
 
 - **Express 中间件的执行模型是怎样的？`next()` 具体做了什么？**（内部维护一个中间件数组 + 索引，`next()` 把索引 +1 取下一个匹配的中间件继续调用；不调 `next` 又不 `res.end` 请求就挂起）
 - **为什么 Express 里「前置逻辑」和「后置逻辑」不能像 Koa 一样写在同一个中间件函数里？**（Express 是单向线性，`next()` 同步调用下游、不会回溯；Koa 的 `await next()` 返回 Promise，内层跑完会回来）
@@ -1507,9 +1506,7 @@ Content-Type: application/json
 - **在普通中间件里调用 `next(err)` 会发生什么？**（进入错误分支，跳过沿途所有普通中间件和路由，直达最近的错误处理中间件）
 - **Express 的路由匹配是怎么工作的？如果多个路由匹配同一个路径会怎样？**（`path-to-regexp` 编译成正则，按注册顺序逐个匹配；第一个命中生效，若它调了 `next` 则继续向后匹配下一个）
 
----
-
-## 💡 一张图总结（面试速记表）
+### 一张图总结（面试速记表）
 
 | 知识点 | 一句话内核 | 面试频率 |
 |--------|-----------|---------|
@@ -1528,6 +1525,15 @@ Content-Type: application/json
 ## 📝 思考题
 
 Express 靠 `fn.length === 4` 识别错误处理中间件。那问题来了：如果我不小心把错误处理中间件写成了 `(err, req, res) => {}`（**漏掉最后一个 `next` 参数**，`length` 变成 3），会发生什么？它会被当成普通中间件，错误到达这里时会被**跳过**——那这个错误最终会去哪？提示：跟着 `handler` 里的错误分支一路 `next(error)` 走到 `out(error)` 看看。欢迎评论区写出你的答案 👇
+
+---
+
+## 六、参考资料
+
+- https://expressjs.com/
+- https://github.com/expressjs/express
+- https://github.com/pillarjs/path-to-regexp
+- 源码解析辅助：搜索关键词「三步法解析 Express 源码」「从 express 源码中探析其路由机制」
 
 ---
 

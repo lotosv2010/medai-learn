@@ -237,9 +237,9 @@ fs.readFile('somefile.txt', () => {
 
 ---
 
-## 🔬 源码解析：uv_run 的六阶段 + nextTick 队列的优先级
+## 🔬 源码印证：uv_run 的六阶段 + nextTick 队列的优先级
 
-前面讲的是「结论」，这一节把结论对应到真实源码，让你面试时能「从源码层面」讲清为什么。libuv 的事件循环主体在 `src/unix/core.c` 的 `uv_run` 函数里，Node 的 nextTick 队列在 `lib/internal/process/task_queues.js` 里。
+前面讲的是「结论」，这一节把结论对应到真实源码，作为上一节每一条结论的**代码证据**，让你面试时能「从源码层面」讲清为什么。libuv 的事件循环主体在 `src/unix/core.c` 的 `uv_run` 函数里，Node 的 nextTick 队列在 `lib/internal/process/task_queues.js` 里。
 
 ### uv_run：六阶段就是六个函数调用
 

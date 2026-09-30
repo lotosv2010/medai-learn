@@ -360,11 +360,11 @@ Webpack/Vite 这些打包工具，在打包阶段会**自己模拟一套模块�
 
 ---
 
-## 三、源码解析（重点代码，来源 nodejs/node 仓库）
+## 三、源码印证
 
 > Node.js 源码地址：https://github.com/nodejs/node（本篇基于当前主分支 `lib/internal/modules/cjs/loader.js` 与 `lib/internal/modules/esm/loader.js`）
 
-前面讲的是「设计原理」，这一节贴出 Node 真实源码（做了精简，保留关键路径），验证每一条结论在代码里到底长什么样。
+「二、设计与原理」已经讲透了设计原理，这一节贴出 Node 真实源码（做了精简，保留关键路径），作为上一节每一条结论的**代码证据**——只贴关键代码印证结论，不再重复讲解设计思路。
 
 ### 1. `Module._load`：require 的完整生命周期
 
@@ -607,21 +607,21 @@ a 读到 b: { fromB: 'B' }
 
 ---
 
-## 五、手写实现源码地址
+### 手写实现源码地址
 
 - GitHub：https://github.com/...（`medai-node-source` 仓库，`packages/mini-require` 模块，地址待补充）
 
 ---
 
-## 六、参考资料
+## 五、对比与面试
 
-- https://nodejs.org/api/modules.html
-- https://nodejs.org/api/esm.html
-- https://github.com/nodejs/node（`lib/internal/modules/cjs/loader.js`、`lib/internal/modules/esm/loader.js`）
+> 前面四层走完了「怎么用 → 为什么 → 怎么实现」的完整链路，这一节站高一步收口：先看它和前端打包工具的关系，再看面试官最常追问的点。
 
----
+### 对比前端
 
-## 💡 面试核心问
+Webpack/Vite 在打包阶段各自模拟了一套模块解析与加载逻辑（不直接依赖 Node 运行时的 `require` 实现），但「裸模块名 → `node_modules` 逐级查找」的解析算法与 Node 保持了兼容；而 Tree Shaking 之所以只在 ESM 成立、对 CJS 基本无效，根子就在于 ESM 的静态 `import` 在编译期可分析、CJS 的 `require` 是运行时求值——前端打包的模块语义，本质是 Node 两套加载模型在产物阶段的延伸。
+
+### 面试核心问
 
 - **Node.js 的运行时架构是怎样的？V8 和 libuv 分别负责什么？**（V8 管计算、libuv 管 I/O + 事件循环 + 线程池，JS 无 I/O 能力）
 - **`require` 的模块缓存机制是怎样的？为什么二次 `require` 同一个模块不会重新执行？**（`require.cache` 以绝对路径为 key，命中直接返回 exports）
@@ -629,9 +629,7 @@ a 读到 b: { fromB: 'B' }
 - **ESM 为什么不能被 CJS 用 `require` 直接引入，只能用动态 `import()`？**（同步 `require` 无法等待异步实例化）
 - **什么是「幽灵依赖」？它是怎么由 Node 的模块解析算法导致的？**（node_modules 逐级向上查找 + npm 扁平化）
 
----
-
-## 💡 一张图总结（面试速记表）
+### 一张图总结（面试速记表）
 
 | 知识点 | 一句话内核 | 面试频率 |
 |--------|-----------|---------|
@@ -654,6 +652,14 @@ a 读到 b: { fromB: 'B' }
 问题是：**如果把 ESM 版本里 `b.mjs` 的 `console.log('b 读到 a:', a)` 改成一个函数，等模块求值全部完成之后再调用它去读 `a`，这时能读到什么值？为什么这和「求值过程中直接访问」的结果不一样？** 提示：想想「活绑定」和「TDZ」分别只作用于哪个时间窗口。
 
 欢迎评论区写出你的答案 👇
+
+---
+
+## 六、参考资料
+
+- https://nodejs.org/api/modules.html
+- https://nodejs.org/api/esm.html
+- https://github.com/nodejs/node（`lib/internal/modules/cjs/loader.js`、`lib/internal/modules/esm/loader.js`）
 
 ---
 

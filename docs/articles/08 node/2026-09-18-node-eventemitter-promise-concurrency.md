@@ -281,11 +281,11 @@ Vue 的响应式系统，`dep.notify()` 遍历 `subs` 数组通知订阅者；Ev
 
 ---
 
-## 三、源码解析（重点代码，来源 nodejs/node 仓库）
+## 三、源码印证
 
 > Node.js 源码地址：https://github.com/nodejs/node（本篇基于当前主分支 `lib/events.js` 与 `lib/internal/process/task_queues.js`）
 
-第一版讲的是「设计思路」，这一节贴出 Node 真实源码，验证前面每一处结论在代码里到底长什么样。
+「二、设计与原理」已经把设计思路讲透了，这一节贴出 Node 真实源码，作为上一节每一处结论的**代码证据**——只贴关键代码印证结论，不再重复讲解设计思路。
 
 ### 1. lib/events.js：`_events` 的真实存储结构
 
@@ -861,22 +861,21 @@ try {
 
 ---
 
-## 五、手写实现源码地址
+### 手写实现源码地址
 
 - GitHub：https://github.com/...（`medai-node-source` 仓库，按 `packages/event-emitter`、`packages/promise-polyfill`、`packages/fp-utils` 分模块搭建，地址待补充）
 
 ---
 
-## 六、参考资料
+## 五、对比与面试
 
-- https://nodejs.org/api/events.html
-- https://promisesaplus.com/
-- https://github.com/promises-aplus/promises-tests
-- https://github.com/nodejs/node（`lib/events.js`、`lib/internal/process/task_queues.js`）
+> 前面四层走完了「怎么用 → 为什么 → 怎么实现」的完整链路，这一节站高一步收口：先看它和前端同类机制的关系，再看面试官最常追问的点。
 
----
+### 对比前端
 
-## 💡 面试核心问
+EventEmitter 的「事件名 → 监听器集合」内核，与 Vue 响应式的 `dep.notify()` 遍历 `subs` 是同一套发布订阅模式——区别只在「订阅」动作是手动 `on` 还是自动依赖收集；Promise/A+ 的三条约束（三态不可逆、`then` 返回新 Promise、微任务异步）也是浏览器与 Node 共用的语言层规范，Node 只是在它之上多了一条优先级更高的 `process.nextTick` 队列。理解「哪些是语言标准、哪些是 Node 运行时扩展」，是前端转 Node 时最该先建立的分界感。
+
+### 面试核心问
 
 - **发布订阅模式和观察者模式的区别是什么？**（事件中心这一层解耦）
 - **Node 的 EventEmitter 内部用什么结构维护监听器？`once` 是怎么实现的？**
@@ -886,9 +885,7 @@ try {
 - **手写一个「限制最大并发数」的批量请求工具，关键点是什么？**
 - **`lib/events.js` 里 `once` 的 `_onceWrap` 包装函数，`fired` 标志和 `wrapper.listener = listener` 这两处分别解决什么问题？**
 
----
-
-## 💡 一张图总结（面试速记表）
+### 一张图总结（面试速记表）
 
 | 知识点 | 一句话内核 | 面试频率 |
 |--------|-----------|---------|
@@ -909,6 +906,15 @@ try {
 `Promise.all` 用「计数器 + 下标写入」保序，那 `Promise.race` 呢？它不需要保序，只需要「谁先决议就用谁」——它的实现其实比 `all` 更简单，但有一个容易被忽略的边界：**传入空数组时，`Promise.race([])` 会永远 pending 吗？** 提示：对比 `Promise.all([])` 会立即 resolve 一个空数组 `[]`，`race` 在没有任何参赛者时会发生什么？想想规范的约定。
 
 欢迎评论区写出你的答案 👇
+
+---
+
+## 六、参考资料
+
+- https://nodejs.org/api/events.html
+- https://promisesaplus.com/
+- https://github.com/promises-aplus/promises-tests
+- https://github.com/nodejs/node（`lib/events.js`、`lib/internal/process/task_queues.js`）
 
 ---
 

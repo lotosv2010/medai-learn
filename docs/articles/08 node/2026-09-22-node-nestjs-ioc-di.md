@@ -673,11 +673,11 @@ NestJS 的 DI 和 Angular 的 DI **高度同源**——NestJS 的架构设计明
 
 ---
 
-## 三、源码解析（重点代码，来源 nestjs/nest 仓库）
+## 三、源码印证（重点代码，来源 nestjs/nest 仓库）
 
 > NestJS 源码地址：https://github.com/nestjs/nest（本篇基于当前主分支 `packages/common` 与 `packages/core` 目录）
 
-前面讲的都是「设计思路」，这一节贴出 NestJS 真实源码，验证每一处结论在代码里到底长什么样。
+「二、设计与原理」已经讲透了设计思路，这一节贴出 NestJS 真实源码，作为上一节每一条结论的**代码证据**——只贴关键代码印证结论，不再重复讲解设计思路。
 
 ### 1. `injectable.decorator.ts`：`@Injectable()` 到底写了什么
 
@@ -1119,22 +1119,21 @@ controller.list(); // ['张三', '李四']
 
 ---
 
-## 五、手写源码地址
+### 手写源码地址
 
 - GitHub：https://github.com/...（`medai-node-source` 仓库，含手写 IoC/DI 容器的 `provider.ts`/`type.ts`/`inject.ts`/`container.ts`，地址待补充）
 
 ---
 
-## 六、参考资料
+## 五、对比与面试
 
-- https://docs.nestjs.com/
-- https://github.com/nestjs/nest
-- https://www.typescriptlang.org/docs/handbook/decorators.html
-- https://www.npmjs.com/package/reflect-metadata
+> 前面四层走完了「怎么用 → 为什么 → 怎么实现」的完整链路，这一节站高一步收口：先看它和 Express/Koa 及前端框架的关系，再看面试官最常追问的点。
 
----
+### 对比 Express/Koa 与前端框架
 
-## 💡 面试核心问
+NestJS 不是从零重造的 HTTP 框架，而是在 Express（默认）或 Fastify 之上构建的一层架构框架——`@nestjs/platform-express` 适配层把它的路由/中间件概念转成底层 `app.get/post` 调用，所以它和 Express/Koa 不是「替代」关系，而是「更上一层」的模块化组织方式；而它的 DI 容器与 Angular 高度同源（装饰器 + 元数据反射），这也是「有 Angular 背景的前端转 NestJS 更顺」的根因。
+
+### 面试核心问
 
 - **什么是控制反转和依赖注入？它们解决了什么问题？**（耦合：对象不再自己 `new` 依赖，交给容器注入）
 - **NestJS 的依赖注入是怎么依赖 TypeScript 装饰器和元数据反射实现的？**（`@Injectable` 贴标记 + `emitDecoratorMetadata` 生成 `design:paramtypes` + 容器运行时反射递归注入）
@@ -1145,9 +1144,7 @@ controller.list(); // ['张三', '李四']
 - **为什么要用 `InjectionToken` 类而不是直接拿字符串当 token？**（字符串可能重名）
 - **两个 Service 互相注入（循环依赖）会怎样？怎么解决？**（递归解析死循环，用 `forwardRef` 打破）
 
----
-
-## 💡 一张图总结（面试速记表）
+### 一张图总结（面试速记表）
 
 | 知识点 | 一句话内核 | 面试频率 |
 |--------|-----------|---------|
@@ -1169,6 +1166,15 @@ controller.list(); // ['张三', '李四']
 NestJS 默认单例意味着「服务里不能存请求级可变状态」，但业务里确实有些数据是「每个请求一份」的（比如当前登录用户、请求 traceId）。NestJS 提供了 `REQUEST` 作用域（`@Injectable({ scope: Scope.REQUEST })`）来支持这种需求。那么问题来了：**如果你要手写一个支持 `REQUEST` 作用域的容器，相比本篇的单例 Container，关键改动是什么？** 提示：单例容器是把实例缓存到 `Map<token, instance>` 里全局复用，REQUEST 作用域则需要「每个请求一份」，这个「每请求一份」的实例存在哪、由谁清理？想想 AsyncLocalStorage 能不能派上用场。
 
 欢迎评论区写出你的答案 👇
+
+---
+
+## 六、参考资料
+
+- https://docs.nestjs.com/
+- https://github.com/nestjs/nest
+- https://www.typescriptlang.org/docs/handbook/decorators.html
+- https://www.npmjs.com/package/reflect-metadata
 
 ---
 

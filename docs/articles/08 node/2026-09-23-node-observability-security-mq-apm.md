@@ -609,22 +609,15 @@ ACK 机制保证消息不丢，但「重投」本身有坑：如果一条消息*
 
 ---
 
-## 参考资料
+## 四、对比与面试
 
-- https://www.rabbitmq.com/tutorials （RabbitMQ 官方教程）
-- https://amqp-node.github.io/amqplib/ （amqplib 客户端文档）
-- https://helmetjs.github.io/ （helmet 文档）
-- https://docs.npmjs.com/cli/v10/commands/npm-audit （npm audit 文档）
-- https://nodejs.org/en/learn/getting-started/debugging （Node.js 调试指南）
-- https://nodejs.org/api/inspector.html （inspector 模块文档）
-- https://opentelemetry.io/docs/languages/js/ （OpenTelemetry Node.js 文档）
-- https://www.jaegertracing.io/ （Jaeger 官方文档）
+> 前面三层走完了「怎么用 → 怎么选 → 怎么避坑」，这一节站高一步收口：先把本篇四件事放进「生产稳定性」的坐标系看，再看面试官最常追问的点。
 
-> 说明：正文中堆快照操作示意图出自 Node.js 官方诊断文档《Using Heap Snapshot》；RabbitMQ 消息路由图出自其官方教程；Jaeger 架构图出自其官方架构文档。均可搜索关键词「Node.js Using Heap Snapshot」「RabbitMQ tutorial hello world」「Jaeger architecture」查阅原文。
+### 对比梳理
 
----
+可观测性和安全不是「测试通过」能保证的——测试保证「没写错」，而队列解耦让任务「扛得住」、自动化审计让风险「防得住」、堆快照对比让内存「查得清」、链路追踪让性能「看得见」。这四件事的共性是把「人肉经验」变成「自动化 + 方法论」，也是区分「会写业务」和「能扛生产」的分水岭。
 
-## 💡 面试核心问
+### 面试核心问
 
 - **消息队列解耦「生产任务」和「消费任务」具体解决了什么问题？消息确认机制（ACK）的作用是什么？**（削峰/解耦/异步化；ACK 保证消费者失败时消息不丢，可重投或进死信）
 - **排查一次 Node.js 内存泄漏，你的思路是什么？会用到哪些工具？**（两次堆快照对比找增长对象 → Retainer 视图追持有者；`--inspect`/`--trace-gc`/`heapdump`/`clinic`）
@@ -661,6 +654,21 @@ RabbitMQ 的投递语义是 **at-least-once（至少一次）**——即「消�
 提示：想想消息里那个 `taskId` 能派上什么用场，以及「先检查后执行」和「数据库唯一约束」这两类手段分别怎么落地，各自在什么场景下更合适。
 
 欢迎评论区写出你的答案 👇
+
+---
+
+## 参考资料
+
+- https://www.rabbitmq.com/tutorials （RabbitMQ 官方教程）
+- https://amqp-node.github.io/amqplib/ （amqplib 客户端文档）
+- https://helmetjs.github.io/ （helmet 文档）
+- https://docs.npmjs.com/cli/v10/commands/npm-audit （npm audit 文档）
+- https://nodejs.org/en/learn/getting-started/debugging （Node.js 调试指南）
+- https://nodejs.org/api/inspector.html （inspector 模块文档）
+- https://opentelemetry.io/docs/languages/js/ （OpenTelemetry Node.js 文档）
+- https://www.jaegertracing.io/ （Jaeger 官方文档）
+
+> 说明：正文中堆快照操作示意图出自 Node.js 官方诊断文档《Using Heap Snapshot》；RabbitMQ 消息路由图出自其官方教程；Jaeger 架构图出自其官方架构文档。均可搜索关键词「Node.js Using Heap Snapshot」「RabbitMQ tutorial hello world」「Jaeger architecture」查阅原文。
 
 ---
 

@@ -1417,9 +1417,9 @@ name=zfpx&age=9
 
 ---
 
-## 三、工程落地参考
+## 三、源码印证
 
-> 这一章对 nodejs/node 仓库的核心文件做概览级印证，验证前面每一条结论在真实源码里到底长什么样。不贴大段 C++，只看「结论的落点」。
+> 「二、设计与原理」已经讲透了设计思路，这一章对 nodejs/node 仓库的核心文件做概览级印证，作为上一节每一条结论的**代码证据**。不贴大段 C++，只看「结论的落点」。
 
 ### lib/buffer.js：alloc 与 allocUnsafe 的差异
 
@@ -1482,6 +1482,8 @@ clearBuffer() {
 ---
 
 ## 四、实践演示与验证
+
+> 前面三层走完了「怎么用 → 为什么 → 源码证据」，这一层把手写实现与验证串起来，把原理落成可运行的代码。
 
 > 这一章把 Stream 的核心机制完整手写出来，再用「慢速写入」的实验验证背压真的在起作用。对应 `packages/mini-stream`。
 
@@ -2171,17 +2173,15 @@ source.pipe(toUpper).pipe(sink).on('finish', () => {
 
 ---
 
-## 五、参考资料
+## 五、对比与面试
 
-- https://nodejs.org/api/buffer.html
-- https://nodejs.org/api/fs.html
-- https://nodejs.org/api/stream.html
-- https://nodejs.org/api/path.html
-- https://github.com/nodejs/node（`lib/buffer.js`、`lib/internal/streams/readable.js`）
+> 前面四层走完了「怎么用 → 为什么 → 怎么实现」的完整链路，这一节站高一步收口：先看它和前端的对照，再看面试官最常追问的点。
 
----
+### 对比前端
 
-## 💡 面试核心问
+浏览器的 `ReadableStream`/`WritableStream`（Web Streams API）在设计理念上与 Node Stream 高度相似——都要解决「大数据分块处理 + 流量控制」的问题，Node 18+ 也在逐步兼容 Web Streams API，两套体系正在收敛。理解这个同源性，是前端转 Node 时把「fetch/流」经验迁移过来的抓手。
+
+### 面试核心问
 
 - **Buffer 和普通数组有什么区别？为什么处理二进制要用 Buffer？**（固定长度、堆外内存、不受 V8 堆限制、二进制载体）
 - **`Buffer.alloc` 和 `Buffer.allocUnsafe` 有什么区别？**（是否清零初始化，Unsafe 快但可能读到脏数据）
@@ -2191,9 +2191,7 @@ source.pipe(toUpper).pipe(sink).on('finish', () => {
 - **什么场景下应该用同步 fs API，什么场景绝对不能用？**（启动读配置可用，HTTP 请求里绝对不行）
 - **`path.join` 和 `path.resolve` 有什么区别？**（纯拼接 vs 解析绝对路径，`resolve('a','/c')` 的坑）
 
----
-
-## 💡 一张图总结（面试速记表）
+### 一张图总结（面试速记表）
 
 | 知识点 | 一句话内核 | 面试频率 |
 |--------|-----------|---------|
@@ -2217,6 +2215,16 @@ source.pipe(toUpper).pipe(sink).on('finish', () => {
 提示：`write` 返回 `false` 后你调了 `pause()`，源流停住了；但 `drain` 事件无人监听，源流就**永远停在那里**，数据只写了一半。这和「完全不写 `pause`」是两种不同的 bug——一个是内存爆炸，一个是数据卡死。想想哪种在生产里更难排查？
 
 欢迎评论区写出你的答案 👇
+
+---
+
+## 六、参考资料
+
+- https://nodejs.org/api/buffer.html
+- https://nodejs.org/api/fs.html
+- https://nodejs.org/api/stream.html
+- https://nodejs.org/api/path.html
+- https://github.com/nodejs/node（`lib/buffer.js`、`lib/internal/streams/readable.js`）
 
 ---
 

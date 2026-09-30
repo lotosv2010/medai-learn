@@ -311,9 +311,9 @@ Koa 不内置路由、请求体解析、静态资源（这些在 Express 里是�
 
 ---
 
-## 三、源码解析（重点代码，来源 koajs 仓库）
+## 三、源码印证（重点代码，来源 koajs 仓库）
 
-> 这一节贴真实源码，验证「二」里的每一条结论。**精读重点是 `koa-compose`——它只有十几行，却是理解整个 Koa 的钥匙。**
+> 「二、设计与原理」已经讲透了每一条结论，这一节贴真实源码，作为上一节结论的**代码证据**。**精读重点是 `koa-compose`——它只有十几行，却是理解整个 Koa 的钥匙。**
 
 ### 1. koa-compose：完整源码逐行精读
 
@@ -736,22 +736,21 @@ app.listen(3000, () => console.log('mini-koa running at :3000'))
 
 ---
 
-## 五、手写实现源码地址
+### 手写实现源码地址
 
 - GitHub：`medai-node-source` 仓库（按 `packages/mini-koa` 分模块搭建，含 `compose.js`/`context.js`/`request.js`/`response.js`/`application.js`，地址待补充，与系列其他篇统一）
 
 ---
 
-## 六、参考资料
+## 五、对比与面试
 
-- https://koajs.com/
-- https://github.com/koajs/koa
-- https://github.com/koajs/compose
-- https://github.com/tj/node-delegates
+> 前面四层走完了「怎么用 → 为什么 → 怎么实现」的完整链路，这一节站高一步收口：先看它和 Express 的分野，再看面试官最常追问的点。
 
----
+### 对比 Express
 
-## 💡 面试核心问
+Koa 和 Express 同为中间件模式，内核却完全不同：Express 是「数组 + 索引」的单向线性遍历（回调风格），Koa 是 `dispatch` 递归组合出的双向洋葱调用链（async/await 风格）。这个分野决定了环绕逻辑能不能写在同一函数体、错误是显式 `next(err)` 还是最外层 `try/catch` 统一兜底、上下文是直接扩展原生 `req`/`res` 还是新抽象一层 `ctx`——不是「谁更好」的站队，而是「回调时代 vs async 时代」两套设计哲学的产物。
+
+### 面试核心问
 
 - **什么是洋葱模型？它和 Express 的线性中间件模型本质区别是什么？**
 - **`koa-compose` 是怎么用递归把中间件数组组合成一条调用链的？**
@@ -761,9 +760,7 @@ app.listen(3000, () => console.log('mini-koa running at :3000'))
 - **`koa-compose` 里 `next()` 被多次调用会怎样？`index` 闭包变量和 `i <= index` 是怎么防重入的？**
 - **`delegates` 的 `access`/`method`/`getter`/`setter` 分别代理什么？`ctx.body = 'Hello'` 背后发生了什么？**
 
----
-
-## 💡 一张图总结（面试速记表）
+### 一张图总结（面试速记表）
 
 | 知识点 | 一句话内核 | 面试频率 |
 |--------|-----------|---------|
@@ -793,6 +790,15 @@ app.use(async (ctx, next) => {
 ```
 
 欢迎评论区写出你的答案 👇
+
+---
+
+## 六、参考资料
+
+- https://koajs.com/
+- https://github.com/koajs/koa
+- https://github.com/koajs/compose
+- https://github.com/tj/node-delegates
 
 ---
 

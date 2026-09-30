@@ -540,22 +540,15 @@ LIMIT 10;
 
 ---
 
-## 参考资料
+## 四、对比与面试
 
-- https://www.postgresql.org/docs/current/ （PostgreSQL 官方文档）
-- https://www.postgresql.org/docs/current/tutorial-window.html （窗口函数）
-- https://www.postgresql.org/docs/current/functions-window.html （窗口函数参考）
-- https://www.postgresql.org/docs/current/datatype-json.html （JSON/JSONB 类型）
-- https://www.postgresql.org/docs/current/indexes-types.html （索引类型：B-tree/GIN/GiST）
-- https://www.postgresql.org/docs/current/routine-vacuuming.html （VACUUM 与表膨胀）
-- https://github.com/pgvector/pgvector （pgvector 官方仓库）
-- https://github.com/pgvector/pgvector#hnsw （HNSW 索引）
+> 前面三层走完了「怎么用 → 怎么选 → 怎么避坑」，这一节站高一步收口：先把 PostgreSQL 放进数据库选型的坐标系看横向对比，再看面试官最常追问的点。
 
-> 窗口函数、JSONB 索引、GIN 倒排索引、pgvector 余弦距离、HNSW 召回率等主题，推荐搜索关键词「PostgreSQL 窗口函数 OVER PARTITION」「PostgreSQL JSONB GIN 索引」「pgvector 余弦距离 欧氏距离 内积」「HNSW ef_search 召回率」「PostgreSQL VACUUM 表膨胀」。
+### 对比梳理
 
----
+PostgreSQL 的特色在于「在同一个关系库里扩展 SQL 的表达边界」——窗口函数补上 MySQL 做不了的分析型查询、JSONB 兼顾灵活与索引、GIN/GiST 覆盖包含关系与空间近邻、pgvector 直接把向量检索搬进数据库。对比 MySQL，PG 的取舍点是「进阶能力更强、MVCC 运维模型不同（旧版本存表里靠 VACUUM 回收，易膨胀）」；对齐本项目 AI 工程栈，pgvector 让「药品说明书向量库」不必另起一套向量数据库。
 
-## 💡 一张图总结（面试速记表）
+### 一张图总结（面试速记表）
 
 | 知识点 | 一句话内核 | 考察频率 |
 |--------|-----------|---------|
@@ -590,6 +583,21 @@ LIMIT 10;
 那么问题来了：如果我想筛选出「每位患者接诊序号为 1（首次就诊）的记录」，用 `ROW_NUMBER() OVER (PARTITION BY patient_id ORDER BY visit_time) = 1` 这个条件，该怎么写？提示：想想子查询或 CTE 能不能先把窗口函数算出来，再在**外层**过滤。
 
 欢迎评论区写出你的答案 👇
+
+---
+
+## 参考资料
+
+- https://www.postgresql.org/docs/current/ （PostgreSQL 官方文档）
+- https://www.postgresql.org/docs/current/tutorial-window.html （窗口函数）
+- https://www.postgresql.org/docs/current/functions-window.html （窗口函数参考）
+- https://www.postgresql.org/docs/current/datatype-json.html （JSON/JSONB 类型）
+- https://www.postgresql.org/docs/current/indexes-types.html （索引类型：B-tree/GIN/GiST）
+- https://www.postgresql.org/docs/current/routine-vacuuming.html （VACUUM 与表膨胀）
+- https://github.com/pgvector/pgvector （pgvector 官方仓库）
+- https://github.com/pgvector/pgvector#hnsw （HNSW 索引）
+
+> 窗口函数、JSONB 索引、GIN 倒排索引、pgvector 余弦距离、HNSW 召回率等主题，推荐搜索关键词「PostgreSQL 窗口函数 OVER PARTITION」「PostgreSQL JSONB GIN 索引」「pgvector 余弦距离 欧氏距离 内积」「HNSW ef_search 召回率」「PostgreSQL VACUUM 表膨胀」。
 
 ---
 

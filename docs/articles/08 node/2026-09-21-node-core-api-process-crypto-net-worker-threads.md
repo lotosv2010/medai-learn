@@ -357,11 +357,11 @@ API 会调只是第一步，这一章把四条能力线的「为什么」讲透�
 
 ---
 
-## 三、源码解析（重点代码，来源 nodejs/node 仓库）
+## 三、源码印证（重点代码，来源 nodejs/node 仓库）
 
 > Node.js 源码地址：https://github.com/nodejs/node（本篇基于当前主分支 `lib/crypto.js`、`lib/internal/worker.js`、`lib/internal/cluster/primary.js`）
 
-上一章讲的是「设计思路」，这一节贴出 Node 真实源码，验证前面每一处结论在代码里到底长什么样。
+「二、设计与原理」已经讲透了设计思路，这一节贴出 Node 真实源码，作为上一节每一条结论的**代码证据**——只贴关键代码印证结论，不再重复讲解设计思路。
 
 ### 1. lib/crypto.js：Hash/Hmac 如何绑定 OpenSSL
 
@@ -718,21 +718,15 @@ async function handle(req, res, filePath, stat) {
 
 ---
 
-## 五、参考资料
+## 五、对比与面试
 
-- https://nodejs.org/api/process.html
-- https://nodejs.org/api/crypto.html
-- https://nodejs.org/api/worker_threads.html
-- https://nodejs.org/api/net.html
-- https://nodejs.org/api/url.html
-- https://nodejs.org/api/child_process.html
-- https://nodejs.org/api/os.html
-- https://nodejs.org/api/cluster.html
-- https://github.com/nodejs/node（`lib/crypto.js`、`lib/internal/worker.js`、`lib/internal/cluster/primary.js`）
+> 前面四层走完了「怎么用 → 为什么 → 怎么实现」的完整链路，这一节站高一步收口：先看几组能力线内部的对比，再看面试官最常追问的点。
 
----
+### 对比梳理
 
-## 💡 面试核心问
+八个模块可归成几组「同一问题不同解法」的对比：`worker_threads` vs `cluster`（线程内并行 vs 进程水平扩展，一个保单个请求不卡、一个扩整体吞吐）、`child_process` vs `worker_threads`（调外部程序 vs 并行算 JS）、`crypto` 哈希 vs 加密（单向完整性 vs 双向保密）、`net` vs `http`（TCP 字节流 vs 其上的 HTTP 语义层）。而 `URL` 类和浏览器是同一套 WHATWG 标准实现、`SharedArrayBuffer` 与 Web Worker 同源，则是少数「前端经验能无缝迁移到后端」的加分点。
+
+### 面试核心问
 
 - **`worker_threads` 和 `cluster` 的本质区别是什么？分别解决什么问题？**（进程 vs 线程；扩吞吐 vs 不阻塞重计算）
 - **为什么 CPU 密集型计算不能直接在主线程做，必须用 `worker_threads`？**（事件循环单线程，同步重计算阻塞所有请求）
@@ -742,9 +736,7 @@ async function handle(req, res, filePath, stat) {
 - **手写静态资源服务器，怎么防止目录穿越攻击？**（`path.normalize` + 校验 `startsWith(ROOT)`）
 - **`Range` 请求断点续传涉及哪些请求头/响应头？服务端该怎么处理？**（`Range`/`Content-Range`/`Accept-Ranges` + `206` + `createReadStream({start,end})`）
 
----
-
-## 💡 一张图总结（面试速记表）
+### 一张图总结（面试速记表）
 
 | 知识点 | 一句话内核 | 面试频率 |
 |--------|-----------|---------|
@@ -768,6 +760,20 @@ async function handle(req, res, filePath, stat) {
 提示：回想一下 WebSocket 握手为什么要算 `Sec-WebSocket-Accept`、要防止什么攻击。mask 的动机和「代理缓存投毒」有关：如果攻击者能控制一个伪造的 WebSocket 客户端发来的明文帧，让它恰好和某个 HTTP 请求的字节重叠，中间的代理就可能把它当成 HTTP 缓存内容。想想为什么「客户端 mask」能阻断这种攻击，而「服务端也 mask」却是多余的？
 
 欢迎评论区写出你的答案 👇
+
+---
+
+## 六、参考资料
+
+- https://nodejs.org/api/process.html
+- https://nodejs.org/api/crypto.html
+- https://nodejs.org/api/worker_threads.html
+- https://nodejs.org/api/net.html
+- https://nodejs.org/api/url.html
+- https://nodejs.org/api/child_process.html
+- https://nodejs.org/api/os.html
+- https://nodejs.org/api/cluster.html
+- https://github.com/nodejs/node（`lib/crypto.js`、`lib/internal/worker.js`、`lib/internal/cluster/primary.js`）
 
 ---
 

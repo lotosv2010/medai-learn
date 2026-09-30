@@ -656,22 +656,15 @@ Serverless 不是银弹，它有明确的「甜区」和「禁区」：
 
 ---
 
-## 参考资料
+## 四、对比与面试
 
-- https://cloud.tencent.com/document/product/1154 （Serverless Framework 官方文档）
-- https://cloud.tencent.com/document/product/1154/42990 （安装 Serverless Framework）
-- https://cloud.tencent.com/document/product/1154/39271 （Serverless Components 与云函数 SCF 组件）
-- https://cloud.tencent.com/document/product/1154/39268 （API 网关组件）
-- https://cloud.tencent.com/document/product/1154/39276 （部署静态网站）
-- https://cloud.tencent.com/document/product/1154/43224 （快速部署 Express 应用）
-- https://cloud.tencent.com/document/product/583/40159 （云函数层管理 layer）
-- https://cloud.tencent.com/document/product/1154/50933 （快速创建全栈应用模板）
+> 前面三层走完了「怎么用 → 怎么选 → 怎么避坑」，这一节站高一步收口：先把 Serverless 放进部署形态的坐标系看横向对比，再看面试官最常追问的点。
 
-> 概念层对照：AWS Lambda 与阿里云函数计算 FC 的「冷启动 / 无状态 / 按量计费」模型与腾讯云 SCF 通用，读者可按自己所在云平台查阅对应官方文档。
+### 对比梳理
 
----
+Serverless 和 BFF 是「承接」而非「竞争」关系——BFF 解决聚合逻辑，Serverless 解决 BFF 的部署扩缩容运维，把 BFF 部署到云函数正是第 10 篇到本篇的自然延伸。选型视角下，Serverless 的甜区是「无状态 + 短生命周期 + 突发流量」，禁区是「强状态、长连接、长时计算」；其「无状态设计」约束与第 17 篇「多进程不能用进程内存存 Session」是同一原则在更彻底形态下的加强版。
 
-## 💡 一张图总结（面试速记表）
+### 一张图总结（面试速记表）
 
 | 知识点 | 一句话内核 | 考察频率 |
 |--------|-----------|---------|
@@ -686,7 +679,7 @@ Serverless 不是银弹，它有明确的「甜区」和「禁区」：
 
 ---
 
-## 💡 面试核心问
+### 面试核心问
 
 - **Serverless 和 BFF 是什么关系？它解决了 BFF 的哪些运维代价？**（BFF 解决聚合逻辑，Serverless 解决 BFF 的部署扩缩容运维，把 BFF 部署到云函数）
 - **FaaS 和 BaaS 分别指什么？各承担什么职责？**（FaaS 跑代码，BaaS 提供依赖设施）
@@ -701,6 +694,21 @@ Serverless 不是银弹，它有明确的「甜区」和「禁区」：
 Serverless 的「预留并发」本质上是用钱买冷启动延迟的下降。假设你的 BFF 聚合接口平时 QPS 不到 10，但每天有一个 1 小时的流量高峰冲到 1000 QPS——你会怎么配置预留并发？是「始终预留 100 个实例」还是「高峰前定时扩容、高峰后缩回」？提示：想想「常驻付费」和「无效预热」两个成本陷阱，以及冷启动对高峰前几分钟那一波请求的冲击。
 
 欢迎评论区写出你的答案 👇
+
+---
+
+## 参考资料
+
+- https://cloud.tencent.com/document/product/1154 （Serverless Framework 官方文档）
+- https://cloud.tencent.com/document/product/1154/42990 （安装 Serverless Framework）
+- https://cloud.tencent.com/document/product/1154/39271 （Serverless Components 与云函数 SCF 组件）
+- https://cloud.tencent.com/document/product/1154/39268 （API 网关组件）
+- https://cloud.tencent.com/document/product/1154/39276 （部署静态网站）
+- https://cloud.tencent.com/document/product/1154/43224 （快速部署 Express 应用）
+- https://cloud.tencent.com/document/product/583/40159 （云函数层管理 layer）
+- https://cloud.tencent.com/document/product/1154/50933 （快速创建全栈应用模板）
+
+> 概念层对照：AWS Lambda 与阿里云函数计算 FC 的「冷启动 / 无状态 / 按量计费」模型与腾讯云 SCF 通用，读者可按自己所在云平台查阅对应官方文档。
 
 ---
 

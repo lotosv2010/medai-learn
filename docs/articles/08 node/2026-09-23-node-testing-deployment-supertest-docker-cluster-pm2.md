@@ -754,22 +754,15 @@ app.get('/profile', async (req, res) => {
 
 ---
 
-## 参考资料
+## 四、对比与面试
 
-- https://jestjs.io/ （Jest 官方文档）
-- https://vitest.dev/ （Vitest 官方文档）
-- https://www.npmjs.com/package/supertest （supertest 文档）
-- https://docs.docker.com/ （Docker 官方文档）
-- https://docs.docker.com/build/building/multi-stage/ （多阶段构建官方指南）
-- https://pm2.keymetrics.io/ （PM2 官方文档）
-- https://nodejs.org/api/cluster.html （cluster 模块官方文档）
-- https://nodejs.org/api/worker_threads.html （worker_threads 模块官方文档）
+> 前面三层走完了「怎么用 → 怎么选 → 怎么避坑」，这一节站高一步收口：先看几组工程化选型的对比，再看面试官最常追问的点。
 
-> 说明：测试金字塔分层策略是业界公认的经典模型，正文配图出自经典博客文章《Practical Test Pyramid》；可搜索关键词「Test Pyramid 测试金字塔」查阅原文。
+### 对比梳理
 
----
+这一篇的对比点都藏在「取舍」里：测试金字塔是「成本 vs 信心」的分配（单元多、端到端少）；`cluster` vs `worker_threads` 是「扩吞吐 vs 保单请求不卡」的分工；粘性会话 vs Redis 共享 Session 是「省依赖 vs 可水平扩展」的取舍。理解了这些对比，才不会把「能跑」当成「能扛生产」。
 
-## 💡 面试核心问
+### 面试核心问
 
 - **测试金字塔的分层策略是什么？为什么端到端测试的数量应该最少？**（单元/集成/端到端三层，越往上越慢越贵越脆、性价比越低，所以端到端最少）
 - **Docker 多阶段构建解决了什么问题？为什么能显著减小最终镜像体积？**（把构建工具链隔离在 builder 阶段，最终镜像只装生产依赖 + 构建产物，砍掉 devDependencies/编译器）
@@ -804,6 +797,21 @@ app.get('/profile', async (req, res) => {
 提示：想想「进程重启」「负载均衡」「水平扩缩容」这三个维度——粘性会话在这些场景下分别会暴露什么问题？Redis 方案又是怎么天然规避这些问题的？
 
 欢迎评论区写出你的答案 👇
+
+---
+
+## 参考资料
+
+- https://jestjs.io/ （Jest 官方文档）
+- https://vitest.dev/ （Vitest 官方文档）
+- https://www.npmjs.com/package/supertest （supertest 文档）
+- https://docs.docker.com/ （Docker 官方文档）
+- https://docs.docker.com/build/building/multi-stage/ （多阶段构建官方指南）
+- https://pm2.keymetrics.io/ （PM2 官方文档）
+- https://nodejs.org/api/cluster.html （cluster 模块官方文档）
+- https://nodejs.org/api/worker_threads.html （worker_threads 模块官方文档）
+
+> 说明：测试金字塔分层策略是业界公认的经典模型，正文配图出自经典博客文章《Practical Test Pyramid》；可搜索关键词「Test Pyramid 测试金字塔」查阅原文。
 
 ---
 

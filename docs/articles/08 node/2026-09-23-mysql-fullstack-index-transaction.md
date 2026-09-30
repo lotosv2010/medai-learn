@@ -1301,19 +1301,15 @@ async function transferWithRetry(from, to, amount, retries = 3) {
 
 ---
 
-## 参考资料
+## 四、对比与面试
 
-- https://dev.mysql.com/doc/ （MySQL 官方文档）
-- https://dev.mysql.com/doc/refman/8.0/en/innodb-transaction-isolation-levels.html （InnoDB 事务隔离级别）
-- https://dev.mysql.com/doc/refman/8.0/en/explain-output.html （EXPLAIN 输出说明）
-- https://dev.mysql.com/doc/refman/8.0/en/innodb-index-types.html （InnoDB 索引类型）
-- https://github.com/sidorares/node-mysql2 （mysql2 官方仓库）
+> 前面三层走完了「怎么用 → 怎么选 → 怎么避坑」，这一节站高一步收口：先把 MySQL 放进数据库选型的坐标系看横向对比，再看面试官最常追问的点。
 
-> 索引底层原理（B+ 树、聚簇/二级索引、MVCC）推荐搜索关键词「MySQL B+ 树 索引原理」「InnoDB 聚簇索引 回表」「MySQL MVCC 一致性读」。
+### 对比梳理
 
----
+数据库选型的第一问是「关系型还是 NoSQL」——关系型（MySQL/PostgreSQL）强一致、强事务，适合强关联的 OLTP；NoSQL（MongoDB/Redis）在「整体读、少关联」「高并发缓存」场景更顺手。同为关系型，MySQL 与 PostgreSQL 的取舍则落在「成熟生态 + InnoDB 默认可重复读」对「窗口函数 / JSONB / pgvector 等进阶能力」的取舍（第 15 篇展开）。把 MySQL 放进这个坐标系，才知道「什么时候它是最优解、什么时候该换」。
 
-## 💡 一张图总结（面试速记表）
+### 一张图总结（面试速记表）
 
 | 知识点 | 一句话内核 | 考察频率 |
 |--------|-----------|---------|
@@ -1332,7 +1328,7 @@ async function transferWithRetry(from, to, amount, retries = 3) {
 
 ---
 
-## 💡 面试核心问
+### 面试核心问
 
 - **MySQL 的四种事务隔离级别分别解决什么并发问题？InnoDB 默认是哪个？怎么选？**（读已提交解决脏读，可重复读解决脏读+不可重复读，串行化解决全部；默认 RR；默认可重复读，实时对账等场景用读已提交）
 - **为什么 B+ 树适合做数据库索引？树高 3-4 层意味着什么？**（树高被压到 3-4 层，磁盘 I/O 次数受限，所以大数据量下索引查询依然快；叶子节点链表利于范围查询）
@@ -1350,6 +1346,18 @@ async function transferWithRetry(from, to, amount, retries = 3) {
 一张患者表有 1000 万行，你要做一个「患者列表」分页，每页 20 条。第一页秒开，翻到第 50 万页时却要 5 秒——这是为什么？你会怎么优化？提示：想想 `LIMIT offset, count` 的扫描方式，以及「游标分页」和「延迟关联」各自适用的场景（游标分页能不能支持「跳转到第 50 万页」这种需求？）。
 
 欢迎评论区写出你的答案 👇
+
+---
+
+## 参考资料
+
+- https://dev.mysql.com/doc/ （MySQL 官方文档）
+- https://dev.mysql.com/doc/refman/8.0/en/innodb-transaction-isolation-levels.html （InnoDB 事务隔离级别）
+- https://dev.mysql.com/doc/refman/8.0/en/explain-output.html （EXPLAIN 输出说明）
+- https://dev.mysql.com/doc/refman/8.0/en/innodb-index-types.html （InnoDB 索引类型）
+- https://github.com/sidorares/node-mysql2 （mysql2 官方仓库）
+
+> 索引底层原理（B+ 树、聚簇/二级索引、MVCC）推荐搜索关键词「MySQL B+ 树 索引原理」「InnoDB 聚簇索引 回表」「MySQL MVCC 一致性读」。
 
 ---
 

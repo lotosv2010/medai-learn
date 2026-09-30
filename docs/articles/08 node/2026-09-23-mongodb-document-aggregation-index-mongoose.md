@@ -757,21 +757,15 @@ const students = await Student.aggregate([
 
 ---
 
-## 参考资料
+## 四、对比与面试
 
-- https://www.mongodb.com/docs/manual/ （MongoDB 官方文档）
-- https://www.mongodb.com/docs/manual/aggregation/ （聚合管道）
-- https://www.mongodb.com/docs/manual/indexes/ （索引）
-- https://www.mongodb.com/docs/manual/core/transactions/ （多文档事务）
-- https://mongoosejs.com/ （Mongoose 官方文档）
-- https://www.mongodb.org.cn/ （MongoDB 中文网）
-- https://www.runoob.com/mongodb/mongodb-tutorial.html （菜鸟教程）
+> 前面三层走完了「怎么用 → 怎么选 → 怎么避坑」，这一节站高一步收口：先把 MongoDB 放进数据库选型的坐标系看横向对比，再看面试官最常追问的点。
 
-> 索引底层原理（B 树、覆盖索引回表）与 MySQL 篇同源，推荐搜索关键词「MongoDB 索引 最左前缀」「MongoDB 覆盖查询 Covered Query」「MongoDB 聚合管道 $lookup」。
+### 对比梳理
 
----
+MongoDB 的文档模型和 MySQL 的关系型模型不是「谁更先进」，而是「读模型」不同——经常整体读、少跨实体关联选文档模型；经常跨实体聚合、强一致事务选关系型。即便 MongoDB 4.0+ 支持了多文档事务，也只在副本集/分片可用、且有性能开销，并不能因此替代关系型。把「读模型判据」和「事务边界」一起记住，才不会被「文档库也能事务」误导。
 
-## 💡 一张图总结（面试速记表）
+### 一张图总结（面试速记表）
 
 | 知识点 | 一句话内核 | 考察频率 |
 |--------|-----------|---------|
@@ -790,7 +784,7 @@ const students = await Student.aggregate([
 
 ---
 
-## 💡 面试核心问
+### 面试核心问
 
 - **什么场景适合用 MongoDB 的文档模型，什么场景更适合关系型数据库？**（读模型：整体读少关联 → 嵌套文档；跨实体聚合强一致 → 关系型）
 - **聚合管道的设计思想是什么？和 SQL 的 `GROUP BY` 相比表达方式有什么不同？**（多阶段顺序执行、命令式流水线 vs 声明式一步）
@@ -805,6 +799,20 @@ const students = await Student.aggregate([
 一份患者电子病历，含「基本信息 + 多次就诊记录 + 每次就诊的检验结果」，要支持「患者详情页一次加载全量」和「医生按时间查某次就诊的检验明细」两种读法。你会怎么设计文档结构？提示：想想「嵌套文档」和「子集合引用」各自的读放大问题——如果就诊次数特别多（比如慢性病长期复诊），全嵌进一个文档会碰到 16MB 上限吗？什么时候该把「检验结果」拆成独立子集合？
 
 欢迎评论区写出你的答案 👇
+
+---
+
+## 参考资料
+
+- https://www.mongodb.com/docs/manual/ （MongoDB 官方文档）
+- https://www.mongodb.com/docs/manual/aggregation/ （聚合管道）
+- https://www.mongodb.com/docs/manual/indexes/ （索引）
+- https://www.mongodb.com/docs/manual/core/transactions/ （多文档事务）
+- https://mongoosejs.com/ （Mongoose 官方文档）
+- https://www.mongodb.org.cn/ （MongoDB 中文网）
+- https://www.runoob.com/mongodb/mongodb-tutorial.html （菜鸟教程）
+
+> 索引底层原理（B 树、覆盖索引回表）与 MySQL 篇同源，推荐搜索关键词「MongoDB 索引 最左前缀」「MongoDB 覆盖查询 Covered Query」「MongoDB 聚合管道 $lookup」。
 
 ---
 

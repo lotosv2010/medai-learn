@@ -1040,21 +1040,15 @@ AOF 的 `appendfsync`（刷盘策略）有三档，是「数据安全 vs 性能�
 
 ---
 
-## 参考资料
+## 四、对比与面试
 
-- https://redis.io/docs/latest/ （Redis 官方文档）
-- https://redis.io/docs/latest/commands/ （Redis 命令参考）
-- https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/ （RDB/AOF 持久化）
-- https://redis.io/docs/latest/operate/oss_and_stack/management/eviction/ （内存淘汰策略）
-- https://redis.io/docs/latest/develop/use/patterns/distributed-locks/ （分布式锁模式）
-- https://github.com/redis/ioredis （ioredis 官方仓库）
-- https://github.com/redis/node-redis （node-redis 官方仓库）
+> 前面三层走完了「怎么用 → 怎么选 → 怎么避坑」，这一节站高一步收口：先把 Redis 放进数据存储的坐标系看横向对比，再看面试官最常追问的点。
 
-> 缓存穿透/击穿/雪崩、Redlock 争议、令牌桶/漏桶算法等主题，推荐搜索关键词「Redis 缓存穿透 击穿 雪崩」「Redlock 分布式锁 争议 Martin Kleppmann」「令牌桶 漏桶 限流算法」「Redis 大 key 排查 SCAN」。
+### 对比梳理
 
----
+Redis 和 MySQL/MongoDB 不是同层：前两者是「持久化存储」，Redis 是「内存高速缓存 + 数据结构服务」——它快，但数据量受内存约束、持久化是「安全 vs 性能」的折中，所以正确姿势是「Redis 缓存热点、MySQL/MongoDB 存全量」。Redis 内部也有取舍要记牢：五大数据结构「按操作选型」、RDB vs AOF「混合持久化」、令牌桶 vs 漏桶「允许突发 vs 强制平滑」、以及「命令执行单线程、6.0+ 网络 I/O 已多线程」这个最常见的误读。
 
-## 💡 一张图总结（面试速记表）
+### 一张图总结（面试速记表）
 
 | 知识点 | 一句话内核 | 考察频率 |
 |--------|-----------|---------|
@@ -1073,7 +1067,7 @@ AOF 的 `appendfsync`（刷盘策略）有三档，是「数据安全 vs 性能�
 
 ---
 
-## 💡 面试核心问
+### 面试核心问
 
 - **Redis 的 Hash/List 等结构各适合什么场景？选型时先想什么？**（String 单值、Hash 对象、List 队列、Set 去重、ZSet 排序；先想「要什么操作」）
 - **RDB 和 AOF 各自的优缺点是什么？生产环境一般怎么组合使用？**（RDB 快照快但会丢、AOF 安全但慢；混合持久化）
@@ -1094,6 +1088,20 @@ AOF 的 `appendfsync`（刷盘策略）有三档，是「数据安全 vs 性能�
 提示：想想 Sorted Set 底层在「分数相同」时按什么排序（成员字典序），以及「分数 + 时间戳」组合的技巧能不能解决「同分先来后到」的问题。
 
 欢迎评论区写出你的答案 👇
+
+---
+
+## 参考资料
+
+- https://redis.io/docs/latest/ （Redis 官方文档）
+- https://redis.io/docs/latest/commands/ （Redis 命令参考）
+- https://redis.io/docs/latest/operate/oss_and_stack/management/persistence/ （RDB/AOF 持久化）
+- https://redis.io/docs/latest/operate/oss_and_stack/management/eviction/ （内存淘汰策略）
+- https://redis.io/docs/latest/develop/use/patterns/distributed-locks/ （分布式锁模式）
+- https://github.com/redis/ioredis （ioredis 官方仓库）
+- https://github.com/redis/node-redis （node-redis 官方仓库）
+
+> 缓存穿透/击穿/雪崩、Redlock 争议、令牌桶/漏桶算法等主题，推荐搜索关键词「Redis 缓存穿透 击穿 雪崩」「Redlock 分布式锁 争议 Martin Kleppmann」「令牌桶 漏桶 限流算法」「Redis 大 key 排查 SCAN」。
 
 ---
 

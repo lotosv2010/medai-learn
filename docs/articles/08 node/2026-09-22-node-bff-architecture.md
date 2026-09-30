@@ -1147,17 +1147,15 @@ const path = require('path');
 
 ---
 
-## 五、参考资料
+## 五、对比与面试
 
-- https://samnewman.io/patterns/architectural/bff/
-- https://learn.microsoft.com/en-us/azure/architecture/patterns/backends-for-frontends
-- https://www.apollographql.com/blog/backend-for-frontend-pattern-with-graphql-federation
-- https://www.npmjs.com/package/sofa-rpc-node
-- https://zookeeper.apache.org/
+> 前面四层走完了「怎么用 → 为什么 → 怎么落地」，这一节站高一步收口：先把 BFF 放进架构选型的坐标系看横向对比，再看面试官最常追问的点。
 
----
+### 对比梳理
 
-## 💡 面试核心问
+BFF 与 API Gateway 是「业务聚合层 vs 基础设施层」的分层，与 GraphQL 是「同一问题两种解法」（手写命令式裁剪 vs 声明式 Schema）——理解这三者「什么时候合并、什么时候分开」，是 BFF 模式在生产里最容易踩偏的地方，也是面试官最想听到的判断力。
+
+### 面试核心问
 
 - **为什么需要 BFF 层？直接让客户端调用后端微服务会有什么问题？**（多端数据形状差异；要么后端为每端定制接口导致膨胀，要么客户端各自重复聚合且网络环境差）
 - **BFF 和 API Gateway 的职责边界在哪里？两者能不能合并成一层？**（基础设施层 vs 业务聚合层；小团队可合并，多端多团队要拆）
@@ -1165,9 +1163,7 @@ const path = require('path');
 - **BFF 层聚合下游接口时，怎么处理某个下游服务超时或报错的情况？**（`Promise.allSettled` + 超时 race，返回部分数据 + 错误标记）
 - **BFF 和 GraphQL 解决的是不是同一个问题？什么场景下手写 BFF 比上 GraphQL 更合适？**（同一问题两种解法；端少需求简单时手写 BFF 更直接）
 
----
-
-## 💡 一张图总结（面试速记表）
+### 一张图总结（面试速记表）
 
 | 知识点 | 一句话内核 | 面试频率 |
 |--------|-----------|---------|
@@ -1189,6 +1185,16 @@ BFF 聚合了 3 个下游接口，其中一个下游挂了。你会用 `Promise.
 提示：没有标准答案，取决于「挂了的下游」是不是这个页面**缺一不可**的数据。患者详情页里，「基本信息」挂了基本没法展示，适合 `all` 快速失败；「相似药品推荐」挂了，患者姓名年龄处方都还在，适合 `allSettled` 降级。真正考验架构功底的是——你**能不能说清楚每个下游的「可降级性」，并把它设计成结构化的错误标记**，而不是一刀切。
 
 欢迎评论区写出你的决策依据 👇
+
+---
+
+## 参考资料
+
+- https://samnewman.io/patterns/architectural/bff/
+- https://learn.microsoft.com/en-us/azure/architecture/patterns/backends-for-frontends
+- https://www.apollographql.com/blog/backend-for-frontend-pattern-with-graphql-federation
+- https://www.npmjs.com/package/sofa-rpc-node
+- https://zookeeper.apache.org/
 
 ---
 
