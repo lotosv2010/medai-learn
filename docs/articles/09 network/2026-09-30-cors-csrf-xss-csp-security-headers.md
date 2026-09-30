@@ -22,11 +22,41 @@
 
 ---
 
-## 一、使用与实践
+## 一、同源策略：浏览器最基础的安全边界
 
-先动手，把「跨域」这件事变成能看见的东西。这一节用原生 Node.js 手写一个 CORS 服务端、用浏览器发起一次真实的跨域请求，再认识 Express/Koa 的 `cors` 包和 CSP/CSRF 的落地配置。
+同源策略（Same-Origin Policy）是浏览器安全模型的**基石**，后面 CORS、CSRF、XSS 全都建立在对它的理解之上。先看它到底是什么。
 
-### 1. 同源策略触发跨域报错的典型场景
+### 1. 什么是「源」
+
+**「源（Origin）」由三部分组成：协议 + 域名 + 端口**。三者完全一致，才算「同源」；任何一个不同，就是「跨源（跨域）」。
+
+拿 `http://drug.example.com:3000` 举例，看几个对照：
+
+| 对比 URL | 是否同源 | 原因 |
+|---------|---------|------|
+| `http://drug.example.com:3000` | ✅ 同源 | 完全一致 |
+| `http://drug.example.com:3001` | ❌ 跨域 | 端口不同 |
+| `https://drug.example.com:3000` | ❌ 跨域 | 协议不同 |
+| `http://api.example.com:3000` | ❌ 跨域 | 域名不同（子域也不同源） |
+
+注意一个容易踩的坑：**域名是「完全一致」才算同源**，`drug.example.com` 和 `api.example.com` 是不同源；`example.com` 和 `www.example.com` 也不同源。这个「精确匹配」是理解「为什么前端 www 域名调用 api 域名要配 CORS」的前提。
+
+### 2. 它拦的是「读」，不是「写」和「加载」
+
+**同源策略具体限制的是什么行为？** 这是面试最高频的追问，要答准。同源策略限制的是**「不同源的脚本读取彼此的敏感数据」**，具体三类：
+
+- **Cookie / LocalStorage / IndexedDB**：不同源的脚本读不到彼此的存储（`document.cookie` 只能读到自己源的）
+- **DOM**：不同源的脚本读不到彼此的页面结构（`iframe` 里嵌一个跨源页面，外层拿不到它的 `document`）
+- **AJAX 响应内容**：不同源的脚本发出去的请求，**响应内容读不到**（这正是开头那个报错的来源）
+
+但这里有个**极其重要、几乎必被追问**的反直觉点：**同源策略拦的是「读」，不是「写」和「加载」**。
+
+- **「加载」不拦**：`<script>`、`<img>`、`<link>`、`<iframe>` 这些标签，**天然可以跨源加载资源**——网页里嵌一张别的域名的图片、引一个别的域名的脚本，完全合法。为什么？因为如果连这个都拦，就没法用 CDN、没法引第三方库了
+- **「写」（发请求）也不拦**：跨域请求**能发出去**，只是响应内容读不到
+
+**这个「拦读不拦加载」的差异，是理解后面两大块的关键**：它解释了为什么 `<script>` 标签能跨源加载（这也是早年 JSONP 的跨域原理）、为什么 CSRF 能靠 `<img>`/`<form>` 标签得手（发请求这个「写」动作根本没被拦）。
+
+### 3. 同源策略触发跨域报错的典型场景
 
 先说清楚一个最容易被误解的点：**跨域请求不是「发不出去」，而是「发出去后浏览器不让你读响应」**。
 
@@ -45,13 +75,25 @@ mode to 'no-cors' to fetch the resource with CORS disabled.
 - **`No 'Access-Control-Allow-Origin' header`**：报错直接告诉你缺哪个头、怎么修
 - **`from origin 'http://localhost:3000'`**：浏览器把「发起请求的源」和「目标源」都标出来了，方便你定位
 
-同时，如果你用 Network 面板去看这次请求，会发现一个很反常的现象：**明明是 `fetch` 发的一次 `POST`，Network 里却先多出来一个 `OPTIONS` 方法的请求**。这个 `OPTIONS` 就是「预检请求」，是本篇第二部分的核心——先记住这个现象，后面讲原理时你就有画面了。
+同时，如果你用 Network 面板去看这次请求，会发现一个很反常的现象：**明明是 `fetch` 发的一次 `POST`，Network 里却先多出来一个 `OPTIONS` 方法的请求**。这个 `OPTIONS` 就是「预检请求」，是下一节的核心——先记住这个现象。
 
 > ✍️ 这里插一句：**为什么同样一个请求，`curl` 能通、浏览器就报错**？因为 `curl` 不是浏览器，它没有同源策略、也不看 `Access-Control-Allow-Origin` 头——它拿到响应就直接打印给你。同源策略是**浏览器**的安全机制，不是 HTTP 协议本身的规则。这个「浏览器拦、非浏览器不拦」的差异，是理解后面 CSRF 为什么「CORS 防不住」的关键伏笔。
 
-### 2. 原生 Node.js 手写 CORS 服务端
+> 💬 **面试官**：什么是同源策略？它限制的具体是什么行为？
+>
+> ✅ 标准答案：同源策略要求「协议 + 域名 + 端口」三者完全一致才算同源，是浏览器最基本的安全边界。它限制的是**不同源的脚本读取彼此的敏感数据**——Cookie/本地存储、DOM、AJAX 响应内容这三类「读」操作；它**不拦**「加载」（`<script>`/`<img>` 等标签可以跨源加载）和「发请求」（跨域请求能发出去，只是响应读不到）。
+>
+> 🎁 加分答案：能点出「拦读不拦加载/不拦写」这个非对称性，并且用这个非对称性解释两个具体现象——① 它解释了为什么早年有 JSONP（利用 `<script>` 标签能跨源加载的特性绕开同源限制）；② 它解释了为什么 CSRF 能发生（`<form>`/`<img>` 能跨源「发」请求，同源策略根本不管「发」这个动作，管的是「读」响应）。能把同源策略和这两个攻击/方案串起来，说明你不是在背概念。
 
-看明白了现象，我们直接手写一个 CORS 服务端，理解「服务端到底要回哪些头」。下面这段是完整可运行的原生 `http` 模块实现（保留笔记原文，逐段加了注释）：
+---
+
+## 二、CORS：同源策略开的「白名单后门」
+
+既然同源策略默认禁止跨源「读」，那合法的跨域需求（前后端分离、微服务）怎么办？答案就是 **CORS（Cross-Origin Resource Sharing，跨域资源共享）**——它是同源策略开的一个**「白名单后门」**：服务端通过响应头明确声明「我允许哪些源读我的响应」，浏览器据此放行。
+
+### 1. 服务端要回哪些头：原生 Node.js 手写 CORS
+
+看明白了现象，先手写一个 CORS 服务端，理解「服务端到底要回哪些头」。下面这段是完整可运行的原生 `http` 模块实现（保留笔记原文，逐段加了注释）：
 
 ```javascript
 const http = require("http");
@@ -106,58 +148,46 @@ server.listen(3000, () => {
 
 这段代码要重点看第 1 块「配置跨域」里的三件事，它们就是 CORS 服务端要做的最小工作：
 
-- **`Access-Control-Allow-Origin`**：告诉浏览器「这个源可以读我的响应」。这里写的是 `request.headers.origin || "*"`——**直接回显请求里带的 `Origin` 头**，意思是「谁请求我就允许谁」。这是演示写法，生产环境绝对不能这么写（后面第三部分讲为什么）
+- **`Access-Control-Allow-Origin`**：告诉浏览器「这个源可以读我的响应」。这里写的是 `request.headers.origin || "*"`——**直接回显请求里带的 `Origin` 头**，意思是「谁请求我就允许谁」。这是演示写法，生产环境绝对不能这么写（后面第 3 小节讲为什么）
 - **`Access-Control-Allow-Headers`**：允许浏览器在真实请求里携带的自定义请求头列表。这里放行了 `Content-Type,Authorization`——因为预检请求会问「我能不能带这些头」，服务端必须在这里明确回答
 - **`Access-Control-Max-Age`**：预检结果的缓存时间（秒）。`1800` 秒内，同样的预检请求不用再发一次，浏览器直接用缓存的结果
 
 **最关键的一行是 `if (method === "OPTIONS")` 这个短路**：浏览器发出的预检请求用的是 `OPTIONS` 方法，服务端收到后**不需要处理任何业务逻辑，直接返回 200 并结束**——预检的本质就是「浏览器来问一下规矩，服务端回个头就行」，所以服务端看到 `OPTIONS` 直接 `response.end()` 短路，这才是正确姿势。
 
-### 3. 浏览器端发起跨域请求
+### 2. 简单请求 vs 预检请求（重点 · 面试必考）
 
-服务端配好了，再看浏览器端怎么发。下面是配套的客户端和页面（保留笔记原文）：
+CORS 把跨域请求分成了两类，处理方式完全不同，这是本篇第二个核心。
 
-**client.js**（用 Node 模拟一个「非浏览器」客户端，对比浏览器行为）：
+**① 简单请求（Simple Request）**：满足以下**全部**条件，浏览器直接发请求、收到响应后检查头：
 
-```javascript
-const http = require("http");
-const querystring = require("querystring");
-const postData = querystring.stringify({
-  username: "Hello World!",
-});
+- 方法只能是 `GET` / `POST` / `HEAD` 三种之一
+- 只能携带「CORS 安全」的请求头，常见的就是 `Content-Type` 且其值只能是三种之一：`text/plain`、`multipart/form-data`、`application/x-www-form-urlencoded`
+- 不能有额外的自定义头
 
-const options = {
-  hostname: "localhost",
-  port: 3000,
-  path: "/login",
-  method: "POST",
-  headers: {
-    "Content-Type": "application/x-www-form-urlencoded",
-    "Content-Length": Buffer.byteLength(postData),
-  },
-};
+简单请求的流程只有一步：**直接发 → 服务端回 `Access-Control-Allow-Origin` → 浏览器检查通过才把响应交给 JS**。表单提交（`application/x-www-form-urlencoded`）就是典型的简单请求。
 
-const req = http.request(options, (res) => {
-  console.log(`状态码: ${res.statusCode}`);
-  console.log(`响应头: ${JSON.stringify(res.headers)}`);
-  res.setEncoding("utf8");
-  res.on("data", (chunk) => {
-    console.log(`响应主体: ${chunk}`);
-  });
-  res.on("end", () => {
-    console.log("响应中已无数据。");
-  });
-});
+**② 预检请求（Preflight Request）**：只要**不满足上面任何一条**，浏览器就会先发一个 `OPTIONS` 方法的「预检请求」，问服务端「我接下来要用 `PUT` 方法、要带 `Content-Type: application/json`、要带自定义头 `Authorization`，你允不允许？」服务端回一堆 `Allow-*` 头明确允许后，浏览器才发出真实的请求。
 
-req.on("error", (e) => {
-  console.error(`请求遇到问题: ${e.message}`);
-});
+触发预检的典型情况，就是 XHR 里那个 `Content-Type: application/json`：
 
-// 写入数据到请求主体
-req.write(postData);
-req.end();
+```
+客户端（浏览器）                          服务端
+      │                                     │
+      │ ──① OPTIONS /api（预检请求）──▶       │
+      │   Origin: http://localhost:3000      │
+      │   Access-Control-Request-Method: POST│
+      │   Access-Control-Request-Headers: content-type │
+      │ ◀──② 200（预检响应）──────             │
+      │   Access-Control-Allow-Origin: http://localhost:3000 │
+      │   Access-Control-Allow-Methods: POST  │
+      │   Access-Control-Allow-Headers: content-type │
+      │                                     │
+      │ ──③ POST /api（真实请求）──▶         │
+      │   Content-Type: application/json     │
+      │ ◀──④ 200 + Access-Control-Allow-Origin │
 ```
 
-**index.html**（真正的浏览器页面，两种跨域请求方式对比）：
+浏览器端发起跨域请求的页面里，藏着理解「简单 vs 预检」的关键对比，务必看仔细：
 
 ```html
 <!DOCTYPE html>
@@ -191,212 +221,37 @@ req.end();
 </html>
 ```
 
-这个页面里藏着理解「简单请求 vs 预检请求」的关键对比，务必看仔细：
-
 - **表单 `<form>` 提交**：默认是 `Content-Type: application/x-www-form-urlencoded`，属于**简单请求**，浏览器不会发 `OPTIONS` 预检，直接发 `POST`
 - **XHR 里手动 `setRequestHeader('Content-Type', 'application/json')`**：`application/json` 不在简单请求的允许范围内，所以浏览器会**先发一个 `OPTIONS` 预检**，通过后才发真实的 `POST`
 
-**同一个页面、两种跨域方式，一个触发预检、一个不触发**——这个差异，就是第二部分的「简单请求 vs 预检请求」要讲透的核心。笔记的启动和测试结果如下（终端输出 + Network 面板两张截图，OCR 内容节选）：
-
-```shell
-cd src
-nodemon server.js   # 启动服务端
-cd src
-nodemon client.js   # 启动客户端（模拟非浏览器请求）
-cd src
-http-server         # 启动网页
-```
-
-<!-- 这是一张图片，ocr 内容为：http-server 9 OUTPUT TERMINAL PROBLEMS DEBUGCONSOLE HiTCTRL-Ctostoptheserver [nodemon]watchingextensions:js ... 状态码:200 ... 响应头:("access-control-ailon-origin"""... 响应主体:Cusername":"HeLLoHorld!" ... password: username:robin ... -->
-![](https://cdn.nlark.com/yuque/0/2021/png/738210/1638157251093-49b86e65-1624-44bb-88e9-c0d2c123b798.png)<!-- 这是一张图片，ocr 内容为：CORS FE localhost:8082/index.html  0R  R >> Performance Console Elementg Redux Secunty Sources Memary ighthouse Application Network 登录 robin ... 注册 FetchXHRJS ... Hasblockedcookies ... username+"robin"password; password:"123456" ... -->
-![](https://cdn.nlark.com/yuque/0/2021/png/738210/1638157290181-3aa5d53f-51ab-4f32-adc9-72453b04ed24.png)
-
-### 4. Express/Koa 的 `cors` 包常见配置
-
-手写版看懂了，再认识生产上真正在用的 `cors` 中间件。它做的事和上面手写的完全一样，只是把「根据配置动态计算响应头」封装成了配置项：
-
-```javascript
-const express = require('express');
-const cors = require('cors');
-const app = express();
-
-// 最简用法：允许所有源跨域
-app.use(cors());
-
-// 生产推荐：白名单 + 携带凭证
-const whitelist = ['http://localhost:3000', 'https://his.example.com'];
-app.use(cors({
-  origin: function (origin, callback) {
-    // 同源请求（没有 Origin 头）或白名单内的源 → 放行
-    if (!origin || whitelist.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,        // 允许携带 Cookie（对应 Allow-Credentials）
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],  // 允许的方法
-  allowedHeaders: ['Content-Type', 'Authorization'], // 允许的自定义头
-  maxAge: 1800,             // 预检结果缓存 1800 秒
-}));
-```
-
-对照手写版，每个配置项背后的含义一目了然：
-
-- **`origin`**：决定 `Access-Control-Allow-Origin` 回什么。可以是布尔值（`true` 回显请求源）、数组（白名单）、函数（自定义逻辑）。**这是最容易写错的地方**——写 `*` 虽然省事，但一配合 `credentials` 就废了
-- **`credentials`**：是否设置 `Access-Control-Allow-Credentials: true`，允许携带 Cookie
-- **`methods` / `allowedHeaders`**：分别对应 `Access-Control-Allow-Methods` / `Access-Control-Allow-Headers`，**只在预检请求的响应里出现**
-- **`maxAge`**：预检结果的缓存秒数，减少重复预检
-
-> ✍️ Koa 的 `@koa/cors` 配置项几乎一模一样（`origin`/`credentials`/`allowMethods`/`allowHeaders`），核心逻辑也来自同一个思路——所以只要吃透了手写版那三个响应头，任何框架的 CORS 中间件都是「换个壳」。
-
-### 5. CSP 响应头常见指令
-
-CSP（Content Security Policy，内容安全策略）是「即使 XSS 注入成功，也能兜底拦住恶意脚本执行」的最后一道防线。它的用法很简单：**服务端回一个 `Content-Security-Policy` 响应头，声明页面允许加载哪些来源的资源**。浏览器拿到后，凡是来源不在白名单内的资源，一律拒绝加载。
-
-先看一段最常见的 CSP 配置，理解每个指令在声明什么：
-
-```text
-Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:
-```
-
-逐个指令拆：
-
-- **`default-src 'self'`**：兜底策略——没被单独指定的资源类型，默认只允许加载「同源」的资源
-- **`script-src 'self'`**：脚本只允许来自同源。**这是 CSP 防 XSS 的核心**——内联脚本（`<script>alert(1)</script>` 这种）和外部恶意域名脚本，都会被拒
-- **`style-src 'self' 'unsafe-inline'`**：样式允许同源 + 内联样式（`'unsafe-inline'` 是放行内联的开关，能用 hash/nonce 替代就尽量别开）
-- **`img-src 'self' data:`**：图片允许同源 + `data:` 协议的 base64 图片
-
-当浏览器拦截了一个违反 CSP 的资源时，控制台会报出这样的错：
-
-```text
-Refused to load the script 'https://evil.com/steal.js' because it violates
-the following Content Security Policy directive: "script-src 'self'".
-```
-
-这句话直接告诉你：**哪个脚本被拦、违反了哪条指令、为什么拦**。CSP 的完整指令族（`script-src`/`img-src`/`connect-src`/`frame-ancestors` 等）在第二部分第 6 小节展开。
-
-### 6. 医院 HIS 系统「处方提交接口」的 CSRF 防护实践
-
-最后落地一个真实的工程实践：**医院 HIS 系统里「处方提交」这个会改数据、有副作用的接口，怎么防 CSRF**。
-
-CSRF 的原理第二部分第 4 小节讲透，这里先看「怎么用」——生产上最常见的组合拳是 **`SameSite=Strict` Cookie + 自定义请求头双重校验**：
-
-```javascript
-const express = require('express');
-const cookieParser = require('cookie-parser');
-const app = express();
-app.use(cookieParser());
-
-// 处方提交接口：双重校验防 CSRF
-app.post('/api/prescriptions', (req, res) => {
-  // 第一道：自定义请求头校验
-  // 攻击者用 <form> 发起的跨站请求，无法携带自定义头 X-Requested-With
-  if (req.headers['x-requested-with'] !== 'XMLHttpRequest') {
-    return res.status(403).json({ error: '非法请求来源' });
-  }
-  // 第二道：SameSite Cookie 由 Set-Cookie 下发时声明（见下）
-  // 业务逻辑：创建处方……
-  res.json({ ok: true });
-});
-
-// 登录时下发 SameSite=Strict 的会话 Cookie
-app.post('/api/login', (req, res) => {
-  res.setHeader('Set-Cookie',
-    'session=abc123; HttpOnly; SameSite=Strict; Secure');
-  res.json({ ok: true });
-});
-```
-
-这两个防御各自的「门槛」是：
-
-- **`SameSite=Strict`**：浏览器看到这个 Cookie 属性后，**任何跨站请求都不会带上它**——攻击者从恶意站点发的请求，压根没有你的会话 Cookie，服务端自然不认
-- **自定义请求头校验（`X-Requested-With`）**：攻击者只能用 `<form>` 或 `<img>` 这类标签发起跨站请求，而这些**原生标签发不出自定义头**；只有你自己的 JS（用 XHR/fetch）才能加自定义头。所以「带了自定义头」这个信号，基本等价于「这个请求来自我们自己的前端代码」
-
-> ✍️ 为什么强调「双重校验」而不是单靠一个？因为 `SameSite` 需要浏览器支持（老浏览器不认），自定义头校验需要前端配合（所有写操作都要走 XHR/fetch 且带上头）。两个都是「提高攻击门槛」的手段，合在一起才能覆盖更多场景。这个「不把鸡蛋放一个篮子」的思路，贯穿本篇所有防御手段。
-
----
-
-## 二、设计与原理
-
-这是本篇的核心。下面八个知识点按「同源策略（安全边界）→ CORS（合法跨域通道）→ CSRF/XSS/点击劫持（三条攻击路径）→ CSP/helmet（纵深防御）」的顺序，由浅入深讲透。**先立起边界，再讲边界上的「放行」和「绕过」，最后讲「绕过了怎么兜底」**——这条线串起来，所有面试题都能从原理推到答案。
-
-### 1. 同源策略：浏览器最基础的安全边界
-
-同源策略（Same-Origin Policy）是浏览器安全模型的**基石**，后面 CORS、CSRF、XSS 全都建立在对它的理解之上。先看它到底是什么：
-
-**「源（Origin）」由三部分组成：协议 + 域名 + 端口**。三者完全一致，才算「同源」；任何一个不同，就是「跨源（跨域）」。
-
-拿 `http://drug.example.com:3000` 举例，看几个对照：
-
-| 对比 URL | 是否同源 | 原因 |
-|---------|---------|------|
-| `http://drug.example.com:3000` | ✅ 同源 | 完全一致 |
-| `http://drug.example.com:3001` | ❌ 跨域 | 端口不同 |
-| `https://drug.example.com:3000` | ❌ 跨域 | 协议不同 |
-| `http://api.example.com:3000` | ❌ 跨域 | 域名不同（子域也不同源） |
-
-注意一个容易踩的坑：**域名是「完全一致」才算同源**，`drug.example.com` 和 `api.example.com` 是不同源；`example.com` 和 `www.example.com` 也不同源。这个「精确匹配」是理解「为什么前端 www 域名调用 api 域名要配 CORS」的前提。
-
-**同源策略具体限制的是什么行为？** 这是面试最高频的追问，要答准。同源策略限制的是**「不同源的脚本读取彼此的敏感数据」**，具体三类：
-
-- **Cookie / LocalStorage / IndexedDB**：不同源的脚本读不到彼此的存储（`document.cookie` 只能读到自己源的）
-- **DOM**：不同源的脚本读不到彼此的页面结构（`iframe` 里嵌一个跨源页面，外层拿不到它的 `document`）
-- **AJAX 响应内容**：不同源的脚本发出去的请求，**响应内容读不到**（这正是开头那个报错的来源）
-
-但这里有个**极其重要、几乎必被追问**的反直觉点：**同源策略拦的是「读」，不是「写」和「加载」**。
-
-- **「加载」不拦**：`<script>`、`<img>`、`<link>`、`<iframe>` 这些标签，**天然可以跨源加载资源**——网页里嵌一张别的域名的图片、引一个别的域名的脚本，完全合法。为什么？因为如果连这个都拦，就没法用 CDN、没法引第三方库了
-- **「写」（发请求）也不拦**：跨域请求**能发出去**，只是响应内容读不到（回到第 1 小节的「浏览器拦响应不拦请求」）
-
-**这个「拦读不拦加载」的差异，是理解后面两大块的关键**：它解释了为什么 `<script>` 标签能跨源加载（这也是早年 JSONP 的跨域原理）、为什么 CSRF 能靠 `<img>`/`<form>` 标签得手（发请求这个「写」动作根本没被拦）。
-
-> 💬 **面试官**：什么是同源策略？它限制的具体是什么行为？
->
-> ✅ 标准答案：同源策略要求「协议 + 域名 + 端口」三者完全一致才算同源，是浏览器最基本的安全边界。它限制的是**不同源的脚本读取彼此的敏感数据**——Cookie/本地存储、DOM、AJAX 响应内容这三类「读」操作；它**不拦**「加载」（`<script>`/`<img>` 等标签可以跨源加载）和「发请求」（跨域请求能发出去，只是响应读不到）。
->
-> 🎁 加分答案：能点出「拦读不拦加载/不拦写」这个非对称性，并且用这个非对称性解释两个具体现象——① 它解释了为什么早年有 JSONP（利用 `<script>` 标签能跨源加载的特性绕开同源限制）；② 它解释了为什么 CSRF 能发生（`<form>`/`<img>` 能跨源「发」请求，同源策略根本不管「发」这个动作，管的是「读」响应）。能把同源策略和这两个攻击/方案串起来，说明你不是在背概念。
-
-### 2. CORS 简单请求 vs 预检请求（重点 · 面试必考）
-
-既然同源策略默认禁止跨源「读」，那合法的跨域需求（前后端分离、微服务）怎么办？答案就是 **CORS（Cross-Origin Resource Sharing，跨域资源共享）**——它是同源策略开的一个**「白名单后门」**：服务端通过响应头明确声明「我允许哪些源读我的响应」，浏览器据此放行。
-
-CORS 把跨域请求分成了两类，处理方式完全不同，这是本篇第二个核心。
-
-**① 简单请求（Simple Request）**：满足以下**全部**条件，浏览器直接发请求、收到响应后检查头：
-
-- 方法只能是 `GET` / `POST` / `HEAD` 三种之一
-- 只能携带「CORS 安全」的请求头，常见的就是 `Content-Type` 且其值只能是三种之一：`text/plain`、`multipart/form-data`、`application/x-www-form-urlencoded`
-- 不能有额外的自定义头
-
-简单请求的流程只有一步：**直接发 → 服务端回 `Access-Control-Allow-Origin` → 浏览器检查通过才把响应交给 JS**。表单提交（`application/x-www-form-urlencoded`）就是典型的简单请求。
-
-**② 预检请求（Preflight Request）**：只要**不满足上面任何一条**，浏览器就会先发一个 `OPTIONS` 方法的「预检请求」，问服务端「我接下来要用 `PUT` 方法、要带 `Content-Type: application/json`、要带自定义头 `Authorization`，你允不允许？」服务端回一堆 `Allow-*` 头明确允许后，浏览器才发出真实的请求。
-
-触发预检的典型情况，就是第 1 小节里 XHR 那个 `Content-Type: application/json`：
-
-```
-客户端（浏览器）                          服务端
-      │                                     │
-      │ ──① OPTIONS /api（预检请求）──▶       │
-      │   Origin: http://localhost:3000      │
-      │   Access-Control-Request-Method: POST│
-      │   Access-Control-Request-Headers: content-type │
-      │ ◀──② 200（预检响应）──────             │
-      │   Access-Control-Allow-Origin: http://localhost:3000 │
-      │   Access-Control-Allow-Methods: POST  │
-      │   Access-Control-Allow-Headers: content-type │
-      │                                     │
-      │ ──③ POST /api（真实请求）──▶         │
-      │   Content-Type: application/json     │
-      │ ◀──④ 200 + Access-Control-Allow-Origin │
-```
+**同一个页面、两种跨域方式，一个触发预检、一个不触发**——这个差异，就是「简单请求 vs 预检请求」的核心。
 
 **为什么要有预检这一步？** 这是理解 CORS 设计动机的关键，也是最容易被问倒的地方。原因一句话：**「简单请求」的语义，等价于「传统 `<form>` 表单本来就能跨源发的那些请求」**——在 CORS 出现之前，`<form>` 已经能跨源提交 `GET`/`POST`、`application/x-www-form-urlencoded` 这类请求了。所以对这些「本来就能发」的请求，CORS 只需在响应里加个头、让浏览器「允许读」即可，没必要多一步。
 
 但 `PUT`、`DELETE`、`application/json`、自定义头这些，是 `<form>` 表单**发不出来的**——它们属于「CORS 新引入的、更强的跨域能力」。浏览器为了**保护那些「只处理表单、不知道还有 CORS 这回事」的老服务端**，在发出这些「更强」的请求前，必须先 `OPTIONS` 问一句「你准备好了吗」。如果老服务端根本不认识 `OPTIONS`、没回正确的头，浏览器就**不发真实请求**，从而保护老服务端不被一个它「没预期到」的跨域写请求打中。
 
 一句话收口：**预检请求是浏览器在「放行更强的跨域能力」之前，先替服务端做的一次「能力确认」**。
+
+用 `curl` 绕过浏览器，手动扮演「发起预检的客户端」，直观看服务端回的 CORS 响应头：
+
+```bash
+curl -i -X OPTIONS \
+  -H "Origin: http://a.com" \
+  -H "Access-Control-Request-Method: PUT" \
+  http://b.com/api
+```
+
+服务端会回类似这样的响应：
+
+```text
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://a.com
+Access-Control-Allow-Methods: PUT
+Access-Control-Allow-Headers: content-type
+Access-Control-Max-Age: 1800
+```
+
+这个实验的价值在于：**它把「浏览器内部自动完成的预检」拆出来给你看**——浏览器其实就是替你发了这么一条 `OPTIONS`，然后根据返回的 `Allow-*` 头决定「要不要发真实请求」。手动跑一遍，预检的机制就再也不是「浏览器黑盒」了。
 
 > 💬 **面试官**：CORS 的简单请求和预检请求有什么区别？什么条件会触发预检？
 >
@@ -437,11 +292,52 @@ fetch('http://api.example.com/api/data', {
 >
 > 🎁 加分答案：能说清「如果允许 `*` + 凭证会发生什么」——恶意网站诱导用户访问后，浏览器自动带 Cookie 请求目标站，而 `*` 又允许恶意网站读响应，等于把「CSRF 的自动带 Cookie」和「CORS 的能读响应」合体成「能读你登录态数据的跨域窃取」。还能补充：所以生产上做「带 Cookie 的跨域」（比如前后端分离 + Cookie 会话），`origin` 必须配白名单回显，不能图省事写 `*`。
 
-### 4. CSRF：借用 Cookie 伪造请求
+### 4. Express/Koa 的 `cors` 包
+
+手写版看懂了，再认识生产上真正在用的 `cors` 中间件。它做的事和上面手写的完全一样，只是把「根据配置动态计算响应头」封装成了配置项：
+
+```javascript
+const express = require('express');
+const cors = require('cors');
+const app = express();
+
+// 最简用法：允许所有源跨域
+app.use(cors());
+
+// 生产推荐：白名单 + 携带凭证
+const whitelist = ['http://localhost:3000', 'https://his.example.com'];
+app.use(cors({
+  origin: function (origin, callback) {
+    // 同源请求（没有 Origin 头）或白名单内的源 → 放行
+    if (!origin || whitelist.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,        // 允许携带 Cookie（对应 Allow-Credentials）
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],  // 允许的方法
+  allowedHeaders: ['Content-Type', 'Authorization'], // 允许的自定义头
+  maxAge: 1800,             // 预检结果缓存 1800 秒
+}));
+```
+
+对照手写版，每个配置项背后的含义一目了然：
+
+- **`origin`**：决定 `Access-Control-Allow-Origin` 回什么。可以是布尔值（`true` 回显请求源）、数组（白名单）、函数（自定义逻辑）。**这是最容易写错的地方**——写 `*` 虽然省事，但一配合 `credentials` 就废了
+- **`credentials`**：是否设置 `Access-Control-Allow-Credentials: true`，允许携带 Cookie
+- **`methods` / `allowedHeaders`**：分别对应 `Access-Control-Allow-Methods` / `Access-Control-Allow-Headers`，**只在预检请求的响应里出现**
+- **`maxAge`**：预检结果的缓存秒数，减少重复预检
+
+> ✍️ Koa 的 `@koa/cors` 配置项几乎一模一样（`origin`/`credentials`/`allowMethods`/`allowHeaders`），核心逻辑也来自同一个思路——所以只要吃透了手写版那三个响应头，任何框架的 CORS 中间件都是「换个壳」。
+
+---
+
+## 三、CSRF：借用 Cookie 伪造请求
 
 讲完「合法跨域通道」，开始讲「绕过边界的攻击」。第一个是 **CSRF（Cross-Site Request Forgery，跨站请求伪造）**——它的狡猾之处在于：**它不偷你的数据，而是「借用你的身份」替你发起请求**。
 
-攻击链路是这样的：
+### 1. 攻击链路
 
 1. 你已经在某个网站（比如医院 HIS 系统）登录了，浏览器里存着它的会话 Cookie
 2. 攻击者诱导你访问一个**恶意页面**（钓鱼链接、广告、被黑的论坛帖子……）
@@ -451,7 +347,46 @@ fetch('http://api.example.com/api/data', {
 
 **核心一句话：攻击者利用「浏览器会自动带目标站 Cookie」这个机制，让你在不知情的情况下，用自己的登录态去执行了一次你不想要的操作。**
 
-它和同源策略的关系很微妙——还记得第 1 小节的结论吗？**同源策略拦「读」不拦「写」**。CSRF 全程只需要「发请求」这个「写」动作，根本不需要读响应，所以**同源策略对 CSRF 完全无能为力**。这也是为什么前面说「CORS 防不住 CSRF」——CORS 管的是「跨域能不能读响应」，CSRF 压根不在乎能不能读，它只要请求能发出去、服务端肯执行就行。
+它和同源策略的关系很微妙——还记得第 1 节的结论吗？**同源策略拦「读」不拦「写」**。CSRF 全程只需要「发请求」这个「写」动作，根本不需要读响应，所以**同源策略对 CSRF 完全无能为力**。这也是为什么前面说「CORS 防不住 CSRF」——CORS 管的是「跨域能不能读响应」，CSRF 压根不在乎能不能读，它只要请求能发出去、服务端肯执行就行。
+
+### 2. 医院 HIS「处方提交接口」的防护实践
+
+生产上最常见的组合拳是 **`SameSite=Strict` Cookie + 自定义请求头双重校验**：
+
+```javascript
+const express = require('express');
+const cookieParser = require('cookie-parser');
+const app = express();
+app.use(cookieParser());
+
+// 处方提交接口：双重校验防 CSRF
+app.post('/api/prescriptions', (req, res) => {
+  // 第一道：自定义请求头校验
+  // 攻击者用 <form> 发起的跨站请求，无法携带自定义头 X-Requested-With
+  if (req.headers['x-requested-with'] !== 'XMLHttpRequest') {
+    return res.status(403).json({ error: '非法请求来源' });
+  }
+  // 第二道：SameSite Cookie 由 Set-Cookie 下发时声明（见下）
+  // 业务逻辑：创建处方……
+  res.json({ ok: true });
+});
+
+// 登录时下发 SameSite=Strict 的会话 Cookie
+app.post('/api/login', (req, res) => {
+  res.setHeader('Set-Cookie',
+    'session=abc123; HttpOnly; SameSite=Strict; Secure');
+  res.json({ ok: true });
+});
+```
+
+这两个防御各自的「门槛」是：
+
+- **`SameSite=Strict`**：浏览器看到这个 Cookie 属性后，**任何跨站请求都不会带上它**——攻击者从恶意站点发的请求，压根没有你的会话 Cookie，服务端自然不认
+- **自定义请求头校验（`X-Requested-With`）**：攻击者只能用 `<form>` 或 `<img>` 这类标签发起跨站请求，而这些**原生标签发不出自定义头**；只有你自己的 JS（用 XHR/fetch）才能加自定义头。所以「带了自定义头」这个信号，基本等价于「这个请求来自我们自己的前端代码」
+
+> ✍️ 为什么强调「双重校验」而不是单靠一个？因为 `SameSite` 需要浏览器支持（老浏览器不认），自定义头校验需要前端配合（所有写操作都要走 XHR/fetch 且带上头）。两个都是「提高攻击门槛」的手段，合在一起才能覆盖更多场景。这个「不把鸡蛋放一个篮子」的思路，贯穿本篇所有防御手段。
+
+### 3. 防御手段的三条路线
 
 防御手段有三条，各自的原理和局限都要记清：
 
@@ -465,9 +400,13 @@ fetch('http://api.example.com/api/data', {
 >
 > 🎁 加分答案：能说清三条防御的取舍——① `SameSite` 最省事但要浏览器支持、且 `Lax` 和 `Strict` 的边界要分清（顶级导航 vs 子请求）；② CSRF Token 最稳但要服务端存状态、前端配合回传，且 token 本身依赖「同源策略让攻击者读不到」；③ 校验 `Referer`/`Origin` 最简单但可被伪造/缺失、只能作辅助。还能点出 CSRF 和 CORS 的关系——CSRF 只需要「发请求」（写），不需要「读响应」，所以 CORS 管不着它，这是「CORS 防不住 CSRF」的根本原因。
 
-### 5. XSS：注入脚本，三类攻击路径
+---
+
+## 四、XSS：注入脚本，三类攻击路径
 
 第二个攻击是 **XSS（Cross-Site Scripting，跨站脚本攻击）**。和 CSRF「借用 Cookie」不同，XSS 是**「把你的恶意脚本注入到目标页面里执行」**——一旦脚本在你页面的上下文里跑起来，它就能做任何你页面 JS 能做的事：读 `document.cookie`、改 DOM、发请求、偷数据。
+
+### 1. 三类攻击路径
 
 XSS 按注入路径分三类，这是面试必背、也是要会「举例」的点：
 
@@ -478,6 +417,8 @@ XSS 按注入路径分三类，这是面试必背、也是要会「举例」的�
 三类里，存储型和反射型的问题在**服务端**（输出没转义），DOM 型的问题在**前端**（危险地操作 DOM）。但它们共享同一个核心防御：
 
 **核心防御是「输出编码 + 输入校验」**——在任何「把不可信数据写进页面/HTML 上下文」的地方，先做转义（`<` → `&lt;`、`>` → `&gt;`、`"` → `&quot;`），让浏览器把数据当「文本」而不是「代码」渲染。输入校验是辅助（白名单、长度限制），**输出编码才是关键**——因为 XSS 的本质是「数据被当成了代码执行」，而输出编码就是「强制把代码降级回数据」。
+
+### 2. `HttpOnly`：防的是「偷会话」，不是「防 XSS」
 
 还有一道**「最后防线」**，这里要特别讲清它防的是什么：**`HttpOnly` Cookie 属性**。
 
@@ -491,9 +432,13 @@ XSS 按注入路径分三类，这是面试必背、也是要会「举例」的�
 >
 > 🎁 加分答案：能精确点出三类 XSS 的问题所在层——存储型/反射型在服务端（输出没转义），DOM 型在前端（危险操作 DOM）。还能强调「`HttpOnly` 防的是 XSS 的『后果』，不是 XSS 本身」，以及「为什么输出编码比输入校验更根本」——因为 XSS 的本质是「数据被当成代码执行」，输出编码是「把代码强制降级回数据」，输入校验只是减面。能把「输出编码 > 输入校验」和「HttpOnly 兜底」串成一条完整防御链，是加分项。
 
-### 6. CSP：已经中招之后的纵深防御
+---
+
+## 五、CSP：已经中招之后的纵深防御
 
 XSS 的防御（输出编码）是「从源头堵住注入」，但现实里总会有漏网之鱼——某个角落的富文本没转义、某个第三方库有洞、某个老代码用了 `innerHTML`。这时候就需要**假设 XSS 已经发生，还能不能拦住脚本执行？** 答案就是 **CSP（Content Security Policy，内容安全策略）**。
+
+### 1. 原理：资源白名单
 
 CSP 的思路很直接：**服务端用 `Content-Security-Policy` 响应头，显式声明「这个页面允许从哪些来源加载脚本/样式/图片」**。浏览器拿到后，凡是来源不在白名单里的资源，一律拒绝加载。
 
@@ -510,7 +455,29 @@ Content-Security-Policy: default-src 'self'; script-src 'self'
 
 攻击者注入的 `<script>` 标签虽然成功进了页面，但浏览器一看 `script-src 'self'`——**这个脚本的来源是 `https://evil.com`，不在 `'self'`（同源）白名单里，直接拒绝执行**。脚本注入成功了，但执行不了，攻击落空。
 
-CSP 指令族很丰富，常用的要认识（每个 `-src` 管一类资源）：
+### 2. CSP 指令族
+
+先看一段最常见的 CSP 配置，理解每个指令在声明什么：
+
+```text
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:
+```
+
+逐个指令拆：
+
+- **`default-src 'self'`**：兜底策略——没被单独指定的资源类型，默认只允许加载「同源」的资源
+- **`script-src 'self'`**：脚本只允许来自同源。**这是 CSP 防 XSS 的核心**——内联脚本（`<script>alert(1)</script>` 这种）和外部恶意域名脚本，都会被拒
+- **`style-src 'self' 'unsafe-inline'`**：样式允许同源 + 内联样式（`'unsafe-inline'` 是放行内联的开关，能用 hash/nonce 替代就尽量别开）
+- **`img-src 'self' data:`**：图片允许同源 + `data:` 协议的 base64 图片
+
+当浏览器拦截了一个违反 CSP 的资源时，控制台会报出这样的错：
+
+```text
+Refused to load the script 'https://evil.com/steal.js' because it violates
+the following Content Security Policy directive: "script-src 'self'".
+```
+
+这句话直接告诉你：**哪个脚本被拦、违反了哪条指令、为什么拦**。CSP 的完整指令族（每个 `-src` 管一类资源）：
 
 | 指令 | 管什么 | 示例 |
 |------|--------|------|
@@ -520,6 +487,8 @@ CSP 指令族很丰富，常用的要认识（每个 `-src` 管一类资源）�
 | `img-src` | 图片 | `img-src 'self' data:` |
 | `connect-src` | `fetch`/XHR/WebSocket 等连接 | `connect-src 'self' https://api.example.com` |
 | `frame-ancestors` | 谁能把本页嵌进 `iframe`（防点击劫持） | `frame-ancestors 'self'` |
+
+### 3. `'unsafe-inline'` 与 nonce/hash 的权衡
 
 关于 CSP 还有一个进阶点，面试常用来区分「懂不懂 CSP 落地」：**`'unsafe-inline'` 和 `nonce`/`hash` 的权衡**。
 
@@ -534,7 +503,11 @@ CSP 指令族很丰富，常用的要认识（每个 `-src` 管一类资源）�
 >
 > 🎁 加分答案：能点出「`'unsafe-inline'` 会废掉 CSP 的 XSS 防护」这个关键坑——大多数 XSS 注入的是内联脚本，放行内联等于放行攻击，所以 `script-src` 要用 `nonce`（一次性随机数）或 `hash`（内容哈希）做精确白名单，而不是图省事开 `'unsafe-inline'`。还能举 CSP 的其它价值：`upgrade-insecure-requests` 强制升级 HTTPS、`frame-ancestors` 防点击劫持、`connect-src` 限制数据外发（防 XSS 偷数据后外传）。
 
-### 7. 点击劫持与 `X-Frame-Options`/`frame-ancestors`
+---
+
+## 六、点击劫持与 `helmet` 收口
+
+### 1. 点击劫持（Clickjacking）
 
 第三个攻击是 **点击劫持（Clickjacking）**，它和前两个攻击的思路完全不同——**它既不借用 Cookie（CSRF），也不注入脚本（XSS），而是「伪造点击」**。
 
@@ -545,7 +518,7 @@ CSP 指令族很丰富，常用的要认识（每个 `-src` 管一类资源）�
 防御靠两个响应头（都是 `helmet` 一键设置的成员，见下一小节）：
 
 - **`X-Frame-Options`（旧方案）**：控制「本页能不能被 `<iframe>` 嵌入」。`DENY`（任何网站都不能嵌入）、`SAMEORIGIN`（只有同源能嵌入）。缺点是只能二选一、表达不了「允许某几个特定来源」
-- **CSP 的 `frame-ancestors`（新方案）**：功能更强，能**精确指定「允许哪些来源把本页嵌进 iframe」**，比如 `frame-ancestors 'self' https://trusted.example.com`。它其实也是 CSP 指令族的一员（见上一小节的表）
+- **CSP 的 `frame-ancestors`（新方案）**：功能更强，能**精确指定「允许哪些来源把本页嵌进 iframe」**，比如 `frame-ancestors 'self' https://trusted.example.com`。它其实也是 CSP 指令族的一员（见上一节的表）
 
 浏览器对两者的兼容性：现代浏览器两者都支持，`frame-ancestors` 更灵活、是推荐的新方案；`X-Frame-Options` 作为老浏览器兜底保留。**两个都配上，是最稳的姿势**——老的浏览器认 `X-Frame-Options`，新的认 `frame-ancestors`，全覆盖。
 
@@ -555,11 +528,11 @@ CSP 指令族很丰富，常用的要认识（每个 `-src` 管一类资源）�
 >
 > 🎁 加分答案：能点出点击劫持和 CSRF/XSS 的本质区别——它不借用 Cookie、不注入脚本，利用的是「用户自己在点击」，所以 `SameSite`/输出编码都拦不住它。还能补充 `X-Frame-Options` 和 `frame-ancestors` 的取舍——`X-Frame-Options` 只能 DENY/SAMEORIGIN 二选一、表达不了「允许特定来源」；`frame-ancestors` 能列具体来源白名单，是推荐的新方案，两者都配实现新老浏览器全覆盖。
 
-### 8. 对比 Node.js：`helmet` 中间件
+### 2. 对比 Node.js：`helmet` 中间件
 
 最后落地到 Node.js，把前面分散的「安全响应头」收口成一个工程实践。
 
-前面几小节你认识了：防点击劫持的 `X-Frame-Options`、防 XSS 兜底的 CSP、以及 TLS 篇（03）讲过的 HSTS。这些「安全响应头」在 Express/Koa 生态里，有一个**一键全开的中间件叫 `helmet`**——它本质上就是「一次设置好一整套安全响应头」的合集：
+前面几节你认识了：防点击劫持的 `X-Frame-Options`、防 XSS 兜底的 CSP、以及 TLS 篇（03）讲过的 HSTS。这些「安全响应头」在 Express/Koa 生态里，有一个**一键全开的中间件叫 `helmet`**——它本质上就是「一次设置好一整套安全响应头」的合集：
 
 ```javascript
 const express = require('express');
@@ -592,100 +565,13 @@ app.use(helmet());
 
 ---
 
-## 三、工程落地参考
-
-原理讲完，落到「工程落地」时看哪些权威资料。本节列出三个核心参考，指明「去哪看、看什么」：
-
-### 1. CORS 规范：Fetch 标准（WHATWG）CORS 协议章节
-
-CORS 的正式定义不在某个 RFC 里，而在 **Fetch 标准（WHATWG）的 CORS 协议章节**——因为 CORS 本质是「浏览器 fetch 行为」的一部分。看这一章重点抓两处：
-
-- **简单请求的判定条件**：`CORS-safelisted method`（GET/POST/HEAD）和 `CORS-safelisted request-header`（含三种 `Content-Type`）的完整列表
-- **预检请求的流程**：`OPTIONS` 请求怎么构造、`Access-Control-Request-Method`/`Access-Control-Request-Headers` 怎么填、服务端响应的 `Allow-*` 头怎么被校验
-
-### 2. CSP 规范：W3C Content Security Policy Level 3
-
-CSP 的正式规范是 W3C 的 **Content Security Policy Level 3**。看这一章重点抓：
-
-- **各 `-src` 指令的白名单匹配规则**：`'self'`、具体域名、`nonce-`、`sha256-` 这些「源表达式」怎么匹配
-- **指令继承关系**：`default-src` 怎么作为兜底，`script-src` 怎么覆盖 `default-src`
-
-### 3. `cors`（npm 包）实现：`expressjs/cors` 仓库 `lib/index.js`
-
-想看懂 CORS 中间件「根据配置动态算响应头」的核心逻辑，直接看 `expressjs/cors` 仓库的 `lib/index.js`，两个关键函数：
-
-- **`configureOrigin`**：根据 `origin` 配置（布尔/数组/函数）动态决定 `Access-Control-Allow-Origin` 回什么值
-- **`isOriginAllowed`**：白名单匹配的核心，判断请求的 `Origin` 是否在允许列表里
-
-> 引用规范：正文不出现具体人名/账号名，权威来源见文末参考资料。对应本节的三个来源——Fetch 标准 CORS 章节、W3C CSP Level 3、`expressjs/cors` 源码，搜索关键词见文末。
-
----
-
-## 四、实践演示与验证
-
-原理讲透了，最后动手「把跨域和安全看进眼里」。用四个实验把前面的抽象概念落到可观测的现象上（CSRF/XSS/CSP/点击劫持的「攻击面」演示只在浏览器控制台与 DevTools 完成，不引入真实攻击代码）。
-
-### 1. DevTools Network 面板对比「简单请求」与「预检请求」
-
-在页面里分别发起两次跨域请求，观察 Network 面板的差异：
-
-- **简单请求**：用 `<form>` 或 `fetch` 不带自定义头、`Content-Type` 用表单类型发起 → Network 里**只有一次请求**，直接就是 `POST`，没有 `OPTIONS`
-- **预检请求**：用 `fetch` 带 `Content-Type: application/json` 或自定义头发起 → Network 里**先出现一个 `OPTIONS`**（看它的 `Request Method` 列和 `Access-Control-Request-*` 请求头），再出现真实的 `POST`
-
-重点看预检请求的**请求头**（`Access-Control-Request-Method`/`Access-Control-Request-Headers` 是浏览器「要问的问题」）和**响应头**（`Access-Control-Allow-Methods`/`Allow-Headers`/`Allow-Origin` 是服务端「给的答案」），一一对应第二部分第 2 小节的流程图。
-
-### 2. `curl` 手动模拟一次预检请求
-
-用 `curl` 绕过浏览器，手动扮演「发起预检的客户端」，直观看服务端回的 CORS 响应头：
-
-```bash
-curl -i -X OPTIONS \
-  -H "Origin: http://a.com" \
-  -H "Access-Control-Request-Method: PUT" \
-  http://b.com/api
-```
-
-服务端会回类似这样的响应：
-
-```text
-HTTP/1.1 200 OK
-Access-Control-Allow-Origin: http://a.com
-Access-Control-Allow-Methods: PUT
-Access-Control-Allow-Headers: content-type
-Access-Control-Max-Age: 1800
-```
-
-这个实验的价值在于：**它把「浏览器内部自动完成的预检」拆出来给你看**——浏览器其实就是替你发了这么一条 `OPTIONS`，然后根据返回的 `Allow-*` 头决定「要不要发真实请求」。手动跑一遍，预检的机制就再也不是「浏览器黑盒」了。
-
-### 3. 浏览器控制台观察同源策略报错原文
-
-在 `http://localhost:3000` 的页面控制台里，向 `http://localhost:3001` 发起一次 `fetch`：
-
-```javascript
-fetch('http://localhost:3001/api/data')
-  .then(r => r.json())
-  .catch(e => console.error(e));
-```
-
-观察控制台报出的**同源策略错误信息原文**（就是第一部分第 1 小节那句 `blocked by CORS policy`），重点看它标的 `from origin` 和 `No 'Access-Control-Allow-Origin' header`——这两个信息直接告诉你「谁发起的、缺了哪个头」。
-
-### 4. 攻防「攻击面」的浏览器侧演示
-
-不引入真实攻击代码，用控制台和 DevTools 把三条攻击的「攻击面」看明白：
-
-- **CSRF 攻击面**：写一个含 `action` 指向目标站、`method=post` 的隐藏 `<form>`，看它**不需要任何 JS 就能自动提交**、且浏览器会自动带 Cookie——这就是 CSRF 的「发请求」通道
-- **CSP 拦截**：给页面配一条 `script-src 'self'`，再手动 `document.createElement('script')` 塞一个外部域名的脚本，观察控制台的 `Refused to load the script ... violates ... Content Security Policy` 报错
-- **点击劫持防御**：给一个页面配 `X-Frame-Options: DENY`，再从另一个页面用 `<iframe>` 嵌它，观察浏览器「拒绝连接」或「空白 iframe」的现象
-
-这三个演示跑完，你会直观理解那句话：**CSRF 借的是「浏览器自动带 Cookie」、XSS 借的是「数据被当代码执行」、点击劫持借的是「用户自己的点击」——三条完全不同的攻击路径，对应三套完全不同的防御，最终被 CSP + 安全响应头收口成一张「纵深防御」的网。**
-
----
-
-## 五、参考资料
+## 参考资料
 
 - https://developer.mozilla.org/zh-CN/docs/Web/HTTP/CORS （CORS 机制权威二级来源）
 - https://developer.mozilla.org/zh-CN/docs/Web/HTTP/CSP （CSP 指令与用法）
 - https://owasp.org/www-community/attacks/csrf （CSRF 攻击与防御）
+
+> 权威来源索引：CORS 的正式定义在 **Fetch 标准（WHATWG）的 CORS 协议章节**（简单请求判定条件、预检流程），不在某个 RFC 里；CSP 的规范是 **W3C Content Security Policy Level 3**（各 `-src` 指令白名单匹配规则）；`cors` 中间件的核心逻辑见 `expressjs/cors` 仓库 `lib/index.js`（`configureOrigin` 与 `isOriginAllowed` 两个函数）。
 
 > 推荐搜索关键词：「同源策略 三要素」「CORS 简单请求 预检请求 区别」「Access-Control-Allow-Credentials 不能配 *」「CSRF SameSite 防御」「XSS 存储型 反射型 DOM型」「HttpOnly 防什么」「CSP script-src nonce」「点击劫持 X-Frame-Options frame-ancestors」。
 

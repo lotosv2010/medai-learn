@@ -28,119 +28,11 @@
 
 ---
 
-## 一、使用与实践
-
-先动手，把「HTTP 语义」这件事变成能看见的东西。这一节用 `curl` 和 DevTools，把内容协商、状态码、方法语义逐个「看进眼里」。
-
-### 1. `curl --compressed` 观察内容协商的「一问一答」
-
-HTTP 的内容协商，本质是**客户端先声明「我能接受什么」，服务端再从候选里挑一个返回**。压缩协商是最直观的例子——先看 `curl` 默认会带什么请求头：
-
-```bash
-# 普通请求：观察 curl 自动带上的 Accept-Encoding 请求头
-curl -v https://drug.example.com/ -o /dev/null
-```
-
-在 `-v`（verbose）输出的请求头里，你会看到这一行：
-
-```text
-Accept-Encoding: gzip, deflate, br
-```
-
-这句话的意思是：**「服务器，我（客户端）能解压 gzip、deflate、br（Brotli）这三种压缩格式，你看着选一个。」** 加上 `--compressed` 参数后，`curl` 会**自动解压**响应，方便你直接看到解压后的正文：
-
-```bash
-# --compressed：请求头自动带 Accept-Encoding，响应自动解压
-curl --compressed https://drug.example.com/ -o /dev/null -v
-```
-
-再看服务端的**回答**——响应头里的 `Content-Encoding`，就是服务端实际选中的算法：
-
-```text
-Content-Encoding: br
-```
-
-这一个请求头（`Accept-Encoding`）+ 一个响应头（`Content-Encoding`），就是一次完整的**压缩内容协商**：客户端列出「我会的」，服务端从交集里选「我要用的」。第二部分会拆解「服务端到底按什么规则选」。
-
-### 2. `curl -H "Accept-Language: ..."` 观察语言协商
-
-语言协商是同一套机制，换了个维度——用 `Accept-Language` 声明「我想看什么语言」，用 `q` 值声明偏好权重：
-
-```bash
-# 声明「首选简体中文，其次英文（权重 0.9）」
-curl -H "Accept-Language: zh-CN,en;q=0.9" https://drug.example.com/ -v
-```
-
-请求头长这样：
-
-```text
-Accept-Language: zh-CN,en;q=0.9
-```
-
-这里的 `q=0.9` 是**质量权重（quality value）**，范围 0~1，默认 1。`zh-CN` 没写 q 就是 `q=1.0`（最高），`en;q=0.9` 表示「英文也可以，但优先级稍低」。服务端拿到这个列表，会按权重从高到低，挑一个自己支持的语言返回。
-
-**这就是 `q` 参数的含义**——它是内容协商里「优先级」的表达方式，不止 `Accept-Language` 用，`Accept`、`Accept-Encoding` 都可以用 `q` 值排序。第二部分会讲它的匹配算法。
-
-### 3. DevTools 观察 401 与 403 的响应头差异
-
-登录失效和越权访问，是后端排障里最常见的两个 4xx。用 DevTools 的 Network 面板，对比两次请求的响应头，能直观看出两者语义差别：
-
-**一次登录失效（token 过期）**，服务端返回 401，并且**一定**会带 `WWW-Authenticate` 响应头：
-
-```text
-HTTP/1.1 401 Unauthorized
-WWW-Authenticate: Bearer realm="api"
-```
-
-**一次越权访问（已登录，但访问了不属于自己科室的患者数据）**，服务端返回 403：
-
-```text
-HTTP/1.1 403 Forbidden
-```
-
-看到区别了吗？**401 会带 `WWW-Authenticate`，403 不带**。这个 `WWW-Authenticate` 头就是「请你去认证」的提示——它告诉客户端「我是因为你不认识我才拒绝的，请带着凭证再来」。而 403 是「我认识你，但这事你不能干」，所以没有认证提示。这一处响应头的差异，正是 401 vs 403 语义差别的协议层体现，第二部分会讲透。
-
-### 4. Postman/curl 观察 301/302/307/308 重定向对方法的处理差异
-
-重定向四兄弟里，最容易被忽略、又最常踩坑的，是它们对「请求方法」的处理差异。用 `curl` 分别测一个「POST 请求遇到重定向」的场景，观察方法是否被改写：
-
-```bash
-# 发一个 POST 请求，遇到 301/302 时，curl 会把 POST 改成 GET
-curl -X POST https://drug.example.com/submit -L -v
-
-# 遇到 307/308 时，curl 保持 POST 方法不变
-curl -X POST https://drug.example.com/submit -L -v
-```
-
-`-L` 让 curl 自动跟随重定向。关键观察点：**301/302 重定向时，POST 会被改成 GET（请求体丢失）；307/308 重定向时，POST 保持 POST（请求体保留）**。
-
-这个差异用一句话记住：**301/302 是「宽松版」，307/308 是「严格版」**。它直接决定了「提交表单时该用哪个重定向码」——如果表单提交后要跳转到结果页，用 302 会把 POST 变 GET、请求体丢失；用 307 才能保住方法和请求体。第二部分重点展开。
-
-### 5. 医疗场景：HIS「处方提交」接口的语义边界评审
-
-假设你在设计医院 HIS 系统的「处方提交」接口，评审会上有两个方案争论不休：
-
-- 方案 A：`POST /prescriptions`——每次提交都新建一条处方记录
-- 方案 B：`PUT /prescriptions/:id`——按处方 ID 完整更新（覆盖）这条处方
-
-这两个方案差在哪？本质就是**幂等性**：
-
-- **`POST` 非幂等**：用户网络卡顿、重复点「提交」，每次都新建一条处方，可能造成**重复开单**——这是医疗场景里绝对不能发生的严重事故
-- **`PUT` 幂等**：按固定 ID 完整覆盖，同一条处方提交 10 次，结果还是那一条，重复提交天然无害
-
-所以「处方提交」这种**创建新资源**的动作，用 `POST` 表达语义是对的，但必须在**幂等性层面**额外加一道防线（比如客户端生成 `Idempotency-Key` 防重、服务端按处方号去重）——因为「语义上非幂等」不等于「工程上允许重复副作用」。这就是本篇第三组「方法契约」要讲透的核心：**理解了方法的幂等性，才能在设计接口时，主动补齐「非幂等方法」的防重保护**。
-
----
-
-## 二、设计与原理
-
-这是全篇的核心。按「请求头协商 → 状态码语义 → 方法契约」三组主线展开，每组都回答：**它是什么、为什么这样设计、怎么用、面试怎么考**。
-
-**第一组：内容协商——客户端声明偏好，服务端怎么选**
-
-### 1. 内容协商三兄弟
+## 一、内容协商：客户端声明偏好，服务端怎么选
 
 **内容协商（Content Negotiation）**，一句话概括：HTTP 允许客户端在请求头里声明自己的偏好，服务端从多个可用表示里选出最匹配的一种返回。核心场景是「同一个资源，有多个不同形式的表示（不同压缩格式、不同语言、不同媒体类型），客户端和服务端协商出一个双方都满意的」。
+
+### 1. 内容协商三兄弟
 
 内容协商三兄弟，指的是三个最常用的协商请求头：
 
@@ -160,59 +52,41 @@ curl -X POST https://drug.example.com/submit -L -v
 
 **三种协商类型**（笔记里有，面试加分项）：
 
-- **服务器驱动协商（Server-driven）**：最主流——客户端发 `Accept-*` 头，服务端决定返回哪个表示。缺点是要么服务端猜、要么响应头里声明（`Vary`，见第四小节）
+- **服务器驱动协商（Server-driven）**：最主流——客户端发 `Accept-*` 头，服务端决定返回哪个表示。缺点是要么服务端猜、要么响应头里声明（`Vary`，见第 4 小节）
 - **客户端驱动协商（Agent-driven）**：服务端先返回一个「选项列表」（如 300 Multiple Choices），客户端自己挑一个再发起二次请求。少用，因为多一次往返
 - **透明协商（Transparent）**：由中间设备（如缓存代理）结合前两者做协商，客户端和服务端都「看不见」中间过程
 
 面试里 99% 问的是**服务器驱动协商**——理解它，就理解了「客户端和服务端如何就表示达成一致」的完整闭环。
 
-那么「服务端到底怎么按 `q` 值选语言」？下面是笔记里的一段可运行实现——用 Node.js `http` 模块手写一个多语言协商，把 `Accept-Language` 从头解析到尾：
+### 2. 压缩协商与 gzip vs Brotli（重点）
 
-```javascript
-const http = require('http');
-// 语言包：en / zh 各维护一套文案
-const languages = {
-  en: { title: 'hello' },
-  zh: { title: '欢迎' }
-};
+HTTP 的内容协商，本质是**客户端先声明「我能接受什么」，服务端再从候选里挑一个返回**。压缩协商是最直观的例子——先看 `curl` 默认会带什么请求头：
 
-// 把 Accept-Language 解析成 [{ name, q }] 并按权重从大到小排序
-const str2Array = (str) => {
-  // "zh-CN,zh;q=0.9,en;q=0.8" -> 拆逗号 -> 拆分号取 q 值 -> 按 q 倒序
-  return str.split(',').map(item => {
-    const lan = item.split(';');
-    return {
-      name: lan[0].trim(),
-      q: lan[1] && +lan[1].split('=')[1] || 1   // 没写 q 默认 1（最高）
-    };
-  }).sort((a, b) => b.q - a.q); // 权重从大到小，取第一个命中语言包的类型
-};
-
-const server = http.createServer((req, res) => {
-  const langs = req.headers['accept-language'];
-  // 没有 Accept-Language，返回 404（不支持多语言协商）
-  if (!langs) return res.end('Not Found');
-  const lanArray = str2Array(langs);
-  let r = null;
-  // 按权重从高到低，在本地语言包里找第一个命中的
-  for (const lan of lanArray) {
-    if (languages[lan.name]) {
-      r = languages[lan.name];
-      break;
-    }
-  }
-  // 全部没命中，兜底用英文
-  if (!r) r = languages['en'];
-  res.setHeader('Content-Type', 'application/json;charset=utf-8');
-  res.end(JSON.stringify(r));
-});
-
-server.listen(3000, () => console.log('server start port 3000'));
+```bash
+# 普通请求：观察 curl 自动带上的 Accept-Encoding 请求头
+curl -v https://drug.example.com/ -o /dev/null
 ```
 
-这段代码就是把「服务器驱动协商」落地的完整骨架：**读 `Accept-Language` → 拆分 → 按 `q` 排序 → 命中语言包 → 兜底**。注意一个细节：`zh-CN,zh;q=0.9` 里的 `zh-CN` 没写 `q`，代码里 `|| 1` 把它默认成最高权重——这就是「`q` 缺省即 1」这条规则在服务端代码里的体现。
+在 `-v`（verbose）输出的请求头里，你会看到这一行：
 
-### 2. 压缩算法选型：gzip vs Brotli（重点）
+```text
+Accept-Encoding: gzip, deflate, br
+```
+
+这句话的意思是：**「服务器，我（客户端）能解压 gzip、deflate、br（Brotli）这三种压缩格式，你看着选一个。」** 加上 `--compressed` 参数后，`curl` 会**自动解压**响应：
+
+```bash
+# --compressed：请求头自动带 Accept-Encoding，响应自动解压
+curl --compressed https://drug.example.com/ -o /dev/null -v
+```
+
+再看服务端的**回答**——响应头里的 `Content-Encoding`，就是服务端实际选中的算法：
+
+```text
+Content-Encoding: br
+```
+
+这一个请求头（`Accept-Encoding`）+ 一个响应头（`Content-Encoding`），就是一次完整的**压缩内容协商**。
 
 压缩协商里，最核心的实战问题就是——**gzip 和 Brotli 该怎么选**。这背后是两个算法在「压缩率 vs 计算开销」上的本质权衡。
 
@@ -325,7 +199,80 @@ app.listen(8989);
 
 这段代码把「内容协商」从概念落到了可运行的 Node.js 服务上：**`Accept-Encoding`（请求头声明）→ `Content-Encoding`（响应头回选）**，正是本小节开头那个「一问一答」的服务端实现。注意 `req.headers` 里的 key 被 Node 统一转成了小写，所以读的是 `accept-encoding` 而不是 `Accept-Encoding`——这是排查「压缩为什么不生效」时最常见的坑。
 
-### 3. User-Agent 嗅探的局限与 Client Hints 的设计动机
+### 3. 语言协商与 `q` 值权重
+
+语言协商是同一套机制，换了个维度——用 `Accept-Language` 声明「我想看什么语言」，用 `q` 值声明偏好权重：
+
+```bash
+# 声明「首选简体中文，其次英文（权重 0.9）」
+curl -H "Accept-Language: zh-CN,en;q=0.9" https://drug.example.com/ -v
+```
+
+请求头长这样：
+
+```text
+Accept-Language: zh-CN,en;q=0.9
+```
+
+这里的 `q=0.9` 是**质量权重（quality value）**，范围 0~1，默认 1。`zh-CN` 没写 q 就是 `q=1.0`（最高），`en;q=0.9` 表示「英文也可以，但优先级稍低」。服务端拿到这个列表，会按权重从高到低，挑一个自己支持的语言返回。**`q` 参数就是内容协商里「优先级」的表达方式**，不止 `Accept-Language` 用，`Accept`、`Accept-Encoding` 都可以用 `q` 值排序。
+
+那么「服务端到底怎么按 `q` 值选语言」？下面是笔记里的一段可运行实现——用 Node.js `http` 模块手写一个多语言协商，把 `Accept-Language` 从头解析到尾：
+
+```javascript
+const http = require('http');
+// 语言包：en / zh 各维护一套文案
+const languages = {
+  en: { title: 'hello' },
+  zh: { title: '欢迎' }
+};
+
+// 把 Accept-Language 解析成 [{ name, q }] 并按权重从大到小排序
+const str2Array = (str) => {
+  // "zh-CN,zh;q=0.9,en;q=0.8" -> 拆逗号 -> 拆分号取 q 值 -> 按 q 倒序
+  return str.split(',').map(item => {
+    const lan = item.split(';');
+    return {
+      name: lan[0].trim(),
+      q: lan[1] && +lan[1].split('=')[1] || 1   // 没写 q 默认 1（最高）
+    };
+  }).sort((a, b) => b.q - a.q); // 权重从大到小，取第一个命中语言包的类型
+};
+
+const server = http.createServer((req, res) => {
+  const langs = req.headers['accept-language'];
+  // 没有 Accept-Language，返回 404（不支持多语言协商）
+  if (!langs) return res.end('Not Found');
+  const lanArray = str2Array(langs);
+  let r = null;
+  // 按权重从高到低，在本地语言包里找第一个命中的
+  for (const lan of lanArray) {
+    if (languages[lan.name]) {
+      r = languages[lan.name];
+      break;
+    }
+  }
+  // 全部没命中，兜底用英文
+  if (!r) r = languages['en'];
+  res.setHeader('Content-Type', 'application/json;charset=utf-8');
+  res.end(JSON.stringify(r));
+});
+
+server.listen(3000, () => console.log('server start port 3000'));
+```
+
+这段代码就是把「服务器驱动协商」落地的完整骨架：**读 `Accept-Language` → 拆分 → 按 `q` 排序 → 命中语言包 → 兜底**。注意一个细节：`zh-CN,zh;q=0.9` 里的 `zh-CN` 没写 `q`，代码里 `|| 1` 把它默认成最高权重——这就是「`q` 缺省即 1」这条规则在服务端代码里的体现。
+
+用 `curl` 直接验证语言协商：
+
+```bash
+# 用不同的 Accept-Language 请求同一接口，观察返回语言变化
+curl -H "Accept-Language: zh-CN,en;q=0.9" https://drug.example.com/api/drug
+curl -H "Accept-Language: en-US,en;q=0.9"   https://drug.example.com/api/drug
+```
+
+同一个 URL、不同的 `Accept-Language`，返回不同语言的响应体——这就是「服务端按客户端语言偏好返回内容」。
+
+### 4. User-Agent 嗅探的局限与 Client Hints 的设计动机
 
 `User-Agent` 是内容协商里的一个「历史遗留问题户」。它本意是声明客户端类型，让服务端按客户端能力返回不同内容（比如给老浏览器返回降级版、给移动端返回手机版）。但 **UA 嗅探有两个根本问题**：
 
@@ -391,7 +338,7 @@ Sec-CH-UA-Platform: "Windows"
 >
 > 🎁 加分答案：能点出「隐私分级」这个设计亮点——Client Hints 默认只上报低熵信息（品牌、平台等粗粒度），高熵信息（具体设备型号等精确定位信息）需显式申请，这缓解了「完整 UA 字符串可作为设备指纹跨站追踪用户」的隐私争议。再加一句：这是「默认最小化披露」的隐私设计原则在协议层的体现——从「客户端主动报一大堆」变成「服务端按需索取、客户端按需给」。
 
-### 4. 查漏补缺：`Vary` 响应头——让缓存知道「我按谁协商的」
+### 5. 查漏补缺：`Vary` 响应头——让缓存知道「我按谁协商的」
 
 内容协商有一个容易被忽略的坑，和一个解决它的响应头——**`Vary`**。
 
@@ -407,11 +354,13 @@ Vary: Accept-Language
 
 **一句话记住**：`Vary` 是内容协商和缓存正确配合的「黏合剂」——没有它，按请求头做的协商就可能在缓存层翻车。这也是本篇和第 08 篇《缓存体系》的交汇点。
 
-**第二组：状态码语义——响应如何精确传达结果**
+---
+
+## 二、状态码语义：响应如何精确传达结果
 
 状态码是服务端「用三个数字精确传达结果」的语言。理解状态码，关键是理解**每一类状态码的「段位语义」**——先分清大段，再记具体码。
 
-### 5. 状态码总览：五个段位速记
+### 1. 状态码总览：五个段位速记
 
 状态码由三位数字组成，**第一位数字定义了大类**。先看这张分类图：
 
@@ -427,7 +376,7 @@ Vary: Accept-Language
 
 记忆技巧：**2xx 成了、3xx 换地方、4xx 你的错、5xx 我的错**。其中 3xx 和 4xx 是面试重灾区，下面重点拆。
 
-### 6. 重定向四兄弟：301 / 302 / 307 / 308（重点）
+### 2. 重定向四兄弟：301 / 302 / 307 / 308（重点）
 
 重定向状态码，最核心的就是这「四兄弟」。它们分成两组，每组一个「永久」一个「临时」：
 
@@ -442,6 +391,18 @@ Vary: Accept-Language
 
 - **301 / 302 是「宽松版」**：它们在规范上允许（甚至浏览器历史上默认会）在重定向时把 POST 改成 GET，导致**请求体丢失**。这是历史遗留的不严谨行为——早期浏览器就是这么实现的，规范为了兼容只能「允许」
 - **307 / 308 是「严格版」**：明确要求**必须保持原始请求方法和请求体不变**。307 是 302 的严格版（临时），308 是 301 的严格版（永久）
+
+用 `curl` 分别测一个「POST 请求遇到重定向」的场景，观察方法是否被改写：
+
+```bash
+# 发一个 POST 请求，遇到 301/302 时，curl 会把 POST 改成 GET
+curl -X POST https://drug.example.com/submit -L -v
+
+# 遇到 307/308 时，curl 保持 POST 方法不变
+curl -X POST https://drug.example.com/submit -L -v
+```
+
+`-L` 让 curl 自动跟随重定向。关键观察点：**301/302 重定向时，POST 会被改成 GET（请求体丢失）；307/308 重定向时，POST 保持 POST（请求体保留）**。
 
 **这直接回答了一个经典面试题：「提交表单时的重定向该用 307 还是 302？」**
 
@@ -465,7 +426,7 @@ Vary: Accept-Language
 >
 > 🎁 加分答案：能把四兄弟和 303 一起讲清——301/308 是「永久」对（301 宽松、308 严格），302/307 是「临时」对（302 宽松、307 严格）；303 则**明确要求改成 GET**，用于「POST 后跳转到查看结果的 GET 页面」这个语义。再加一句：301 因为会被浏览器/搜索引擎长期缓存，改错 URL 后很难回滚，所以「永久跳转」要慎用、甚至很多场景更推荐 308。
 
-### 7. 304 与协商缓存的关系（+ 206 部分内容）
+### 3. 304 与协商缓存的关系（+ 206 部分内容）
 
 **304 Not Modified** 是最容易被误解的状态码之一。很多人以为它是「一个独立的缓存机制」，其实**它不是**——304 是**协商缓存校验后的结果状态码**，本身不「产生」缓存，只是「确认缓存还能用」。
 
@@ -507,7 +468,7 @@ Range: bytes=-3000, 5000-7000
 >
 > 🎁 加分答案：能区分「304 是协商缓存的结果、不是缓存机制本身」——强缓存靠「不发请求」省时间，协商缓存靠「304 空响应」省带宽，两者配合：强缓存负责「能不发就不发」，协商缓存负责「强缓存过期后的校验」。再加一句：304 响应一定**不带响应体**（因为内容没变，客户端本来就有），这就是它和普通 200 响应最直观的区别。
 
-### 8. 401 vs 403（重点）
+### 4. 401 vs 403（重点）
 
 401 和 403 是 4xx 里最容易混淆的一对，它们的语义差别，用一句话就能说清：
 
@@ -521,13 +482,38 @@ Range: bytes=-3000, 5000-7000
 
 如果反过来用——把「没登录」和「没权限」都返回 403，前端就分不清「该引导用户去登录」还是「该提示用户无权限」，用户体验和安全性都会出问题。
 
+用 `curl` 观察 401 与 403 的响应头差异：
+
+```bash
+# 未认证请求：观察 401 + WWW-Authenticate
+curl -i https://drug.example.com/api/private
+
+# 已认证但越权：观察 403（无 WWW-Authenticate）
+curl -i -H "Authorization: Bearer <valid-token>" https://drug.example.com/api/private
+```
+
+**一次登录失效（token 过期）**，服务端返回 401，并且**一定**会带 `WWW-Authenticate` 响应头：
+
+```text
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer realm="api"
+```
+
+**一次越权访问（已登录，但访问了不属于自己科室的患者数据）**，服务端返回 403：
+
+```text
+HTTP/1.1 403 Forbidden
+```
+
+看到区别了吗？**401 会带 `WWW-Authenticate`，403 不带**。这个 `WWW-Authenticate` 头就是「请你去认证」的提示——它告诉客户端「我是因为你不认识我才拒绝的，请带着凭证再来」。而 403 是「我认识你，但这事你不能干」，所以没有认证提示。这一处响应头的差异，正是 401 vs 403 语义差别的协议层体现。
+
 > 💬 **面试官**：401 和 403 分别表示什么语义？
 >
 > ✅ 标准答案：401 Unauthorized 表示「未认证」——没有有效身份凭证或凭证已过期/无效，语义是「我不知道你是谁」，通常配合 `WWW-Authenticate` 响应头提示客户端去认证；403 Forbidden 表示「已认证但无权限」——服务端认识客户端身份，但拒绝其访问该资源，语义是「我知道你是谁，但你不能干这个」。
 >
 > 🎁 加分答案：能落到接口设计规范——「登录失效返回 401（引导前端跳登录），越权访问返回 403（提示无权限）」是权限分级系统的基本规范，混用会让前端无法区分处理。再加一个细节：401 响应必须带 `WWW-Authenticate` 头（这是规范要求，`WWW-Authenticate` 告诉客户端「该怎么认证」，如 `Bearer` 还是 `Basic`），而 403 不需要这个头——这一处响应头差异，是协议层区分两者的标志。
 
-### 9. 排障常用 4xx / 5xx 一句话速记
+### 5. 排障常用 4xx / 5xx 一句话速记
 
 除了上面重点讲的 3xx 和 401/403，还有一批排障高频的 4xx/5xx，一句话记住：
 
@@ -545,7 +531,7 @@ Range: bytes=-3000, 5000-7000
 
 其中 **405 Method Not Allowed** 和第三组「方法契约」强相关——它表示「这个资源不支持你用这个方法来访问」，服务端应该通过 `Allow` 响应头告诉客户端「我支持哪些方法」。这正是「方法」作为 HTTP 语义一部分的体现，下面进入第三组。
 
-### 10. 完整状态码速查表
+### 6. 完整状态码速查表
 
 上面讲了重点，这里补一份更完整的速查表（来自笔记的状态码列表，覆盖 1xx~5xx 的常用项）：
 
@@ -597,11 +583,13 @@ Range: bytes=-3000, 5000-7000
 
 > 📌 状态码不需要死记全部，掌握「**段位语义（第一位数字）+ 重点码（301/302/303/304/307/308、401/403、502/504）+ 排障高频码**」就够用了。其余冷门码，遇到再查 RFC 9110 第 15 章。
 
-**第三组：方法契约——请求方法承载的语义承诺**
+---
+
+## 三、方法契约：请求方法承载的语义承诺
 
 这是本篇的「收口」，也是和 RESTful 设计（第 09 篇）直接挂钩的部分。请求方法不只是「一个动词」，它承载着**语义契约**——安全性和幂等性就是这套契约的两个核心属性。
 
-### 11. 请求方法的安全性与幂等性
+### 1. 请求方法的安全性与幂等性
 
 **安全性（Safe）**和**幂等性（Idempotent）**是两个最容易混淆的概念，先给定义：
 
@@ -627,7 +615,17 @@ Range: bytes=-3000, 5000-7000
 - **幂等接口适合安全重试**：网络超时、抖动时，客户端可以放心重试 PUT/DELETE/GET，因为重试不会造成副作用累积
 - **非幂等接口（POST）重试有风险**：超时重试可能重复创建资源，所以要么加 `Idempotency-Key` 防重、要么服务端做去重
 
-回到开头的医疗场景：**重复提交处方导致重复开单**，本质就是「POST 非幂等 + 无防重保护」的工程事故。理解了幂等性，才知道为什么「处方提交」这种非幂等操作，必须在协议之外额外加防重。
+回到开头的医疗场景：假设你在设计医院 HIS 系统的「处方提交」接口，评审会上有两个方案争论不休：
+
+- 方案 A：`POST /prescriptions`——每次提交都新建一条处方记录
+- 方案 B：`PUT /prescriptions/:id`——按处方 ID 完整更新（覆盖）这条处方
+
+这两个方案差在哪？本质就是**幂等性**：
+
+- **`POST` 非幂等**：用户网络卡顿、重复点「提交」，每次都新建一条处方，可能造成**重复开单**——这是医疗场景里绝对不能发生的严重事故
+- **`PUT` 幂等**：按固定 ID 完整覆盖，同一条处方提交 10 次，结果还是那一条，重复提交天然无害
+
+所以「处方提交」这种**创建新资源**的动作，用 `POST` 表达语义是对的，但必须在**幂等性层面**额外加一道防线（比如客户端生成 `Idempotency-Key` 防重、服务端按处方号去重）——因为「语义上非幂等」不等于「工程上允许重复副作用」。理解了方法的幂等性，才能在设计接口时，主动补齐「非幂等方法」的防重保护。
 
 > 💬 **面试官**：什么是请求方法的安全性和幂等性？POST/GET/PUT/DELETE 分别属于哪一类？
 >
@@ -635,7 +633,7 @@ Range: bytes=-3000, 5000-7000
 >
 > 🎁 加分答案：能落到工程价值——**幂等接口更适合安全重试**：网络超时重试 PUT/DELETE 无风险，而重试 POST 可能重复创建资源（如重复开单），所以非幂等接口要么加 `Idempotency-Key`、要么服务端去重。再加一句：这是「接口要不要做防重」的设计依据——幂等的天然可重试，非幂等的必须额外保护。
 
-### 12. PUT vs PATCH（重点，REST 设计高频题）
+### 2. PUT vs PATCH（重点，REST 设计高频题）
 
 PUT 和 PATCH 的区别，是 REST 接口设计里「最容易含糊、又最常被追问」的场景。核心一句话：
 
@@ -674,7 +672,7 @@ PATCH /users/123
 >
 > 🎁 加分答案：能点出「幂等性差异的根源是语义」——PUT 是「覆盖」语义（目标状态明确，天然幂等），PATCH 是「变更」语义（可能包含增量操作，非幂等）。再加一个边界案例：如果 PATCH 的指令都是「设置某字段为某值」（而不是增量），那它实际上也能幂等——所以准确说法是 PATCH「**不保证**幂等」，而非「一定不幂等」。以及一个工程细节：PUT 要求完整表示，缺字段可能被覆盖成空，所以 PUT 有「误删字段」的风险，这也是很多人选 PATCH 的原因。
 
-### 13. 查漏补缺：冷门方法的语义归属
+### 3. 查漏补缺：冷门方法的语义归属
 
 除了 GET/POST/PUT/PATCH/DELETE 这些高频方法，还有几个冷门但会被追问的方法，补全它们的语义归属：
 
@@ -687,96 +685,13 @@ PATCH /users/123
 
 ---
 
-## 三、工程落地参考
-
-原理讲完，落到「工程落地」时看哪些权威资料。HTTP 语义的权威来源高度集中——就是 **RFC 9110**（HTTP Semantics），它是 RFC 7230~7235 的整合升级版，把 HTTP 语义（方法、状态码、首部、内容协商）统一到了一篇规范里：
-
-### 1. 内容协商机制（RFC 9110 第 12 章）
-
-第 12 章定义了内容协商的完整规则，核心是 `Accept` / `Accept-Encoding` / `Accept-Language` 的**权重（`q` 参数）匹配算法**：
-
-- `q` 值范围 0~1，默认 1，越大优先级越高
-- 客户端在 `Accept` 头里按优先级排列媒体类型，服务端从「客户端可接受」和「自己能提供」的**交集**里，选优先级最高的一个
-- 若没有交集，返回 **406 Not Acceptable**
-- 服务端若按请求头做了协商，应通过 `Vary` 响应头告知缓存
-
-### 2. 状态码语义（RFC 9110 第 15 章）
-
-第 15 章逐一定义了每个状态码的规范语义，特别是 3xx/4xx 的「精确边界」：
-
-- 301/302/307/308 对「方法改写」的不同要求
-- 304 的「协商缓存结果」定位
-- 401（含 `WWW-Authenticate`）与 403 的语义区分
-
-### 3. 方法安全性与幂等性（RFC 9110 第 9 章）
-
-第 9 章给出了每个方法的 **Safe / Idempotent 属性表**，这是「方法契约」的权威定义：
-
-- GET / HEAD / OPTIONS / TRACE 被定义为 Safe（其中 TRACE 虽安全但有安全风险）
-- PUT / DELETE 定义为 Idempotent
-- POST 既非 Safe 也非 Idempotent
-- 并明确指出：客户端**不能假设**服务端一定严格遵循这些属性（幂等性需要服务端自己保证）
-
-> 引用规范：正文不出现具体人名/账号名，权威来源见文末参考资料。对应本节——内容协商（RFC 9110 第 12 章）、状态码语义（RFC 9110 第 15 章）、方法属性（RFC 9110 第 9 章），搜索关键词见文末。
-
----
-
-## 四、实践演示与验证
-
-原理讲透了，最后动手「把 HTTP 语义看进眼里」。用一组 `curl` 命令，把内容协商、状态码、方法语义逐个验证。
-
-### 1. `curl --compressed` 验证压缩协商
-
-```bash
-# 观察请求头自动带 Accept-Encoding，对比响应头 Content-Encoding 实际选中
-curl --compressed -v https://drug.example.com/ -o /dev/null 2>&1 | grep -iE 'accept-encoding|content-encoding'
-```
-
-重点看两处：请求头里的 `Accept-Encoding: gzip, deflate, br`（客户端声明），和响应头里的 `Content-Encoding: br`（服务端实际选中）。这一「声明 → 选择」的往返，就是内容协商的完整闭环。
-
-### 2. `curl -H "Accept-Language: ..."` 验证语言协商
-
-```bash
-# 用不同的 Accept-Language 请求同一接口，观察返回语言变化
-curl -H "Accept-Language: zh-CN,en;q=0.9" https://drug.example.com/api/drug
-curl -H "Accept-Language: en-US,en;q=0.9"   https://drug.example.com/api/drug
-```
-
-同一个 URL、不同的 `Accept-Language`，返回不同语言的响应体——这就是「服务端按客户端语言偏好返回内容」。同时留意响应头 `Content-Language` 和 `Vary`，它们会告诉你「服务端按什么协商的」。
-
-### 3. `curl -I` / `-L` 验证重定向对方法的处理
-
-```bash
-# -I 只取响应头，看重定向状态码和 Location
-curl -I https://drug.example.com/old-page
-
-# -L 跟随重定向，-X POST 发 POST，观察方法是否被改（301/302 会改，307/308 不会）
-curl -X POST -L -v https://drug.example.com/submit 2>&1 | grep -iE '^> (POST|GET)'
-```
-
-关键观察：遇到 301/302 时，第二跳的请求方法从 `POST` 变成了 `GET`；遇到 307/308 时，第二跳仍然是 `POST`。这一差异，就是「表单重定向该用 307 还是 302」的直接证据。
-
-### 4. `curl -i` 验证 401 与 403 的响应头差异
-
-```bash
-# 未认证请求：观察 401 + WWW-Authenticate
-curl -i https://drug.example.com/api/private
-
-# 已认证但越权：观察 403（无 WWW-Authenticate）
-curl -i -H "Authorization: Bearer <valid-token>" https://drug.example.com/api/private
-```
-
-重点看 `WWW-Authenticate` 字段的**有无**：401 有（提示你该怎么认证），403 无（不是认证问题，是权限问题）。这一处字段差异，是 401 vs 403 语义差别的协议层证据。
-
-> 📌 补充一句：`curl` 处理压缩流的过程，本质是 **Stream / Transform 的一个具体应用**——服务端压缩是「可写流 → Transform（压缩）→ 响应流」，客户端解压是「响应流 → Transform（解压）→ 消费流」。协议层怎么协商（本篇已讲透）与 Node.js 侧怎么实现（第二节第 2 小节的 `zlib` 示例）是两件事；`zlib` 的压缩/解压流对象，正是「可读可写流」这一 Stream 抽象的具体实例，其底层原理（背压、pipe、Transform）见 Node.js 系列 04 篇，本篇不展开。
-
----
-
-## 五、参考资料
+## 参考资料
 
 - https://www.rfc-editor.org/rfc/rfc9110 （HTTP Semantics：内容协商 / 状态码 / 方法属性）
 - https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Content_negotiation （内容协商）
 - https://www.npmjs.com/package/user-agent-parse （UA 解析工具 user-agent-parse）
+
+> 权威来源索引：HTTP 语义的权威来源高度集中——就是 **RFC 9110**（HTTP Semantics），它是 RFC 7230~7235 的整合升级版。内容协商（`q` 参数匹配算法、无交集返回 406、`Vary` 告知缓存）在第 12 章；状态码语义（3xx/4xx 精确边界、401 含 `WWW-Authenticate` 与 403 的区分）在第 15 章；方法安全性与幂等性（Safe/Idempotent 属性表）在第 9 章，并明确指出「客户端不能假设服务端一定严格遵循这些属性」。
 
 > 推荐搜索关键词：「HTTP 内容协商 q 参数」「gzip Brotli 区别」「HTTP 301 302 307 308 区别」「304 协商缓存」「401 403 区别」「HTTP 方法 幂等性 安全性」「PUT PATCH 区别」「User-Agent Client Hints」。
 

@@ -26,93 +26,11 @@
 
 ---
 
-## 一、使用与实践
-
-先动手，把「协议版本」这件事变成能看见的东西。这一节教你用工具观察一个请求到底跑在 HTTP/1.1、HTTP/2 还是 HTTP/3 上。
-
-### 用 DevTools 的 Protocol 列看协议版本
-
-Chrome DevTools 的 Network 面板，默认是不显示「协议版本」这一列的。右键表头，勾选 **Protocol**，就能看到每个请求实际命中的协议：
-
-- `h2`（或 `http/2`）：这个请求跑在 HTTP/2 上
-- `h3`（或 `http/3`）：跑在 HTTP/3 上
-- `http/1.1`：跑在 HTTP/1.1 上
-
-一个页面上不同资源，**协议版本可能不一样**——同一个域名下，主文档走 `h2`、某些资源走 `h3`，甚至混合出现。这是因为 HTTP/2 和 HTTP/3 的协商是独立的，浏览器可能对不同资源分别建立了不同协议的连接。
-
-### 用 curl 强制指定协议版本
-
-`curl` 是验证协议差异最直接的工具，三个参数强制指定版本：
-
-```bash
-# 强制用 HTTP/1.1
-curl --http1.1 -I https://www.example.com
-
-# 强制用 HTTP/2
-curl --http2 -I https://www.example.com
-
-# 强制用 HTTP/3（需要 curl 编译时带 HTTP/3 支持，较新版本才支持）
-curl --http3 -I https://www.example.com
-```
-
-`-I` 只取响应头，重点观察 `-v`（verbose）输出里的握手信息，能看到实际协商出了哪个版本。
-
-### Node.js 里 http 与 http2 模块的用法差异
-
-Node.js 里，HTTP/1.1 用 `http` 模块，HTTP/2 用 `http2` 模块——两者 API 几乎一一对应，但底层模型完全不同（这是后文「一个连接多个流」的具体体现）：
-
-```javascript
-// HTTP/1.1：一个请求对应一个 request/response 对象
-const http = require('http');
-const server = http.createServer((req, res) => {
-  res.end('hello http/1.1');
-});
-server.listen(3000);
-
-// HTTP/2：一个连接（Http2Session）上有多个流（Http2Stream）
-const http2 = require('http2');
-const server2 = http2.createServer();
-server2.on('stream', (stream, headers) => {
-  stream.respond({ ':status': 200 });
-  stream.end('hello http/2');
-});
-server2.listen(3001);
-```
-
-注意差别：HTTP/1.1 的 `createServer` 回调参数是 `req`/`res`（一个请求一个响应），HTTP/2 的回调是 `stream`（一个逻辑流，同一个连接上可以同时有多个 stream）。这个「一个连接多个流」的模型，就是 HTTP/2 多路复用的核心。
-
-### Nginx/CDN 开启 HTTP/2、HTTP/3
-
-Nginx 开启 HTTP/2 只需在 `listen` 指令里加 `http2`：
-
-```nginx
-# 开启 HTTP/2（TLS 必须开启，因为 HTTP/2 在浏览器里只走 HTTPS）
-listen 443 ssl http2;
-
-# 开启 HTTP/3（需要 Nginx 1.25+ 且编译了 http_v3_module，走 UDP 443）
-listen 443 quic reuseport;
-listen 443 ssl;
-```
-
-注意：**浏览器里的 HTTP/2 只通过 HTTPS 协商**（通过 TLS 的 ALPN 扩展），所以 `listen 443 ssl http2;` 里 `ssl` 和 `http2` 必须同时出现。HTTP/3 则监听 UDP 443 端口（QUIC 跑在 UDP 上），这是它和 HTTP/1.1、HTTP/2（都跑在 TCP 443）最根本的差别。
-
-### 🔧 医疗场景：HIS 系统三个接口的瀑布图差异
-
-假设医院 HIS 系统的一个患者详情页，加载时要同时请求三个接口：**患者信息**、**处方列表**、**检验报告**。在 HTTP/1.1 下，浏览器会为这个域名建立最多 6 个并发连接，三个接口可能抢占不同的连接；在 HTTP/2 下，三个接口共享**同一个连接**、**并行传输**，瀑布图里的「排队等待」会明显变少，首屏更早渲染出来。
-
-> 这里的关键区别，就是本文要讲透的主线——HTTP/1.1 靠「多开连接」绕过队头阻塞，HTTP/2 靠「多路复用」从根上解决它。下面进入原理。
-
----
-
-## 二、设计与原理
-
-这是全篇的核心。按「队头阻塞的层层演进」这条主线，从 HTTP/1.1 一路讲到 HTTP/3+QUIC，每一代都回答三个问题：**它解决了上一代的什么、怎么解决的、又遗留了什么**。
-
-### 1. HTTP/1.1 的队头阻塞是怎么产生的
+## 一、HTTP/1.1 的队头阻塞是怎么产生的
 
 要理解队头阻塞，得先回到 HTTP/1.0 时代，看它为什么一步步演化出「长连接 → 管线化」这些机制，最后又卡在了队头阻塞上。
 
-**HTTP/1.0 的原始模型：一个资源 = 一个 TCP 连接。**
+### 1. HTTP/1.0 的原始模型：一个资源 = 一个 TCP 连接
 
 最早期的 HTTP/1.0 时代，一个资源 == 一个 TCP 连接 == 一个 HTTP 连接。每次 HTTP 请求结束后都会断开 TCP 连接，新的 HTTP 请求要另外新建一个 TCP 连接，而且只有当一个完整请求结束（TCP closed）才会开始下一个请求：
 
@@ -129,7 +47,7 @@ listen 443 ssl;
 
 这里插一句 TCP 慢启动，它是理解「为什么反复建连接很亏」的关键：TCP 连接会随着时间自我调整，起初会限制连接的最大速度，如果数据传输成功，会随着时间推移提高传输速度。简单说，TCP 主要解决两个问题——**稳定传输**（ACK 确认机制）和**包乱序**（Sequence Number 序号），同时还有两套控制机制——**拥塞控制**（避免高速发送端瘫痪网络）和**流量控制**（避免高速发送端瘫痪低速接收端）。慢启动是拥塞控制的一个基本算法：先设置小一点的窗口、发少一点的数据，收到 ACK 后慢慢加大窗口，通过丢包率、RTT 等判断网络环境，最终设定一个合适的窗口大小。**也就是说，一条「成熟」的 TCP 连接比一条「刚建立」的连接快得多**，反复建连等于反复从慢启动的低速开始爬坡。
 
-**长连接（keep-alive）：复用同一个 TCP 连接。**
+### 2. 长连接（keep-alive）：复用同一个 TCP 连接
 
 为了解决「TCP 连接利用率低」的问题，HTTP 提出了长连接（HTTP/1.0 可开启，HTTP/1.1 默认开启）：一个请求完成后不立刻断开连接，而是在一定时间内保持，以便快速处理即将到来的 HTTP 请求，复用同一个 TCP 通道，直到客户端心跳检测失败或服务器连接超时。
 
@@ -148,13 +66,15 @@ HTTP 协议的初始版本里，每进行一次 HTTP 通信就要断开一次 TC
 
 **在 HTTP/1.1 中，所有连接默认都是持久连接**，但 HTTP/1.0 内并未标准化。
 
-**管线化（Pipelining）：不用等响应就能发下一个请求。**
+### 3. 管线化（Pipelining）：不用等响应就能发下一个请求
 
 长连接解决了「反复建连」的问题，但还有一个问题：长连接上，客户端必须**等收到响应后才能发下一个请求**。管线化技术出现后，不用等待响应即可直接发送下一个请求，做到同时并行发送多个请求：
 
 ![管线化：不用等待就能直接发送下一个请求](https://cdn.nlark.com/yuque/0/2021/png/738210/1637120632932-70e302f3-bfce-4a4e-a2de-744bc5589d78.png)
 
 **但管线化并没有真正解决队头阻塞。** 因为虽然请求可以连续发出，**响应还是必须严格按照发送请求的顺序返回**——客户端还是要按照发送请求的顺序接收响应。这意味着：如果第一个请求很耗时（比如查一个大报表），即使第二个、第三个请求早就处理好了，它们的响应也必须排队等第一个响应发完才能发出去。这功能因为「响应按顺序接收还是会有阻塞」，被浏览器默认关闭（或者压根没有）。
+
+### 4. 队头阻塞的本质与「为什么限制 6 连接」
 
 **队头阻塞的本质，一句话说清**：即使开启了持久连接和管线化，同一个 TCP 连接上的请求必须**严格按顺序返回响应**——前一个请求没处理完，后续请求即使已经处理好也要排队。这就是 **Head of Line Blocking（队头阻塞，也叫线头阻塞）**，简称 HOL。
 
@@ -170,9 +90,13 @@ HTTP 协议的初始版本里，每进行一次 HTTP 通信就要断开一次 TC
 >
 > 🎁 加分答案：能点出「管线化为什么没被浏览器采用」——管线化只是让请求可以连续发出，**响应还是必须按序返回**，所以队头阻塞依旧存在，浏览器干脆默认关闭了它。再加一句：多开连接的代价是「每次建连的握手延迟 + TCP 慢启动」，这解释了为什么连接复用（keep-alive）本身有价值、但「6 连接」这个上限是性能与资源之间的折中。
 
-### 2. HTTP/2 的核心改进：二进制分帧 + 多路复用
+---
+
+## 二、HTTP/2：二进制分帧 + 多路复用
 
 HTTP/2 解决队头阻塞的思路，不是「多开连接」，而是**在单个连接内部，让多个请求真正并行**。它靠两个核心设计：**二进制分帧**（把数据拆成带标识的帧）和**多路复用**（帧在同一个连接上交错传输）。
+
+### 1. 先建立一个抽象模型
 
 **先建立一个抽象模型**（下面这段话很重要，是理解后续所有内容的地基）：
 
@@ -185,7 +109,9 @@ HTTP/2 解决队头阻塞的思路，不是「多开连接」，而是**在单�
 - **Message（消息，即请求/响应）**：是一组帧，通过逻辑流传输，重建这些帧会得到一个完整的请求或响应
 - **Frame（帧）**：通信的基本单位
 
-**帧的结构**：HTTP/2 把每个请求/响应都拆成多个帧，每个帧的帧头固定 9 字节，携带了「这个帧属于哪个流」的标识：
+### 2. 帧的结构
+
+HTTP/2 把每个请求/响应都拆成多个帧，每个帧的帧头固定 9 字节，携带了「这个帧属于哪个流」的标识：
 
 ![HTTP/2 帧结构](https://cdn.nlark.com/yuque/0/2025/png/738210/1742731205273-9c5c2449-dad6-42f3-ae16-907ef04df512.png)
 
@@ -203,6 +129,8 @@ HTTP/2 解决队头阻塞的思路，不是「多开连接」，而是**在单�
 - `PADDED`：存在填充数据
 - `END_HEADERS`：header 的结尾
 - `PRIORITY`：优先级被设定
+
+### 3. 二进制分帧
 
 **二进制分帧**：HTTP/2 保留了原始 HTTP 协议的**语义**（方法、状态码、header 这些概念都在），但改变了在系统之间**传输数据的方式**——把一个文本请求/响应，拆成一个或多个二进制帧。
 
@@ -230,7 +158,9 @@ HTTP/2 允许保留原来的文本格式，但会经过一个「二进制分帧�
 
 ![二进制协议分层](https://cdn.nlark.com/yuque/0/2025/png/738210/1742731205992-7487c85f-a169-4bcc-97a8-ea75b662e72f.png)
 
-**多路复用（Multiplexing）**：有了「帧」这个最小单位，就能让不同流的帧在**同一个 TCP 连接上交错传输**。旧的 HTTP 协议的队头阻塞，之前的解决方案是同时开多个 TCP 连接（Chrome 有 6 个），但多个 TCP 连接很耗费网络资源——实际上「单连接」就够了，方式就是把消息分成更小的单位（帧），实现请求和响应消息的复用。
+### 4. 多路复用（Multiplexing）
+
+**多路复用**：有了「帧」这个最小单位，就能让不同流的帧在**同一个 TCP 连接上交错传输**。旧的 HTTP 协议的队头阻塞，之前的解决方案是同时开多个 TCP 连接（Chrome 有 6 个），但多个 TCP 连接很耗费网络资源——实际上「单连接」就够了，方式就是把消息分成更小的单位（帧），实现请求和响应消息的复用。
 
 比如下图有三个逻辑流：一个请求（深蓝）、两个响应（浅蓝、绿），每一块代表一个帧：
 
@@ -247,6 +177,8 @@ HTTP/2 允许保留原来的文本格式，但会经过一个「二进制分帧�
 - 减少了建立连接带来的延迟
 - 不再需要像 HTTP/1.1 那样把多个请求合成一个
 - 每个服务器（域）只用一个连接，而不是每个文件一个连接
+
+### 5. 头部压缩（HPACK）
 
 **头部压缩（HPACK）**：多路复用解决了「传输并行」的问题，但还有一个开销问题——HTTP/1.1 每次请求都要重复发送大量相同的 header（`User-Agent`、`Cookie`、`Accept` 等），浪费带宽。HPACK 的原理是**缓存**——与其叫头部压缩，不如叫头部缓存：要求客户端和服务器各自维护一个 HEADER 字段的列表，多次发送时**只发送差异的部分，其余从缓存表里取**。
 
@@ -270,13 +202,15 @@ const receivedHeaders = {
 
 ![HPACK 头部压缩：第二次请求只发差异部分](https://cdn.nlark.com/yuque/0/2025/png/738210/1742731207282-58fd81e3-adaf-4f3b-9987-8cdf52d1a827.png)
 
+### 6. 三个补充特性
+
 **三个补充特性**（完整覆盖 HTTP/2，面试时能主动提出来是加分项）：
 
 **① 服务器推送（Server Push）**：允许服务器预测客户端需要，在请求处理完成之前先发一个 `PUSH_PROMISE` 帧，然后推送资源。为防止发送不必要资源，服务器会给每个要推送的资源发一个 `PUSH_PROMISE` 帧，如果资源已有缓存，浏览器可以 respond 一个 `RST_STREAM` 帧拒绝推送：
 
 ![服务器推送](https://cdn.nlark.com/yuque/0/2025/png/738210/1742731206554-ad83c6f3-a021-4c35-ab28-b245f0599f2f.png)
 
-（服务器推送这个特性，理论上有用，但实际还需要 tune，且因为缓存判断难，Chrome 已经逐步移除对它的支持——面试时可以点一句「Server Push 已式微」）。
+（服务器推送这个特性，理论上有用，但实际还需要 tune，且因为缓存判断难，Chrome 已经逐步移除对它的支持——面试时可以点一句「Server Push 已式微」。）
 
 **② 流控制（Flow Control）**：防止 receiver 被 sender 淹没，允许 receiver 停止/减少发送的数据。比如视频流媒体服务，用户点击暂停，client 会通知 server 停止发送视频数据。连接一旦 open，server 和 client 便交换 `SETTINGS` 帧，构建 flow-control window 的大小（默认 65KB，可通过 `WINDOW_UPDATE` 帧改变）。
 
@@ -286,7 +220,66 @@ const receivedHeaders = {
 
 上图：A 先发送，B/C 同时发送分别拿到 40%/60% 的资源，D/E 则拿到 C 的各一半资源。优先级仅仅是参考（only a suggestion），服务器应根据自己的能力决定如何处理。
 
-**对比 Node.js 实现**：Node.js 的 `http2` 核心模块提供了 `Http2Session`/`Http2Stream` 抽象，正对应「一个连接多个流」的模型——`Http2Session` 代表一条 TCP 连接，`Http2Stream` 代表这条连接上的一个逻辑流。这个抽象就是多路复用在实现层的直接体现。
+### 7. 工具验证 + Node.js 对比
+
+**用 curl / DevTools / nghttp 观察**。Chrome DevTools 的 Network 面板，默认是不显示「协议版本」这一列的。右键表头，勾选 **Protocol**，就能看到每个请求实际命中的协议：`h2` 跑 HTTP/2、`h3` 跑 HTTP/3、`http/1.1` 跑 HTTP/1.1。一个页面上不同资源，**协议版本可能不一样**——协议协商是逐连接、逐域名独立的。
+
+`curl` 是验证协议差异最直接的工具，三个参数强制指定版本：
+
+```bash
+# 强制用 HTTP/1.1
+curl --http1.1 -I https://www.example.com
+
+# 强制用 HTTP/2
+curl --http2 -I https://www.example.com
+
+# 强制用 HTTP/3（需要 curl 编译时带 HTTP/3 支持，较新版本才支持）
+curl --http3 -I https://www.example.com
+```
+
+`-I` 只取响应头，重点观察 `-v`（verbose）输出里的握手信息，能看到实际协商出了哪个版本。用 `nghttp` 观察 HPACK 头部压缩效果：
+
+```bash
+# nghttp 是 HTTP/2 的调试客户端，能显示每帧的详情
+nghttp -nv https://www.example.com
+```
+
+重点看 HPACK 的效果：`nghttp` 会显示每个 `HEADERS` 帧压缩前后的大小。连续发多个请求，观察第二个请求的 header 帧明显比第一个小（因为大量 header 字段被索引、只发了差异）。
+
+**Node.js 里 http 与 http2 模块的用法差异**：Node.js 里，HTTP/1.1 用 `http` 模块，HTTP/2 用 `http2` 模块——两者 API 几乎一一对应，但底层模型完全不同：
+
+```javascript
+// HTTP/1.1：一个请求对应一个 request/response 对象
+const http = require('http');
+const server = http.createServer((req, res) => {
+  res.end('hello http/1.1');
+});
+server.listen(3000);
+
+// HTTP/2：一个连接（Http2Session）上有多个流（Http2Stream）
+const http2 = require('http2');
+const server2 = http2.createServer();
+server2.on('stream', (stream, headers) => {
+  stream.respond({ ':status': 200 });
+  stream.end('hello http/2');
+});
+server2.listen(3001);
+```
+
+注意差别：HTTP/1.1 的 `createServer` 回调参数是 `req`/`res`（一个请求一个响应），HTTP/2 的回调是 `stream`（一个逻辑流，同一个连接上可以同时有多个 stream）。这个「一个连接多个流」的模型，就是 HTTP/2 多路复用的核心——`Http2Session` 代表一条 TCP 连接，`Http2Stream` 代表这条连接上的一个逻辑流。
+
+**Nginx 开启 HTTP/2、HTTP/3**：
+
+```nginx
+# 开启 HTTP/2（TLS 必须开启，因为 HTTP/2 在浏览器里只走 HTTPS）
+listen 443 ssl http2;
+
+# 开启 HTTP/3（需要 Nginx 1.25+ 且编译了 http_v3_module，走 UDP 443）
+listen 443 quic reuseport;
+listen 443 ssl;
+```
+
+注意：**浏览器里的 HTTP/2 只通过 HTTPS 协商**（通过 TLS 的 ALPN 扩展），所以 `listen 443 ssl http2;` 里 `ssl` 和 `http2` 必须同时出现。HTTP/3 则监听 UDP 443 端口（QUIC 跑在 UDP 上），这是它和 HTTP/1.1、HTTP/2（都跑在 TCP 443）最根本的差别。
 
 > 💬 **面试官**：HTTP/2 是怎么用多路复用解决应用层队头阻塞的？
 >
@@ -294,7 +287,9 @@ const receivedHeaders = {
 >
 > 🎁 加分答案：能说清四个概念的关系——Connection（一个物理连接）承载多个 Stream（逻辑流），每个 Stream 上传输一个 Message（由一组 Frame 构成），Frame 是通信基本单位，靠 stream ID 区分归属。再补充「二进制 vs 文本」的解析效率差异：二进制协议逐位判断 0/1，文本协议要正则/状态机解析，前者解析更快、更不易出错。如果能主动提一句「多路复用让 HTTP/1.1 时代的雪碧图、域名分片、文件合并这些优化手段失效甚至有害」，说明你理解了它的根本意义。
 
-### 3. HTTP/2 依然存在的队头阻塞（传输层队头阻塞）
+---
+
+## 三、HTTP/2 依然存在的队头阻塞（传输层队头阻塞）
 
 多路复用解决了**应用层**的队头阻塞，但 HTTP/2 还有一个**没解决**的队头阻塞——这次它藏在**传输层（TCP）**。
 
@@ -311,19 +306,34 @@ const receivedHeaders = {
 
 **这解释了为什么 HTTP/2 在高丢包网络（弱网、移动网络）下，性能甚至不如 HTTP/1.1**：HTTP/1.1 有 6 个连接，一个连接丢包只影响这个连接上的请求；而 HTTP/2 只有一个连接，一个丢包影响全部。弱网丢包率高，HTTP/2 的单连接成了单点瓶颈。
 
+用 Wireshark 抓 HTTP/2 连接，能直观看到多路复用（也顺带看到「所有帧共享一条 TCP 连接」这个传输层队头阻塞的根源）：
+
+```bash
+# 抓 HTTP/2 流量（前提：用浏览器访问一个 https 站点，TLS 解密较复杂，也可用 curl --http2 访问本地 h2 服务）
+tcp.port == 443
+```
+
+重点观察：同一个 TCP 连接上，多个 `HEADERS`/`DATA` 帧按 stream ID 交错传输——帧头里的 stream ID 一会儿是 1、一会儿是 3、一会儿是 5，交错出现。对照 HTTP/1.1 的抓包，那是「一个请求一段响应」的串行结构。但注意：**所有这些帧都打包在同一条 TCP 字节流里**，这就是为什么一个 TCP 段丢包会阻塞所有 stream。
+
 > 💬 **面试官**：HTTP/2 还存在队头阻塞吗？阻塞在哪一层？
 >
 > ✅ 标准答案：还存在，但阻塞的位置从「应用层」转移到了「传输层」。HTTP/2 的多路复用解决了应用层队头阻塞（请求/响应可以并行），但它仍然跑在**单个 TCP 连接**上。TCP 是**按序可靠交付**的协议，一旦发生丢包，TCP 要求丢失的包重传后后续所有数据才能交给上层处理——所以一个 stream 丢包会阻塞同一个 TCP 连接上的所有 stream，这是传输层队头阻塞，HTTP/2 无法解决。
 >
 > 🎁 加分答案：能点出「高丢包网络下 HTTP/2 反而不如 HTTP/1.1」这个反直觉现象及其原因——HTTP/1.1 有 6 个连接，丢包只影响单个连接；HTTP/2 单连接，一个丢包拖累全部。这恰恰是 HTTP/3 要换掉 TCP 的直接动机。如果能再补一句「传输层队头阻塞的根源是 TCP 的『字节流按序交付』语义与多路复用『希望各 stream 独立』之间的根本冲突」，说明你真正理解到了本质层。
 
-### 4. HTTP/3 + QUIC：把 TCP 换成 UDP
+---
+
+## 四、HTTP/3 + QUIC：把 TCP 换成 UDP
 
 HTTP/2 的传输层队头阻塞，根源在 TCP 的「按序可靠交付」与「多路复用希望各流独立」的根本冲突。既然问题在 TCP，最彻底的办法就是——**换掉 TCP**。
 
 HTTP/3 把底层传输协议从 TCP 换成基于 UDP 的 **QUIC**。这里要澄清一个常见误解：**QUIC 不是「用 UDP 传数据、不保证可靠」**，而是**在 UDP 之上重新实现了可靠传输、拥塞控制、多路复用**——也就是说，TCP 曾经提供的那些能力（可靠、有序、拥塞控制），QUIC 在 UDP 之上重新实现了一遍，但**用更灵活的方式**。
 
+### 1. 为什么是 UDP 而不是改 TCP
+
 QUIC 为什么要选择 UDP 而不是直接改 TCP？关键在**部署现实**：TCP 协议栈深埋在操作系统内核里，改 TCP 意味着要升级所有终端和中间设备的操作系统内核，这几乎不可能快速落地；而 UDP 只是「尽力而为」的简单报文传输，在它**之上**实现 QUIC 完全在**用户态**完成，只要应用（浏览器/服务器）升级就能用，不用动内核和中间设备。**UDP 给了 QUIC 一个「快速迭代、按需自建传输能力」的地基**。
+
+### 2. 关键：按 stream 独立管理
 
 **QUIC 解决传输层队头阻塞的关键：按 stream 独立管理。**
 
@@ -333,6 +343,8 @@ QUIC 为什么要选择 UDP 而不是直接改 TCP？关键在**部署现实**�
 - **QUIC**：多路复用**按 stream 独立管理**，每个 stream 的数据在 QUIC 层是**独立编号、独立重传**的——**一个 stream 丢包只影响这一个 stream，不会阻塞其他 stream**
 
 用一句话记住区别：HTTP/2 的「并行」是应用层的并行，底层还是被 TCP 的字节流「串」成了一条；QUIC 的「并行」是**传输层原生支持的多 stream 独立**，丢包的重传边界从「整个连接」细化到了「单个 stream」。
+
+### 3. 内置 TLS 1.3
 
 **QUIC 还内置了 TLS 1.3，握手和加密协商合并进行。**
 
@@ -359,7 +371,9 @@ HTTP/3 握手（QUIC 合并传输 + 加密，更少往返）：
 >
 > 🎁 加分答案：能点出「为什么是 UDP 而不是改 TCP」的部署现实——TCP 栈在内核里，改它要升级所有终端和中间设备的内核，几乎不可行；UDP 只是简单报文传输，在其上实现 QUIC 完全在用户态，浏览器/服务器升级就能用。再补一条 QUIC 的额外优势——内置 TLS 1.3，握手和加密协商合并，减少往返延迟，0-RTT 重连时延迟更低。如果能说清「QUIC 的可靠性不是不要了，而是从 TCP 那里接管过来、按 stream 粒度重新实现」，就是满分答案。
 
-### 5. 连接迁移：QUIC 用连接 ID 标识连接
+---
+
+## 五、连接迁移：QUIC 用连接 ID 标识连接
 
 QUIC 还有一个移动端特别实用的能力——**连接迁移（Connection Migration）**。
 
@@ -388,7 +402,7 @@ QUIC 标识连接：连接 ID（与 IP/端口解耦）
 
 ---
 
-## 三、手写还原：从零实现一次 HTTP/1.1
+## 扩展章节：手写还原 HTTP/1.1，看清「文本协议」的麻烦
 
 讲完三代协议的演进，回到起点——**为什么 HTTP/1.1 的文本协议解析这么繁琐、繁琐到要手写一个逐字节状态机？** 这正是 HTTP/2 要「二进制化」的根本动机。这一节完整还原一个 HTTP/1.1 的 GET/POST/文件上传实现，让你亲眼看「文本协议」的解析到底麻烦在哪。
 
@@ -1097,7 +1111,7 @@ class XMLHttpRequest {
 +        let buffers = [Buffer.from(request)];
 +        buffers.push(Buffer.from(body));
 +        this.socket.write(Buffer.concat(buffers));
-    }
++    }
 }
 +class FormData{
 +    append(key,value){
@@ -1186,80 +1200,13 @@ server.listen(8080,() => {
 
 ---
 
-## 四、工程落地参考
-
-原理和手写都讲完了，落到「工程落地」时看哪些权威资料。本节指明「去哪看、看什么」：
-
-### 1. HTTP/2 二进制分帧格式（RFC 9113 第 4-6 章）
-
-RFC 9113 是 HTTP/2 的现行规范，第 4-6 章定义了帧的二进制格式：
-
-- **第 4 章**：帧头结构——9 字节固定头，包含 LENGTH（24 位）、TYPE（8 位）、FLAGS（8 位）、R（保留位）、STREAM IDENTIFIER（31 位）
-- **第 5 章**：`HEADERS`/`DATA`/`SETTINGS` 等各帧类型的作用与负载结构
-- **第 6 章**：帧的传输规则、stream 的生命周期
-
-### 2. QUIC 传输协议（RFC 9000）
-
-RFC 9000 定义了 QUIC 传输协议：
-
-- 连接建立（握手合并 TLS 1.3）
-- stream 多路复用（按 stream 独立管理、独立重传）
-- 连接迁移（Connection ID 与四元组解耦）
-
-### 3. Node.js `http2` 模块（`lib/internal/http2/core.js`）
-
-Node.js 源码里 `lib/internal/http2/core.js` 能看到 `Http2Session` 如何管理多个 `Http2Stream`——`Http2Session` 对应一条 TCP 连接，内部维护一个 stream 表，每个 `Http2Stream` 有一个唯一 ID，正是「一个连接多个流」模型的实现层落地。
-
-> 引用规范：正文不出现具体人名/账号名，权威来源见文末参考资料。对应本节三个规范——HTTP/2 帧格式（RFC 9113）、QUIC 协议（RFC 9000）、Node.js `http2` 模块源码，搜索关键词见文末。
-
----
-
-## 五、实践演示与验证
-
-原理讲透了，最后动手「把协议演进看进眼里」。用四个实验把前面每个抽象概念落到可观测的现象上。
-
-### 1. curl 强制指定协议版本，对比响应头与耗时
-
-```bash
-# 对同一个支持多协议的站点，分别强制三种版本
-curl --http1.1 -v -o /dev/null https://www.example.com 2>&1 | grep -E 'ALPN|TLSv1|HTTP'
-curl --http2   -v -o /dev/null https://www.example.com 2>&1 | grep -E 'ALPN|TLSv1|HTTP'
-curl --http3   -v -o /dev/null https://www.example.com 2>&1 | grep -E 'ALPN|QUIC|HTTP'
-```
-
-重点观察 TLS 握手里 **ALPN（Application-Layer Protocol Negotiation）** 协商出的协议版本：HTTP/1.1 协商 `http/1.1`，HTTP/2 协商 `h2`，HTTP/3 则走 QUIC（UDP 443）。这是「协议版本如何协商」的协议层证据。
-
-### 2. DevTools Protocol 列观察同页资源命中 h1/h2/h3
-
-打开一个真实网站，在 Network 面板勾选 Protocol 列，观察同一页面上不同资源实际命中的版本——通常会看到 `h2` 为主，部分支持 HTTP/3 的站点会出现 `h3`，而一些老域名/CDN 资源仍是 `http/1.1`。这种「混跑」现象，直观说明了协议的协商是**逐连接、逐域名独立**的。
-
-### 3. Wireshark 抓 HTTP/2 连接，看多路复用
-
-过滤表达式：
-
-```bash
-# 抓 HTTP/2 流量（前提：用浏览器访问一个 https 站点，TLS 解密较复杂，也可用 curl --http2 访问本地 h2 服务）
-tcp.port == 443
-```
-
-重点观察：同一个 TCP 连接上，多个 `HEADERS`/`DATA` 帧按 stream ID 交错传输——帧头里的 stream ID 一会儿是 1、一会儿是 3、一会儿是 5，交错出现。对照 HTTP/1.1 的抓包（本文第三节的 GET/POST 抓包），那是「一个请求一段响应」的串行结构。两者对比，「多路复用」就不再是概念，而是你亲眼看到的帧序列。
-
-### 4. nghttp 观察 HPACK 头部压缩效果
-
-```bash
-# nghttp 是 HTTP/2 的调试客户端，能显示每帧的详情
-nghttp -nv https://www.example.com
-```
-
-重点看 HPACK 的效果：`nghttp` 会显示每个 `HEADERS` 帧压缩前后的大小。连续发多个请求，观察第二个请求的 header 帧明显比第一个小（因为大量 header 字段被索引、只发了差异），直观感受「二进制分帧 + 头部压缩」相比文本协议的开销节省。
-
----
-
-## 六、参考资料
+## 参考资料
 
 - https://www.rfc-editor.org/rfc/rfc9113 （HTTP/2 二进制分帧格式）
 - https://www.rfc-editor.org/rfc/rfc9000 （QUIC 传输协议）
 - https://developer.mozilla.org/zh-CN/docs/Web/HTTP （HTTP 协议权威二级来源）
+
+> 权威来源索引：HTTP/2 的帧二进制格式在 **RFC 9113** 第 4-6 章——第 4 章帧头结构（9 字节固定头：LENGTH 24 位、TYPE 8 位、FLAGS 8 位、R 保留位、STREAM IDENTIFIER 31 位）、第 5 章各帧类型负载、第 6 章 stream 生命周期；QUIC 传输协议在 **RFC 9000**——连接建立（握手合并 TLS 1.3）、stream 多路复用（按 stream 独立管理/重传）、连接迁移（Connection ID 与四元组解耦）；Node.js `http2` 模块源码见 `lib/internal/http2/core.js`（`Http2Session` 维护 stream 表、每个 `Http2Stream` 有唯一 ID）。
 
 > 推荐搜索关键词：「HTTP/1.1 队头阻塞 原理」「HTTP/2 二进制分帧 多路复用」「HTTP/2 传输层队头阻塞 TCP」「HTTP/3 QUIC 区别」「QUIC 连接迁移 Connection ID」「HPACK 头部压缩 原理」。
 

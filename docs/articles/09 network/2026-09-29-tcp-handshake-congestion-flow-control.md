@@ -38,13 +38,11 @@
 
 ---
 
-## 一、使用与实践
-
-动手之前，先建立全局坐标系，把工具和代码跑起来。
-
-### 1. 网络分层的坐标系：OSI 七层 vs TCP/IP 四层/五层
+## 一、分层坐标系：一个报文段的旅程地图
 
 任何一本网络教材第一章都是「分层模型」，但大多数人把它当八股背完就扔。这里请你带着一个具体的问题去看分层：**你浏览器里发出的一段数据，是怎么变成电信号传出去的？**
+
+### 1. OSI 七层 vs TCP/IP 四层/五层
 
 分层的本质是「**分工带来效能**」——把「两台计算机之间传输数据」这件极其复杂的事，拆成几个功能相对单一的子任务，每个子任务只负责一件事。这样整个流程更清晰，出了问题也更容易定位到具体某一层：
 
@@ -106,219 +104,11 @@ TCP/IP 不是单个协议，而是一个**很大的协议集合**：由网络层
 
 ![应用层数据逐层封装成段、包、帧、比特流](https://cdn.nlark.com/yuque/0/2021/png/738210/1637058783041-140aea9c-c59a-4d29-b163-2ff985b46251.png)
 
-这张图就是全文主线——后面第三、四、五、六节，就是在**逐层展开这个「套娃」过程**。先把图记住，后面每一节都在填这张图的细节。
-
-### 3. Node.js `net` 模块：跑通一个 TCP 服务端/客户端
-
-原理之后动手，用 Node.js 的 `net` 模块跑一个最简 TCP 服务端和客户端。这是理解后面「socket 事件」最直观的方式。
-
-`server.js`（TCP 服务端）：
-
-```javascript
-const net = require('net');
-const server = net.createServer((socket) => {
-  // 监听客户端发过来的数据
-  socket.on('data', (data) => {
-    console.log(data.toString());
-    socket.write('world');               // 👈 收到数据后回一句 world
-  });
-  // 监听客户端断开连接
-  socket.on('end', () => {
-    console.log('end');
-  });
-  socket.on('error', (error) => {
-    console.log(error)
-  });
-});
-server.listen(8089, () => {
-  console.log(`server started at 8089 port`);
-})
-```
-
-`client.js`（TCP 客户端）：
-
-```javascript
-const net = require('net');
-const socket = new net.Socket();
-socket.connect(8089, 'localhost');
-socket.on('connect', (data) => {
-  socket.write('hello');                 // 👈 连接建立后主动发 hello
-});
-socket.on('data', (data) => {
-  console.log(data.toString());
-  socket.destroy();                      // 👈 收到响应后主动关闭连接
-});
-socket.on('error', (error) => {
-  console.log(error)
-});
-```
-
-这两个文件背后藏着一个关键事实：**`socket.on('connect')` 触发时，底层已经悄悄完成了三次握手**；`socket.on('end')` 触发时，底层已经走完了四次挥手。Node.js 把这些 TCP 状态机的细节封装成了事件，但理解背后的状态机（第二节讲），才能真正读懂这些事件。
-
-### 4. Node.js `dgram` 模块：跑通 UDP 的三种模式
-
-TCP 之外，笔记里还记录了 UDP 的三种典型用法——点对点、广播、组播，这正好是理解「UDP 无连接」的最佳实践素材。
-
-**点对点**（一对一收发）：
-
-`src/server.js`
-
-```javascript
-const dgram = require('dgram');
-const socket = dgram.createSocket('udp4');
-socket.on('message', (msg, rinfo) => {
-  console.log(msg.toString());
-  console.log(rinfo);
-  socket.send(msg, 0, msg.length, rinfo.port, rinfo.address);
-})
-socket.bind(41234, 'localhost');
-```
-
-`src/client.js`
-
-```javascript
-const dgram = require('dgram');
-const socket = dgram.createSocket('udp4');
-socket.on('message', (msg, rinfo) => {
-  console.log(msg.toString());
-  console.log(rinfo);
-})
-socket.send(new Buffer.from('hello world'), 0, 11, 41234, 'localhost', (error, bytes) => {
-  console.log('发送了%d字节', bytes);
-});
-socket.on('error', (error) => {
-  console.error(error);
-})
-```
-
-**广播**（一对多，同网段所有主机都能收到）：
-
-`src/server.js`
-
-```javascript
-// 广播
-const dgram = require('dgram');
-const socket = dgram.createSocket('udp4');
-socket.on('message', (msg, rinfo) => {
-  const buf = Buffer.from('已经接收客户端发送的数据:'+msg.toString());
-  socket.setBroadcast(true);             // 👈 开启广播
-  socket.send(buf, 0, buf.length, 41235, 'localhost');
-})
-socket.bind(41234, 'localhost');
-```
-
-`src/client.js`
-
-```javascript
-// 广播
-const dgram = require('dgram');
-const socket = dgram.createSocket('udp4');
-socket.bind(41235, 'localhost');
-const buf = Buffer.from('hello');
-socket.send(buf, 0, buf.length, 41234, 'localhost');
-socket.on('message', (msg, rinfo) => {
-  console.log('received:', msg);
-})
-socket.on('error', (error) => {
-  console.error(error);
-})
-```
-
-**组播**（把同一业务类型逻辑分组，组内成员都能收到，组外收不到）：
-
-`src/server.js`
-
-```javascript
-// 组播
-const dgram = require('dgram');
-const socket = dgram.createSocket('udp4');
-socket.on('listening', () => {
-  socket.setMulticastTTL(128);
-  socket.setMulticastLoopback(true);
-  socket.addMembership('230.185.192.108');   // 👈 加入组播组
-})
-function broadcast () {
-  const buf = Buffer.from(new Date().toLocaleDateString());
-  socket.send(buf, 0, buf.length, 8080, '230.185.192.108');
-}
-setInterval(broadcast, 1000);
-```
-
-`src/client.js`
-
-```javascript
-// 组播
-const dgram = require('dgram');
-const socket = dgram.createSocket('udp4');
-socket.on('listening', () => {
-  socket.addMembership('230.185.192.108');   // 👈 客户端也加入同一组
-});
-socket.on('message', (msg, rinfo) => {
-  console.log(msg.toString());
-  console.log(rinfo);
-})
-socket.bind('8080', '192.168.1.103');
-```
-
-组播使用 **D 类地址**作为组播地址，范围 `224.0.0.0～239.255.255.255`：`224.0.0.0～224.0.0.255` 是局部组播地址（为路由协议等保留）、`224.0.1.0～238.255.255.255` 是预留组播地址、`239.0.0.0～239.255.255.255` 是管理权限组播地址（组织内部用，不可用于 Internet）。
-
-> 💬 **面试官**：从这段代码看，UDP 和 TCP 最直观的区别是什么？
->
-> ✅ 标准答案：TCP 用 `net.createServer` + `socket.on('data')`，是**面向连接**的（要先 `connect` 建立连接、双方有独立的 socket）；UDP 用 `dgram.createSocket('udp4')` + `socket.on('message')`，**无连接**——不需要握手，`send` 时直接指定目标端口和地址，一次 send 就是一份独立的报文（保留消息边界）。
->
-> 🎁 加分答案：能点出 `dgram` 的 `message` 回调签名是 `(msg, rinfo)`，`rinfo` 里带来源地址和端口——这正是「无连接」的体现：UDP 不维护连接状态，所以每次收包都要对方在报文里「自报家门」；而 TCP 因为建立了连接，`data` 回调里不用带来源信息。
-
-### 5. `netstat -an` 查看连接状态
-
-TCP 是有状态机的一连串状态（第二节会讲透）。运行中的连接处于哪个状态，用 `netstat -an` 能看到：
-
-```bash
-netstat -an          # Windows：查看所有 TCP 连接及状态
-netstat -an | grep 8089   # Linux/macOS：过滤指定端口
-```
-
-输出里重点关注这几个状态：
-
-| 状态 | 含义 | 是谁、在什么阶段 |
-|------|------|-----------------|
-| `LISTEN` | 监听中，等待连接 | 服务端启动后，`server.listen()` 之后 |
-| `ESTABLISHED` | 连接已建立 | 双方完成三次握手，正在传输数据 |
-| `TIME_WAIT` | 主动关闭方等待 2MSL | **主动发 FIN 的一方**关闭后短暂停留 |
-| `CLOSE_WAIT` | 被动关闭方等待应用层关闭 | **收到 FIN 的一方**，还没调用 close |
-
-其中 `TIME_WAIT` 和 `CLOSE_WAIT` 是生产环境排查的「高危状态」——第二节会重点讲它们为什么会堆积、堆积说明什么问题。
-
-### 6. Wireshark 抓包观察完整生命周期
-
-原理和代码都看了，最后用 Wireshark 抓一次真实的 TCP 连接，把「三次握手 → 数据传输 → 四次挥手」亲眼看到。笔记里就有一张完整的抓包图（抓的是 `127.0.0.1` 本机回环，过滤条件 `tcp.port == 8080`）：
-
-![Wireshark 抓取一次完整 TCP 连接的三次握手、数据传输、四次挥手](https://cdn.nlark.com/yuque/0/2021/png/738210/1636900473270-a7fed8e6-1e8a-46da-8124-0cdbcd2e699f.png)
-
-从这张图能看到完整的报文序列（Info 列）：
-
-```text
-No.1  [SYN]            Seq=0                          ← 三次握手①：客户端发 SYN
-No.2  [SYN, ACK]       Seq=0 Ack=1                    ← 三次握手②：服务端回 SYN+ACK
-No.3  [ACK]            Seq=1 Ack=1                    ← 三次握手③：客户端回 ACK
-No.4  [PSH, ACK]       Seq=1 Ack=1  Len=6             ← 传数据：客户端发 "hello"
-No.5  [ACK]            Seq=1 Ack=7                    ← 确认收到（ack = 1 + 6 = 7）
-No.6  [FIN, ACK]       Seq=1 Ack=7                    ← 四次挥手①：客户端发 FIN
-No.7  [ACK]            Seq=7 Ack=2                    ← 四次挥手②：服务端回 ACK
-No.8  [FIN, ACK]       Seq=7 Ack=2                    ← 四次挥手③：服务端发 FIN
-No.9  [ACK]            Seq=2 Ack=8                    ← 四次挥手④：客户端回 ACK
-```
-
-Wireshark 里展开一个报文还能看到 TCP 头部的每一个字段（源/目的端口、Sequence number、Acknowledgment number、Flags 等），这就是第三节「TCP 报文头」的实物对照：
-
-![Wireshark 展开 TCP 报文头字段](https://cdn.nlark.com/yuque/0/2021/png/738210/1636900228413-2537b9dd-c16f-4c7a-a6bd-7b563b9c4566.png)
+这张图就是全文主线——后面每一站，都是在**逐层展开这个「套娃」过程**。先把图记住，后面每一站都在填这张图的细节。
 
 ---
 
-## 二、设计与原理
-
-这是本篇的核心。下面按「**一个 TCP 报文段的完整旅程**」自顶向下讲透：从应用层诞生，到传输层被装上 TCP 头（本文重心），再到网络层、数据链路层、物理层层层封装，最后到对端解封装。每一站都把「这一层发生了什么、加了什么头、面试会怎么考」讲清楚。
-
-### 第 1 站 · 应用层：数据诞生的地方
+## 二、第 1 站 · 应用层：数据诞生的地方
 
 旅程的起点是应用层。你在浏览器里点了一下「提交处方」，HIS 系统前端把一段 JSON 数据交给操作系统——这一步还没发生任何网络传输，只是**产生了一份「上层数据」**。
 
@@ -356,13 +146,15 @@ DHCP 的交互过程用 Wireshark 也能抓到（广播的 DHCPDISCOVER 目标�
 
 ![Wireshark 抓取 DHCP 交互报文](https://cdn.nlark.com/yuque/0/2021/png/738210/1637055505217-7ee06478-8441-415a-ada1-0fe66562c8ea.png)
 
-### 第 2 站 · 传输层：TCP 报文段诞生（全文重心）
+---
+
+## 三、第 2 站 · 传输层：TCP 报文段诞生（全文重心）
 
 数据从应用层下来，到达**传输层**。这里是本篇的主角——传输层把上层数据切成一段段，每段装上一个 **TCP 头部**，变成「TCP 报文段（Segment）」。
 
 传输层是**面向连接的、可靠的进程到进程通信**的协议，TCP 提供**全双工服务**（数据可同时双向传输），把若干个字节构成一个数组（报文段）。传输层对可靠性要求高的上层协议提供可靠保证——数据丢失、损坏时怎么保证可靠；而网络层只管把数据传出去，成功与否它不关心。
 
-**2.1 TCP 报文头逐字段拆解**
+### 2.1 TCP 报文头逐字段拆解
 
 要理解 TCP 的一切，先把这个头部记住。TCP 头部（不含选项）固定 **20 字节**，字段如下：
 
@@ -399,7 +191,7 @@ DHCP 的交互过程用 Wireshark 也能抓到（广播的 DHCPDISCOVER 目标�
 
 ![FIN 控制位：请求断开连接](https://cdn.nlark.com/yuque/0/2021/png/738210/1636895558012-962cdbc0-124c-4063-9450-b2688664720d.png)
 
-**16 位窗口大小（Window Size）**：说明「本地还能接收多少数据段」，这个值可变——网络通畅时调大加快传输，网络不稳定时调小保证可靠。**它就是滑动窗口流量控制的核心字段**（第 2.7 节展开）：
+**16 位窗口大小（Window Size）**：说明「本地还能接收多少数据段」，这个值可变——网络通畅时调大加快传输，网络不稳定时调小保证可靠。**它就是滑动窗口流量控制的核心字段**（第 2.8 节展开）：
 
 ![16 位窗口大小字段：流量控制的核心](https://cdn.nlark.com/yuque/0/2021/png/738210/1636895649335-a34d5c7d-e174-459c-8d52-f27bcb0a3e80.png)
 
@@ -415,7 +207,7 @@ DHCP 的交互过程用 Wireshark 也能抓到（广播的 DHCPDISCOVER 目标�
 >
 > 🎁 加分答案：能说清「序列号和确认号是同一个字段吗」——不是，它们配对使用：序列号是「我发的这个字节的编号」，确认号是「我期望你下一个发来哪个编号」，两者都基于「每个字节都有序号」这个前提；还能点出 ACK 位的语义——「ACK=1 才说明确认号字段有效」，SYN 和 FIN 报文也各占用一个序号。
 
-**2.2 可靠传输的基石：序列号 + 确认应答 + 超时重传**
+### 2.2 可靠传输的基石：序列号 + 确认应答 + 超时重传
 
 TCP 为什么「可靠」？就靠三个最基础的机制，理解它们是理解后面所有高级机制（快速重传、滑动窗口）的前提：
 
@@ -435,7 +227,7 @@ TCP 为什么「可靠」？就靠三个最基础的机制，理解它们是理�
 >
 > 🎁 加分答案：能点出确认号的精确语义——「ack 表示期待的下一个字节序号，不是『收到第几个』」，并说明这是理解后面「快速重传（收到 3 个重复 ACK 立即重传）」和「滑动窗口（ACK 驱动窗口滑动）」的钥匙；还能补充「累积确认」的概念——TCP 的 ACK 是累积的，`ack=N` 一次性确认了 N 之前的所有字节，而不是逐字节确认。
 
-**2.3 三次握手：建立连接的状态机**
+### 2.3 三次握手：建立连接的状态机
 
 TCP 是面向连接的协议，它在源点和终点之间建立**虚拟连接**（不是物理连接）。在数据通信之前，发送端与接收端要先建立连接；数据发完后再断开。TCP 连接的每一方都由一个 IP 地址和一个端口组成。
 
@@ -457,7 +249,7 @@ TCP 是面向连接的协议，它在源点和终点之间建立**虚拟连接**
 >
 > 🎁 加分答案：能说清每一步的 seq/ack 变化（第三次握手客户端的 ack 是 `y+1`、服务端校验 `K+1`），并点出「SYN 和 FIN 各占一个序号」——所以第二次握手的 ack 是 `x+1` 而不是 `x`，第四次挥手的 ack 也是 `序号+1`。
 
-**2.4 为什么两次握手不够？**
+### 2.4 为什么两次握手不够？
 
 这是面试里「三次握手」最常被追问的一层。核心矛盾在**服务端的被动性**：
 
@@ -478,7 +270,7 @@ TCP 是面向连接的协议，它在源点和终点之间建立**虚拟连接**
 >
 > 🎁 加分答案：能落到「本质是防止失效的连接请求报文突然又传到服务端产生错误」——三次握手的第三次 ACK 让服务端确认客户端还「在线」；还能点出 SYN 洪水攻击的缓解思路（SYN Cookie、限制半连接数），说明这是「资源耗尽型攻击」而非「破坏数据型攻击」。
 
-**2.5 收发数据：seq/ack 如何随数据推进**
+### 2.5 收发数据：seq/ack 如何随数据推进
 
 三次握手之后连接建立，开始正常收发数据。看这张图——客户端先发「nihaoa」（6 字节），服务端回 ack；服务端再发「wohenhao」（8 字节），客户端回 ack：
 
@@ -499,7 +291,48 @@ TCP 是面向连接的协议，它在源点和终点之间建立**虚拟连接**
 
 这里再次印证了「确认号 = 收到的序列号 + 数据长度」——即「期待的下一个字节序号」。这个公式贯穿 TCP 可靠传输的始终。
 
-**2.6 四次挥手为什么比握手多一次**
+用 Node.js 的 `net` 模块跑通一个最简 TCP 服务端和客户端，是理解「socket 事件」最直观的方式——注意 `socket.on('connect')` 触发时，底层已经悄悄完成了三次握手：
+
+```javascript
+const net = require('net');
+const server = net.createServer((socket) => {
+  // 监听客户端发过来的数据
+  socket.on('data', (data) => {
+    console.log(data.toString());
+    socket.write('world');               // 👈 收到数据后回一句 world
+  });
+  // 监听客户端断开连接
+  socket.on('end', () => {
+    console.log('end');
+  });
+  socket.on('error', (error) => {
+    console.log(error)
+  });
+});
+server.listen(8089, () => {
+  console.log(`server started at 8089 port`);
+})
+```
+
+```javascript
+const net = require('net');
+const socket = new net.Socket();
+socket.connect(8089, 'localhost');
+socket.on('connect', (data) => {
+  socket.write('hello');                 // 👈 连接建立后主动发 hello
+});
+socket.on('data', (data) => {
+  console.log(data.toString());
+  socket.destroy();                      // 👈 收到响应后主动关闭连接
+});
+socket.on('error', (error) => {
+  console.log(error)
+});
+```
+
+这两个文件背后藏着一个关键事实：**`socket.on('connect')` 触发时，底层已经悄悄完成了三次握手**；`socket.on('end')` 触发时，底层已经走完了四次挥手。Node.js 把这些 TCP 状态机的细节封装成了事件，但理解背后的状态机，才能真正读懂这些事件。
+
+### 2.6 四次挥手为什么比握手多一次
 
 断开连接要**四次**挥手，比握手多一次。原因是 **TCP 是全双工的**——两个方向的数据流**独立关闭**。
 
@@ -522,7 +355,7 @@ TCP 是面向连接的协议，它在源点和终点之间建立**虚拟连接**
 >
 > 🎁 加分答案：能对比握手——握手时服务端的 SYN 和 ACK 能合并（同时「确认」和「同步自己的序号」，本来就在同一时刻发生）；挥手时被动方的 ACK 和 FIN 之间存在「我还想再发点数据」的时间差，所以必须分开发。还能点出「被动方不发数据的极端情况也可以 ACK+FIN 一起发，但协议允许分别发，所以标准形态是四次」。
 
-**2.7 TIME_WAIT 状态存在的意义**
+### 2.7 TIME_WAIT 状态存在的意义
 
 四次挥手里有个「赖着不走」的状态：主动关闭方发出最后一个 ACK 后，**不会立刻释放连接，而是进入 TIME_WAIT 状态，等 2 个 MSL（Maximum Segment Lifetime，最大报文段生存时间）**。为什么要等？
 
@@ -535,13 +368,29 @@ TCP 是面向连接的协议，它在源点和终点之间建立**虚拟连接**
 - **大量 TIME_WAIT**：说明是「主动关闭方」在频繁短连接创建销毁（每次 HTTP 请求一个连接，用完就关）。缓解方式是用 **keep-alive 连接复用**（一个连接承载多次请求），减少连接的频繁建立和销毁
 - **大量 CLOSE_WAIT**：说明是「被动关闭方」收到 FIN 后**没有调用 close() 关闭 socket**——通常是代码 bug（忘了关闭连接/资源泄漏），连接会一直挂着占用资源
 
+用 `netstat` 观察连接状态：
+
+```bash
+netstat -an          # Windows：查看所有 TCP 连接及状态
+netstat -an | grep 8089   # Linux/macOS：过滤指定端口
+```
+
+输出里重点关注这几个状态：
+
+| 状态 | 含义 | 是谁、在什么阶段 |
+|------|------|-----------------|
+| `LISTEN` | 监听中，等待连接 | 服务端启动后，`server.listen()` 之后 |
+| `ESTABLISHED` | 连接已建立 | 双方完成三次握手，正在传输数据 |
+| `TIME_WAIT` | 主动关闭方等待 2MSL | **主动发 FIN 的一方**关闭后短暂停留 |
+| `CLOSE_WAIT` | 被动关闭方等待应用层关闭 | **收到 FIN 的一方**，还没调用 close |
+
 > 💬 **面试官**：TIME_WAIT 状态存在的意义是什么？生产环境大量 TIME_WAIT 堆积说明什么问题？
 >
 > ✅ 标准答案：TIME_WAIT 是主动关闭方发出最后一个 ACK 后进入的状态，等 2MSL。两个作用：① 防最后一个 ACK 丢失——若被动方重发 FIN，主动方还能再回 ACK；② 防旧报文串扰——等 2MSL 让本连接的所有旧报文都从网络中消失，避免污染复用四元组的新连接。大量 TIME_WAIT 说明是「主动关闭方」在频繁短连接（反复建连断连），通常用 keep-alive 连接复用缓解。
 >
 > 🎁 加分答案：能区分 TIME_WAIT 和 CLOSE_WAIT——TIME_WAIT 是**主动关闭方**的正常状态（等 2MSL），堆积多说明「短连接频繁」；CLOSE_WAIT 是**被动关闭方**收到 FIN 后没调用 close() 的状态，堆积多说明「代码 bug、连接泄漏」，这才是真正需要警惕的。还能点出「谁主动 close 谁进 TIME_WAIT」——所以大量 TIME_WAIT 通常出现在「主动关闭」的服务端（如反向代理主动断开）。
 
-**2.8 滑动窗口与流量控制**
+### 2.8 滑动窗口与流量控制
 
 前面的可靠传输三件套有个性能缺陷：**一问一答的效率太低**——发一个段、等一个 ACK、再发下一个。为了不浪费往返时间（RTT），TCP 引入**滑动窗口**，允许发送方**在没收到确认之前连续发多个段**。
 
@@ -565,13 +414,21 @@ TCP 是面向连接的协议，它在源点和终点之间建立**虚拟连接**
 
 **两者是两个不同维度的问题**，容易被混淆——流量控制是「接收方能力」约束，拥塞控制是「网络容量」约束。下一节讲拥塞控制时，你会看到它们如何「共同决定发送方一次能发多少数据」。
 
+用 `ss -tin` 把这两个抽象概念落到可观测的内核参数上：
+
+```bash
+ss -tin   # Linux：查看每个 TCP 连接的传输层参数
+```
+
+重点看两个字段：**`rcv_wnd`（接收窗口）**对应「滑动窗口流量控制」，**`cwnd`（拥塞窗口）**对应「拥塞控制」。亲眼看到这两个值，抽象的 `min(接收窗口, 拥塞窗口)` 就变成了可观测的内核参数。
+
 > 💬 **面试官**：滑动窗口的流量控制和拥塞控制是同一个机制吗？分别保护的是谁？
 >
 > ✅ 标准答案：不是。流量控制（滑动窗口）保护的是**接收方**——接收方通过 TCP 头部的 Window Size 字段通告「我还能收多少」，发送方据此控制未确认数据的发送量；拥塞控制保护的是**网络整体**——发送方根据丢包/延迟等拥塞信号自我调节发送速率。一个是「接收方能力」约束，一个是「网络容量」约束。
 >
 > 🎁 加分答案：能说清两者的「窗口」来源——流量控制的窗口由**接收方报的 Window Size** 决定；拥塞控制的窗口（拥塞窗口 cwnd）由**发送方自己根据拥塞信号调节**。最终发送方一次能发多少 = **min(接收窗口, 拥塞窗口)**，两者共同决定。这就是「为什么先讲流量控制、再讲拥塞控制」的递进逻辑。
 
-**2.9 拥塞控制四阶段（重点）**
+### 2.9 拥塞控制四阶段（重点）
 
 早期网络通信中，通信双方不考虑网络拥挤、直接发数据，导致中间节点阻塞掉包、谁也发不了。**拥塞控制**就是来解决「如何在不了解全局网络状况的前提下，自适应逼近网络承载能力」。
 
@@ -599,7 +456,7 @@ TCP 为每条连接维护一个**拥塞窗口（cwnd）**，限制「端到端�
 >
 > 🎁 加分答案：能点出「为什么快速重传等 3 个重复 ACK 而不是 1 个」——1 个重复 ACK 可能是乱序，3 个重复 ACK 几乎可以确定是丢包（后面已有 3 个段陆续到达）；还能说清「快速恢复 vs 慢启动」的设计动机——传统做法是超时后直接回慢启动（cwnd 归 1，吞吐量骤降），快速恢复只减半、保持较高吞吐，应对「丢包但不严重」的场景；超时（RTO）才是真正的严重拥塞信号，才回到慢启动。
 
-**2.10 UDP 封装格式与 TCP 的本质区别（重点）**
+### 2.10 UDP 封装格式与 TCP 的本质区别（重点）
 
 讲完 TCP，再看它的「对照组」UDP。UDP 是无连接、不保证可靠性的传输层协议——发送端不关心数据是否到达、是否出错，收到数据的主机也不会告诉发送方是否收到，可靠性由上层协议保障。UDP 首部结构极简，能实现最小开销，适合「报文很短、对可靠性要求不高」的场景。
 
@@ -629,13 +486,45 @@ UDP 的封装格式只有四个字段，**8 字节**：
 
 反过来，凡是需要「保证完整、保证顺序」的数据（文件传输、网页、数据库），都用 TCP。UDP 的典型应用：QQ、视频软件、TFTP（简单文件传输协议，像「短信」一样发小报文）。
 
+用 Node.js `dgram` 模块跑通 UDP 的点对点收发，直观理解「无连接」：
+
+```javascript
+// server.js —— UDP 服务端，收到就回发
+const dgram = require('dgram');
+const socket = dgram.createSocket('udp4');
+socket.on('message', (msg, rinfo) => {
+  console.log(msg.toString());
+  console.log(rinfo);
+  socket.send(msg, 0, msg.length, rinfo.port, rinfo.address);
+})
+socket.bind(41234, 'localhost');
+```
+
+```javascript
+// client.js —— UDP 客户端，直接发一份报文
+const dgram = require('dgram');
+const socket = dgram.createSocket('udp4');
+socket.on('message', (msg, rinfo) => {
+  console.log(msg.toString());
+  console.log(rinfo);
+})
+socket.send(new Buffer.from('hello world'), 0, 11, 41234, 'localhost', (error, bytes) => {
+  console.log('发送了%d字节', bytes);
+});
+socket.on('error', (error) => {
+  console.error(error);
+})
+```
+
+注意 `dgram` 的 `message` 回调签名是 `(msg, rinfo)`，`rinfo` 里带来源地址和端口——这正是「无连接」的体现：UDP 不维护连接状态，所以每次收包都要对方在报文里「自报家门」；而 TCP 因为建立了连接，`data` 回调里不用带来源信息。UDP 还有广播（一对多）和组播（组内成员都能收到）两种模式，是「UDP 无连接」的延伸应用。
+
 > 💬 **面试官**：UDP 和 TCP 的本质区别是什么？为什么 DNS、QUIC、实时音视频都选 UDP？
 >
 > ✅ 标准答案：本质区别三条——UDP 无连接（不握手）、不可靠（不确认/不重传/不保证顺序）、没有拥塞控制（任意速率发包、拥塞也不降速）。DNS 选 UDP 因为单条查询很小、一次往返、TCP 握手不划算（丢包由上层重试）；QUIC/HTTP3 选 UDP 是为了在 UDP 上自己实现可靠传输和拥塞控制、摆脱 TCP 队头阻塞；实时音视频/游戏选 UDP 因为「宁可丢一帧、不愿为等重传而卡顿」。
 >
 > 🎁 加分答案：能补充「反过来」——需要保证完整和顺序的（文件、网页、数据库）都用 TCP；还能点出 UDP 的「消息边界」特性（每次 send 是独立报文，接收方按报文收，不像 TCP 是字节流要自己粘包拆包），以及 QUIC 选 UDP 的深层原因（TCP 在操作系统内核实现、迭代慢，UDP 上可自定义，且能解决 TCP 的队头阻塞）。
 
-**2.11 对比 Node.js 实现：背压 vs 流量控制**
+### 2.11 对比 Node.js 实现：背压 vs 流量控制
 
 最后落地到 Node.js。理解 TCP 层的滑动窗口流量控制，能帮你理解 Node.js Stream 的「背压（backpressure）」设计为什么采用类似的「暂停/恢复」思路。
 
@@ -668,7 +557,9 @@ const server = net.createServer((socket) => {
 >
 > 🎁 加分答案：能点出「背压」这个概念贯穿了从内核到应用层的整条链路——TCP 窗口（内核协议栈）→ socket 发送缓冲区（内核）→ write 返回 false + drain（Node.js）→ Stream 的 `pause()`/`resume()`（应用层），层层都是同一个「背压」思想的体现。
 
-### 第 3 站 · 网络层：TCP 段变成 IP 包
+---
+
+## 四、第 3 站 · 网络层：TCP 段变成 IP 包
 
 TCP 段从传输层下来，到达**网络层（互联网层）**。网络层位于传输层和网络接口层之间，负责把数据从源主机经过若干中间节点送到目标主机，做**路由**和**选址**的工作。
 
@@ -680,7 +571,7 @@ TCP 段从传输层下来，到达**网络层（互联网层）**。网络层位
 
 ![网络层路由：选择最佳路径](https://cdn.nlark.com/yuque/0/2021/png/738210/1636710582820-17fec35d-6a33-4136-9fbf-eedfa4b50866.png)
 
-**3.1 IP 头部逐字段**
+### 3.1 IP 头部逐字段
 
 网络层给 TCP 段装上一个 **IP 头部**，变成「IP 数据报（Packet）」。IP 报头最小 20 字节：
 
@@ -709,7 +600,7 @@ TCP 段从传输层下来，到达**网络层（互联网层）**。网络层位
 >
 > 🎁 加分答案：能点出「TTL 减到 0 时会回 ICMP 报文（Time Exceeded）」——这也是 `traceroute`/`tracert` 的原理：故意发 TTL=1、2、3… 的包，逐跳探测路径上每一跳的路由器；还能点出 IP 头部的「协议」字段——它告诉目的主机「上层是 TCP 还是 UDP 还是 ICMP」，是「数据部分交给谁」的分发依据。
 
-**3.2 IP 地址：格式、组成、分类**
+### 3.2 IP 地址：格式、组成、分类
 
 在网络中，每台计算机都有一个唯一地址方便别人找到它，这个地址就是 **IP 地址**。IP 地址是一个网络编码，由 **32 位二进制**组成，通常写成**点分十进制**（每 8 位一段）：
 
@@ -739,7 +630,7 @@ IP 地址还分**公有地址**和**私有地址**：
 
 其它范围的 IP 均为公有地址。
 
-**3.3 子网掩码**
+### 3.3 子网掩码
 
 **子网掩码（Subnet mask）**是一种用来指明「一个 IP 地址哪些位是主机所在的子网、哪些位是主机位」的掩码。几个要点：
 
@@ -778,11 +669,13 @@ console.log(result) // true
 >
 > 🎁 加分答案：能说清掩码的二进制形态（网络位全 1、主机位全 0），并能举例子——如 `255.0.0.0` 是 A 类默认掩码，`192.168.1.0/24` 的 `/24` 就是前 24 位为网络位（即 `255.255.255.0`）；还能点出「私有地址不能直接上公网，需要 NAT」——这是理解「为什么家里多台设备共用一个公网 IP」的关键。
 
-### 第 4 站 · 数据链路层：IP 包变成帧
+---
+
+## 五、第 4 站 · 数据链路层：IP 包变成帧
 
 IP 包从网络层下来，到达**数据链路层**。这一层在物理层提供的服务基础上向网络层提供服务，最基本服务是「把源自网络层的数据可靠传输到相邻节点的目标机网络层」。数据链路层把数据组合成**帧（Frame）**，帧是这一层的传输单位。
 
-**4.1 ARP 协议：IP 地址怎么变成 MAC 地址**
+### 4.1 ARP 协议：IP 地址怎么变成 MAC 地址
 
 网络层用 IP 寻址，但真正在局域网里传输要落到 MAC 地址。**ARP（Address Resolution Protocol，地址解析协议）**就是「根据 IP 地址获取物理（MAC）地址」的协议。
 
@@ -813,7 +706,7 @@ ARP 地址解析过程示意图：
 
 **ARP 有个安全隐患**：它建立在「网络中各主机相互信任」的基础上——主机可自主发送 ARP 应答，其他主机收到应答时**不校验真实性**就记入本机 ARP 缓存。攻击者可发送伪造的 ARP 应答，使目标主机把数据发到错误的目的地，这就是 **ARP 欺骗**。
 
-**4.2 以太网与 MAC 地址**
+### 4.2 以太网与 MAC 地址
 
 **以太网（Ethernet）**是一种计算机局域网技术，IEEE 802.3 标准制定了它的技术标准。以太网标准拓扑是总线型拓扑，使用 **CSMA/CD**（载波多重访问/碰撞侦测）技术。在以太网上，每个节点有全球唯一的 **48 位地址**——即制造商分配给网卡的 **MAC 地址**，保证所有节点能互相鉴别。
 
@@ -821,7 +714,7 @@ MAC 地址 48 位二进制，通常分 6 段、用 16 进制表示，前 24 位�
 
 ![MAC 地址结构（供应商标识 + 唯一编号）](https://cdn.nlark.com/yuque/0/2021/png/738210/1636606924952-50f0e523-8474-4b68-9e06-cfb1cb6f7a1d.png)
 
-**4.3 以太网帧格式**
+### 4.3 以太网帧格式
 
 在以太网链路上的数据包叫**以太帧**：起始是前导码和帧开始符，后面是目的/源 MAC 地址的以太网报头，中间是负载（如 IP 协议数据报），末尾是 32 位冗余校验码（FCS，检验数据是否损坏）：
 
@@ -840,7 +733,7 @@ MAC 地址 48 位二进制，通常分 6 段、用 16 进制表示，前 24 位�
 | 数据 | 负载内容，数据长度为 46～1500 字节 |
 | 帧校验序列（FCS） | 4 字节，CRC 校验值 |
 
-**4.4 总线型拓扑与 CSMA/CD**
+### 4.4 总线型拓扑与 CSMA/CD
 
 **总线型拓扑**用单根传输介质作为共享介质，所有计算机通过硬件接口和电缆连到共享总线上。核心问题是「确保多个端用户同时发数据时不冲突」，控制策略就是 **CSMA/CD（载波监听多路访问/冲突检测）**：
 
@@ -862,7 +755,9 @@ CSMA/CD 的核心思想（笔记原文）：
 >
 > 🎁 加分答案：能点出「为什么交换式以太网出现后 CSMA/CD 不再重要」——总线型是共享介质，多节点真的会「抢同一根线」；交换机是「点到点」的，每个端口独占通道，冲突基本消除（全双工下不再有碰撞）；还能点出 CSMA/CD 是「半双工」时代的机制，全双工以太网无需冲突检测。
 
-### 第 5 站 · 物理层：帧变成比特流
+---
+
+## 六、第 5 站 · 物理层：帧变成比特流
 
 帧到达最底层的**物理层**。计算机传递数据本质是传 0 和 1 的数字，物理层关心的是「**用什么信号表示 0 和 1**」、能否双向通信、连接如何建立/终止。物理层要屏蔽物理设备和传输媒介的差异，为数据链路层提供「在一条物理介质上传送和接收比特流」的能力。
 
@@ -890,7 +785,9 @@ CSMA/CD 的核心思想（笔记原文）：
 >
 > 🎁 加分答案：能点出「自含时钟」的含义——曼彻斯特编码靠「每个比特位中间的跳变」自带同步时钟，接收端能从信号里恢复时钟，不需要额外时钟线；而这个问题本质是「如何在无时钟线上同步收发」，是物理层最核心的编码设计考量。
 
-### 第 6 站 · 到达对端：解封装与真实网络环境
+---
+
+## 七、第 6 站 · 到达对端：解封装与真实网络环境
 
 数据比特流到达对端后，就是**反向的解封装**过程——从低层到高层逐层拆头：
 
@@ -907,6 +804,35 @@ CSMA/CD 的核心思想（笔记原文）：
 - **路由器**属于网络层（认 IP 地址）
 
 ![真实网络环境中的交换机和路由器](https://cdn.nlark.com/yuque/0/2021/png/738210/1637058809183-b9b2f0b9-e981-483c-828d-6d6c10b36f73.png)
+
+用 Wireshark 抓一次真实 TCP 连接，把「三次握手 → 数据传输 → 四次挥手」亲眼看到：
+
+```bash
+# Wireshark 过滤表达式：只看某端口的 TCP 流量
+tcp.port == 8080
+```
+
+笔记里就有一张完整的抓包图（抓的是 `127.0.0.1` 本机回环）：
+
+![Wireshark 抓取一次完整 TCP 连接的三次握手、数据传输、四次挥手](https://cdn.nlark.com/yuque/0/2021/png/738210/1636900473270-a7fed8e6-1e8a-46da-8124-0cdbcd2e699f.png)
+
+从这张图能看到完整的报文序列（Info 列）：
+
+```text
+No.1  [SYN]            Seq=0                          ← 三次握手①：客户端发 SYN
+No.2  [SYN, ACK]       Seq=0 Ack=1                    ← 三次握手②：服务端回 SYN+ACK
+No.3  [ACK]            Seq=1 Ack=1                    ← 三次握手③：客户端回 ACK
+No.4  [PSH, ACK]       Seq=1 Ack=1  Len=6             ← 传数据：客户端发 "hello"
+No.5  [ACK]            Seq=1 Ack=7                    ← 确认收到（ack = 1 + 6 = 7）
+No.6  [FIN, ACK]       Seq=1 Ack=7                    ← 四次挥手①：客户端发 FIN
+No.7  [ACK]            Seq=7 Ack=2                    ← 四次挥手②：服务端回 ACK
+No.8  [FIN, ACK]       Seq=7 Ack=2                    ← 四次挥手③：服务端发 FIN
+No.9  [ACK]            Seq=2 Ack=8                    ← 四次挥手④：客户端回 ACK
+```
+
+Wireshark 里展开一个报文还能看到 TCP 头部的每一个字段（源/目的端口、Sequence number、Acknowledgment number、Flags 等），这就是 2.1 节「TCP 报文头」的实物对照：
+
+![Wireshark 展开 TCP 报文头字段](https://cdn.nlark.com/yuque/0/2021/png/738210/1636900228413-2537b9dd-c16f-4c7a-a6bd-7b563b9c4566.png)
 
 到这里，「一个 TCP 报文段的完整旅程」走完了：**应用层数据 → 传输层加 TCP 头（段）→ 网络层加 IP 头（包）→ 数据链路层加 MAC 头（帧）→ 物理层变比特流 → 经交换机/路由器转发 → 对端逐层拆头还原**。
 
@@ -936,82 +862,13 @@ IP 首部里的服务类型（TOS）字段共 8 位，其中 3 bit 是优先权�
 
 ---
 
-## 三、工程落地参考
-
-原理讲完，落到「工程落地」时看哪些权威资料：
-
-### 1. TCP 状态机与连接管理（RFC 9293）
-
-RFC 9293 是 TCP 现行规范（取代 RFC 793），权威定义了连接建立（三次握手）和关闭（四次挥手）的完整状态转换图。上文第二节讲的 SYN_SENT → SYN_RCVD → ESTABLISHED → FIN_WAIT_1/2 → CLOSE_WAIT → LAST_ACK → TIME_WAIT → CLOSED 这套状态机，以及「SYN/FIN 各占一个序号」「TIME_WAIT 等 2MSL」这些细节，都以它为准。
-
-### 2. 拥塞控制算法（RFC 5681）
-
-RFC 5681 定义了 TCP Congestion Control——慢启动、拥塞避免、快速重传、快速恢复四个阶段的具体算法，包括 ssthresh 阈值、加法增大/乘法减小的具体规则、3 个重复 ACK 触发快速重传的判定。面试里「拥塞控制四阶段」的标准答案，源头就在这里。
-
-### 3. Node.js `net` 模块（`lib/net.js`）
-
-Node.js 源码里 `lib/net.js` 的 `Socket` 类是对底层 **libuv 的 TCP handle** 的封装。概览级理解：`net.Socket` 把 libuv 的异步 TCP 事件（连接建立、数据到达、关闭）映射成 Node.js 的 EventEmitter 事件（`connect`/`data`/`end`/`close`/`error`），所以上文第 2.1 节说「`socket.on('connect')` 触发时三次握手已经完成」——封装层把协议栈的状态机藏在了事件之下。
-
-> 引用规范：正文不出现具体人名/账号名，权威来源见文末参考资料。搜索关键词：RFC 9293、RFC 5681、Node.js net 模块。
-
----
-
-## 四、实践演示与验证
-
-原理讲透了，最后动手「把 TCP 看进眼里」。用四个实验把抽象概念落到可观测的现象上。
-
-### 1. Wireshark 抓完整连接，逐帧对照握手/数据/挥手
-
-```bash
-# Wireshark 过滤表达式：只看某端口的 TCP 流量
-tcp.port == 8080
-```
-
-抓一次真实连接（比如访问一个网站或跑上面第 2.1 节的 Node.js 示例），逐帧对照第一节第 6 小节的报文序列：
-
-- **三次握手**：SYN → SYN+ACK → ACK（3 帧）
-- **数据传输**：PSH+ACK（带数据）→ ACK（确认）
-- **四次挥手**：FIN → ACK → FIN → ACK（4 帧）
-
-重点看每一帧的 **Sequence number** 和 **Acknowledgment number** 如何随数据长度推进，验证 `ack = seq + 数据长度` 的规律。
-
-### 2. `netstat -an` / `ss -s` 观察 TIME_WAIT
-
-```bash
-netstat -an | findstr TIME_WAIT      # Windows：统计 TIME_WAIT 数量
-ss -s                                 # Linux：汇总各状态 socket 数量
-```
-
-主动关闭方（短连接场景里通常是频繁发请求又关闭的一方）会积累 TIME_WAIT。跑一个「每 100ms 建一次 TCP 连接、收到响应就关」的脚本，观察 TIME_WAIT 数量的攀升——这就是「短连接频繁创建销毁」的直接证据，生产上靠 keep-alive 复用连接缓解。
-
-### 3. `ss -tin` 看窗口参数，把流量控制/拥塞控制落地
-
-```bash
-ss -tin   # Linux：查看每个 TCP 连接的传输层参数
-```
-
-重点看两个字段：
-
-- **`rcv_wnd`（接收窗口）**：对应「滑动窗口流量控制」——接收方通告的接收窗口大小
-- **`cwnd`（拥塞窗口）**：对应「拥塞控制」——发送方当前维护的拥塞窗口大小
-
-亲眼看到这两个值，你就能理解「流量控制（接收方报的 rcv_wnd）和拥塞控制（发送方调的 cwnd）是两个独立参数、共同决定发送量」——抽象的 `min(接收窗口, 拥塞窗口)` 变成了可观测的内核参数。
-
-### 4. Node.js 跑通 net/dgram，观察背压
-
-跑第 2.1 节的 TCP 示例和第 2.11 节的背压示例，观察：
-
-- `socket.on('connect')` 触发时机（三次握手完成后）
-- `socket.write()` 返回 `false` 的时机（接收方处理不过来时）
-- `dgram` 的 `message` 回调里 `rinfo` 带来源地址（UDP 无连接的体现）
-
----
-
-## 五、参考资料
+## 参考资料
 
 - https://www.rfc-editor.org/rfc/rfc9293 （TCP 状态机与连接管理）
 - https://www.rfc-editor.org/rfc/rfc5681 （TCP Congestion Control 拥塞控制）
 - https://nodejs.org/api/net.html （Node.js net 模块）
+
+> 权威来源索引：TCP 连接建立（三次握手）与关闭（四次挥手）的完整状态转换图、SYN/FIN 各占一个序号、TIME_WAIT 等 2MSL，以 **RFC 9293**（取代 RFC 793）为准；拥塞控制四阶段（慢启动/拥塞避免/快速重传/快速恢复、ssthresh 阈值、3 个重复 ACK 判定）以 **RFC 5681** 为准；Node.js `net` 模块的 `Socket` 类是对底层 libuv TCP handle 的封装（`lib/net.js`），把协议栈状态机藏在了 `connect`/`data`/`end`/`close` 事件之下。
 
 > 推荐搜索关键词：「TCP 三次握手 四次挥手 状态机」「TCP 拥塞控制 慢启动 快速重传」「滑动窗口 流量控制 拥塞控制 区别」「TIME_WAIT 2MSL 意义」「UDP 与 TCP 区别」「ARP 地址解析 欺骗」「子网掩码 判断同网段」。
 
