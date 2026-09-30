@@ -166,6 +166,52 @@ curl -X POST https://drug.example.com/submit -L -v
 
 面试里 99% 问的是**服务器驱动协商**——理解它，就理解了「客户端和服务端如何就表示达成一致」的完整闭环。
 
+那么「服务端到底怎么按 `q` 值选语言」？下面是笔记里的一段可运行实现——用 Node.js `http` 模块手写一个多语言协商，把 `Accept-Language` 从头解析到尾：
+
+```javascript
+const http = require('http');
+// 语言包：en / zh 各维护一套文案
+const languages = {
+  en: { title: 'hello' },
+  zh: { title: '欢迎' }
+};
+
+// 把 Accept-Language 解析成 [{ name, q }] 并按权重从大到小排序
+const str2Array = (str) => {
+  // "zh-CN,zh;q=0.9,en;q=0.8" -> 拆逗号 -> 拆分号取 q 值 -> 按 q 倒序
+  return str.split(',').map(item => {
+    const lan = item.split(';');
+    return {
+      name: lan[0].trim(),
+      q: lan[1] && +lan[1].split('=')[1] || 1   // 没写 q 默认 1（最高）
+    };
+  }).sort((a, b) => b.q - a.q); // 权重从大到小，取第一个命中语言包的类型
+};
+
+const server = http.createServer((req, res) => {
+  const langs = req.headers['accept-language'];
+  // 没有 Accept-Language，返回 404（不支持多语言协商）
+  if (!langs) return res.end('Not Found');
+  const lanArray = str2Array(langs);
+  let r = null;
+  // 按权重从高到低，在本地语言包里找第一个命中的
+  for (const lan of lanArray) {
+    if (languages[lan.name]) {
+      r = languages[lan.name];
+      break;
+    }
+  }
+  // 全部没命中，兜底用英文
+  if (!r) r = languages['en'];
+  res.setHeader('Content-Type', 'application/json;charset=utf-8');
+  res.end(JSON.stringify(r));
+});
+
+server.listen(3000, () => console.log('server start port 3000'));
+```
+
+这段代码就是把「服务器驱动协商」落地的完整骨架：**读 `Accept-Language` → 拆分 → 按 `q` 排序 → 命中语言包 → 兜底**。注意一个细节：`zh-CN,zh;q=0.9` 里的 `zh-CN` 没写 `q`，代码里 `|| 1` 把它默认成最高权重——这就是「`q` 缺省即 1」这条规则在服务端代码里的体现。
+
 ### 2. 压缩算法选型：gzip vs Brotli（重点）
 
 压缩协商里，最核心的实战问题就是——**gzip 和 Brotli 该怎么选**。这背后是两个算法在「压缩率 vs 计算开销」上的本质权衡。
@@ -204,6 +250,81 @@ gzip 的特点是：**压缩率适中、压缩/解压速度快、CPU 开销低�
 
 > 🔧 **真实场景**：药品商城的前端打包产物 `app.js`（600KB），在 CI 构建时用 Brotli 最高级别压缩到 380KB（节省 37%），配 CDN 长期缓存；而「药品搜索」接口每次返回的 JSON 是实时生成的，用 gzip 低压缩级别，避免每次请求实时压缩的 CPU 开销。这就是「静态用 br、动态用 gzip」在真实项目里的落地。
 
+**Node.js 侧怎么落地压缩**：下面这段是笔记里「服务端按 `Accept-Encoding` 做压缩协商」的完整实现。它用 `zlib` 模块——压缩和解压的对象，本质都是一个**可读可写的流**（继承自双工流）：
+
+| 方法 | 说明 |
+|------|------|
+| `zlib.createGzip` | 返回 Gzip 流对象，用 Gzip 算法压缩 |
+| `zlib.createGunzip` | 返回 Gzip 流对象，解压 Gzip 压缩数据 |
+| `zlib.createDeflate` | 返回 Deflate 流对象，用 Deflate 算法压缩 |
+| `zlib.createInflate` | 返回 Deflate 流对象，解压 Deflate 压缩数据 |
+
+先看最基础的「压缩/解压一个文件」——`fs.createReadStream` 读 → `pipe` 进压缩流 → `pipe` 写回文件：
+
+```javascript
+const fs = require('fs');
+const zlib = require('zlib');
+const path = require('path');
+
+// 压缩：把 src 压缩成 src.gz
+function gzip(src) {
+  fs.createReadStream(src)
+    .pipe(zlib.createGzip())      // 读流 -> 压缩转换流
+    .pipe(fs.createWriteStream(src + '.gz'));
+}
+
+// 解压：把 src.gz 解压回原名文件
+function gunzip(src) {
+  fs.createReadStream(src)
+    .pipe(zlib.createGunzip())
+    .pipe(fs.createWriteStream(path.join(__dirname, path.basename(src, '.gz'))));
+}
+
+// gzip(path.join(__dirname, 'msg.json'));
+gunzip(path.join(__dirname, 'msg.json.gz'));
+```
+
+再看**在 HTTP 里的应用**——服务端读客户端请求头里的 `Accept-Encoding`，命中哪个算法就用哪个压缩返回，并把实际选中的算法写进 `Content-Encoding` 响应头：
+
+```javascript
+const http = require('http');
+const path = require('path');
+const fs = require('fs');
+const zlib = require('zlib');
+const mime = require('mime');
+const { promisify } = require('util');
+const stat = promisify(fs.stat);
+
+// 客户端发起请求时，通过 Accept-Encoding 告诉服务器自己支持哪些压缩格式
+// 例如：Accept-Encoding: gzip, deflate
+const app = http.createServer(async (req, res) => {
+  const { pathname } = new URL(req.url, `http://${req.headers.host}`);
+  const filepath = path.join(__dirname, pathname);
+  try {
+    const statObj = await stat(filepath);
+    res.setHeader('Content-Type', mime.getType(pathname));
+    // Node 会把所有请求头统一转成小写，所以这里是 'accept-encoding'
+    const acceptEncoding = req.headers['accept-encoding'];
+    // 内容协商：客户端支持什么，就用什么算法压缩
+    if (acceptEncoding.match(/\bgzip\b/)) {
+      res.setHeader('Content-Encoding', 'gzip');
+      fs.createReadStream(filepath).pipe(zlib.createGzip()).pipe(res);
+    } else if (acceptEncoding.match(/\bdeflate\b/)) {
+      res.setHeader('Content-Encoding', 'deflate');
+      fs.createReadStream(filepath).pipe(zlib.createDeflate()).pipe(res);
+    } else {
+      fs.createReadStream(filepath).pipe(res); // 都不支持，原样返回
+    }
+  } catch (error) {
+    res.statusCode = 404;
+    res.end('NOT FOUND');
+  }
+});
+app.listen(8989);
+```
+
+这段代码把「内容协商」从概念落到了可运行的 Node.js 服务上：**`Accept-Encoding`（请求头声明）→ `Content-Encoding`（响应头回选）**，正是本小节开头那个「一问一答」的服务端实现。注意 `req.headers` 里的 key 被 Node 统一转成了小写，所以读的是 `accept-encoding` 而不是 `Accept-Encoding`——这是排查「压缩为什么不生效」时最常见的坑。
+
 ### 3. User-Agent 嗅探的局限与 Client Hints 的设计动机
 
 `User-Agent` 是内容协商里的一个「历史遗留问题户」。它本意是声明客户端类型，让服务端按客户端能力返回不同内容（比如给老浏览器返回降级版、给移动端返回手机版）。但 **UA 嗅探有两个根本问题**：
@@ -217,6 +338,35 @@ Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)
 ```
 
 注意看——里面有 `Mozilla`（为了兼容 Netscape 时代）、有 `AppleWebKit`、有 `KHTML, like Gecko`、有 `Chrome`、还有 `Safari`。**一段字符串里塞了五六个浏览器名字**，都是历史兼容的产物。服务端要做 UA 嗅探，得写一长串正则去「猜」真实浏览器是哪个，而且浏览器一升大版本号，嗅探逻辑就可能失效。
+
+**UA 字符串的标准格式**（理论上）：`浏览器标识 (操作系统标识; 加密等级标识; 浏览器语言) 渲染引擎标识 版本信息`——但各个浏览器实现各不相同，标准格式早就名存实亡，这正是一锅粥的根源。
+
+**服务端怎么解析 UA**：既然要嗅探，就得有个工具把这段乱码解析成结构化字段。早期常用 `user-agent-parse` 这个 npm 包：
+
+```javascript
+const userAgent = require('user-agent-parse');
+const http = require('http');
+
+const app = http.createServer((req, res) => {
+  const ua = req.headers['user-agent'];
+  if (ua) {
+    const uaObj = userAgent.parse(ua);   // 把 UA 字符串解析成结构化对象
+    res.setHeader('Content-Type', 'application/json;charset=utf-8;');
+    res.end(JSON.stringify(uaObj));
+  } else {
+    res.end('NOT FOUND');
+  }
+});
+app.listen(8088, () => console.log('server start port 8088'));
+```
+
+它把一段 UA 字符串解析成 `name`（浏览器名）、`version`（版本）、`os`（操作系统）、`deviceType`（设备类型）等字段，在 DevTools 里看效果：
+
+![user-agent-parse 把 UA 解析成 name/version/os 等结构化字段](https://cdn.nlark.com/yuque/0/2021/png/738210/1638185112472-7119ba69-a2c9-4182-8e27-86db9e023d1c.png)
+
+![解析结果里的 deviceType/name/version/os 字段](https://cdn.nlark.com/yuque/0/2021/png/738210/1638185072491-4f1eab7b-47e5-4ecc-a05a-48add4e3fb32.png)
+
+可以看到，这类工具做的事情本质就是「写一长串正则去猜」——它虽然把结果结构化了，但**猜错、猜不全是常态**（浏览器一升级就可能有字段对不上），而且「UA 可伪造」这个根本问题它一点没解决。这正是下面 Client Hints 要反转的东西：与其服务端费劲「猜」，不如让客户端「按需、结构化地报」。
 
 **User-Agent Client Hints（UA-CH）** 提案反转了这个模式：不再让客户端「主动报一个又长又乱、还随便伪造的字符串」，而是**服务端先声明需要哪些信息（`Accept-CH` 响应头），客户端再按需上报结构化的能力信息**：
 
@@ -618,7 +768,7 @@ curl -i -H "Authorization: Bearer <valid-token>" https://drug.example.com/api/pr
 
 重点看 `WWW-Authenticate` 字段的**有无**：401 有（提示你该怎么认证），403 无（不是认证问题，是权限问题）。这一处字段差异，是 401 vs 403 语义差别的协议层证据。
 
-> 📌 补充一句：`curl` 处理压缩流的过程，本质是 **Stream / Transform 的一个具体应用**——服务端压缩是「可写流 → Transform（压缩）→ 响应流」，客户端解压是「响应流 → Transform（解压）→ 消费流」。Stream API 的完整原理见 Node.js 系列 04 篇，本篇聚焦「为什么选这个算法、协议层怎么协商」，不展开流实现。
+> 📌 补充一句：`curl` 处理压缩流的过程，本质是 **Stream / Transform 的一个具体应用**——服务端压缩是「可写流 → Transform（压缩）→ 响应流」，客户端解压是「响应流 → Transform（解压）→ 消费流」。协议层怎么协商（本篇已讲透）与 Node.js 侧怎么实现（第二节第 2 小节的 `zlib` 示例）是两件事；`zlib` 的压缩/解压流对象，正是「可读可写流」这一 Stream 抽象的具体实例，其底层原理（背压、pipe、Transform）见 Node.js 系列 04 篇，本篇不展开。
 
 ---
 
@@ -626,6 +776,7 @@ curl -i -H "Authorization: Bearer <valid-token>" https://drug.example.com/api/pr
 
 - https://www.rfc-editor.org/rfc/rfc9110 （HTTP Semantics：内容协商 / 状态码 / 方法属性）
 - https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Content_negotiation （内容协商）
+- https://www.npmjs.com/package/user-agent-parse （UA 解析工具 user-agent-parse）
 
 > 推荐搜索关键词：「HTTP 内容协商 q 参数」「gzip Brotli 区别」「HTTP 301 302 307 308 区别」「304 协商缓存」「401 403 区别」「HTTP 方法 幂等性 安全性」「PUT PATCH 区别」「User-Agent Client Hints」。
 
