@@ -27,7 +27,7 @@
 | 08 | Node.js 全栈 | 📋 规划中（大纲已定稿 18 篇，详见 `docs/plans/05 node-fullstack-series-outline.md`） | — | ① 第一优先 |
 | 09 | 网络原理 | 📋 规划中（大纲已定稿 10 篇，详见 `docs/plans/06 network-principles-series-outline.md`） | — | ② |
 | 10 | 泛客户端（小程序） | 📋 规划中（大纲已定稿 12 篇，详见 `docs/plans/09 miniprogram-series-outline.md`） | — | ⑤ |
-| 11 | 数据结构与算法 | 📋 规划中（大纲已定稿 13 篇，详见 `docs/plans/07 data-structures-algorithms-outline.md`） | — | ③ |
+| 11 | 数据结构与算法 | 📋 规划中（大纲已定稿 16 篇，详见 `docs/plans/07 data-structures-algorithms-outline.md`） | — | ③ |
 | 12 | 设计模式 | 📋 规划中（大纲已定稿 17 篇，详见 `docs/plans/08 design-patterns-series-outline.md`） | — | ④ |
 | 13 | 前端运维 | 📋 规划中（大纲已定稿 18 篇，详见 `docs/plans/10 frontend-ops-series-outline.md`） | — | ⑥ |
 | 14 | AI 工程（应用开发） | 📋 规划中（大纲已定稿 16 篇，详见 `docs/plans/11 ai-application-engineering-outline.md`） | — | ★ 同步进行 |
@@ -209,7 +209,7 @@
 
 ---
 
-## 11 数据结构与算法（📋 规划中，大纲已定稿 13 篇，详见 `docs/plans/07 data-structures-algorithms-outline.md`）
+## 11 数据结构与算法（📋 规划中，大纲已定稿 16 篇，详见 `docs/plans/07 data-structures-algorithms-outline.md`）
 
 > 主线：前端场景切入 → 复杂度分析 → 线性结构（栈 / 队列 / 链表 / 散列表）→ 树与堆与图 → 算法（排序 / 搜索 / 递归 / DP）
 
