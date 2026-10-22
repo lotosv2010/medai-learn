@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 463,
-  "lastSession": "2026-10-21T01:59:43.334Z",
+  "totalSessionCount": 465,
+  "lastSession": "2026-10-22T02:30:00.000Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -296,8 +296,13 @@
       "pgvector 向量扩展": "未开始"
     },
     "algorithms": {
-      "双指针 & 滑动窗口": "未开始",
-      "树的遍历 DFS/BFS": "了解",
+      "双指针 & 滑动窗口": "理解",
+      "树的遍历 DFS/BFS": "理解",
+      "二分搜索 & 循环不变式": "理解",
+      "二分搜索变体（lower_bound/upper_bound/旋转数组）": "理解",
+      "内插搜索": "理解",
+      "Fisher-Yates 洗牌": "理解",
+      "React Fiber DFS 工作循环": "理解",
       "动态规划基础": "未开始",
       "手写 LRU Cache": "未开始",
       "手写 Promise.all": "理解",
