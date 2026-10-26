@@ -49,6 +49,8 @@
 
 **为什么是这个组合**：前端 10 年经验天然擅长「客户界面」与工程化交付，是 FDE 最稀缺的能力；医疗电商背景构成行业壁垒；Agent 开发提供技术护城河。三层互相拉动——能「做出来」→「做聪明」→「卖出去」。
 
+> FDE 的完整转型路径、Echo/Delta 能力框架与市场数据，见 `docs/plans/12 ai-engineering-series-outline.md` 的 FDE 篇。
+
 **目标公司类型**：
 
 | 类型 | 代表 | 切入角色 |
@@ -111,7 +113,7 @@
 ```
 
 - **串行主线**：一 → 二 → 三 → 四 → 五，前五阶段是能力递进，不可跳。
-- **可并行支线**：七（微调）依赖四、八（部署）依赖七；六（框架整合）依赖二与五，可与九并行推进。
+- **可并行支线**：七（微调）依赖四、八（部署）依赖二（七的产物为八的可选输入）；六（框架整合）依赖二与五，可与九并行推进。
 - **按需切入**：十（前沿扩展）无硬性依赖，完成阶段二后随时可选做。
 
 ### 1.4 总进度清单
@@ -244,6 +246,7 @@
 - **ReAct**：Reasoning + Acting，Agent 的前置思想（阶段五展开）
 - 反思（Reflection）：让模型自我批判、自我修正
 - System Prompt 设计规范：角色、边界、拒绝策略、输出格式约束
+- **Prompt 版本管理**：把 Prompt 当代码管理（版本化 / 可回滚 / 可 A/B / 可回归测试），为阶段九评估铺路
 
 #### 模块 3.2 — 上下文组装（Context Assembly）
 
@@ -325,6 +328,7 @@
 - **排查顺序**：RAG 效果差 → 先查分块 → 再查 Top-K → 再查重排序 → 最后才考虑换 Embedding 模型
 - **Contextual Retrieval（了解）**：Anthropic 提出——为每个 chunk 前置一段「该 chunk 的上下文说明」，让检索更精准
 - **多向量 / 延迟分块（了解）**：ColBERT 多向量、Late Chunking，用更细粒度表示提升召回
+- **评估意识前置**：正式的评估体系在阶段九展开，但「测试集 + 量化指标」的意识应从本阶段建立并延续
 
 #### 模块 4.5 — 高级 RAG
 
@@ -422,6 +426,7 @@
 - **Trace 可视化**：一次 Agent 运行中每一步的「思考 → 工具调用 → 结果」全链路回放
 - **失败归因**：区分「模型选错工具 / 参数填错 / 工具本身失败 / 结果理解错」
 - **回归测试集**：为 Agent 建「黄金任务集」，每次改动跑一遍防止能力退化
+- **工具 Mock 与单元测试**：用 mock 工具替身隔离外部依赖，先测「编排逻辑」再测「真实集成」
 - 工具：LangSmith / Langfuse / Braintrust
 
 #### 模块 5.8 — Agent 架构演进（前沿了解）
@@ -443,6 +448,8 @@
 ### 阶段六：框架整合
 
 > 解决「该不该用框架、用哪个」的问题，站稳「Vercel AI SDK 为实践主线」的选型。
+
+> **先手写、后框架的刻意设计**：阶段二手写 SSE、阶段五手写 ReAct 循环，都不是「重复造轮子」，而是为了先理解「框架到底封装了什么」——只有亲手写过一遍，用 Vercel AI SDK / LangGraph 出问题时才知道往哪查。阶段六再上框架是为了提效，二者是「先懂原理 → 再上工具」的递进关系，不是二选一（呼应 1.2 原则二与 6.2 的「为什么是它」）。
 
 **前置依赖**：阶段二、阶段五
 
@@ -529,7 +536,9 @@
 
 > 解决「模型怎么跑起来、跑得动、跑得省」的问题。
 
-**前置依赖**：阶段七
+**前置依赖**：阶段二
+
+> 部署并不依赖微调——用 Ollama / vLLM 跑开源模型本身不需要先做阶段七。阶段七的微调产物只是本阶段「部署微调后模型」那个里程碑的**可选输入**，非必经前置。
 
 **学习目标**：把模型「跑起来」并「跑得动」——本地部署、云端部署、推理加速与量化。
 
@@ -556,6 +565,7 @@
 - **云端部署**：GPU 云（按需 / 竞价）、Serverless 推理（冷启动 vs 成本）
 - **容器化**：Docker 打包、K8s 编排、GPU 资源调度
 - **API 网关**：自建网关做多模型路由、限流、鉴权、计费
+- **端侧 / 浏览器推理**：Transformers.js / WebLLM 在浏览器 WebGPU 本地跑小模型，适配隐私敏感、离线场景，与云端推理互补
 
 #### 模块 8.4 — 性能与成本监控
 
@@ -660,6 +670,8 @@
 
 #### 模块 10.4 — FDE 实战（解决方案能力）★
 
+> FDE 的系统性转型指导见 `docs/plans/12 ai-engineering-series-outline.md` 的 FDE 篇，本模块聚焦「技术侧实战」。
+
 - **POC 快速验证**：如何在 1-2 周内基于客户场景搭建可演示的 AI 原型（技术选型、范围裁剪、效果演示）
 - **方案包装能力**：技术方案 → 客户能听懂的商业价值（ROI 计算、效率提升、风险降低）
 - **交付边界管理**：AI 项目的期望管理——模型能力边界、效果波动、迭代节奏
@@ -750,7 +762,7 @@ FDE 不是独立阶段，而是**贯穿所有阶段的视角**：
 - **框架工具**：LangSmith / Langfuse / Braintrust（可观测与评估）、Ragas（RAG 评估）、LLaMA-Factory / Unsloth（微调）、Ollama / vLLM（推理）
 - **数据工程**：Unstructured / LlamaParse / MinerU（PDF 解析）、Tavily / Serper（联网检索）
 - **经典读物**：《Designing Machine Learning Systems》（Chip Huyen，工程化与评估）、Anthropic《Building Effective Agents》、OWASP Top 10 for LLM Applications
-- **本项目对照**：`docs/ARCHITECTURE.md`、`docs/decisions/0002-ai-model-strategy.md`、`docs/plans/11 ai-application-engineering-outline.md`（应用层系列大纲，与本路线图互补）
+- **本项目对照**：`docs/ARCHITECTURE.md`、`docs/decisions/0002-ai-model-strategy.md`、`docs/plans/11 ai-application-engineering-outline.md`（应用层系列大纲，与本路线图互补）、`docs/plans/12 ai-engineering-series-outline.md`（FDE 篇）
 
 ---
 
