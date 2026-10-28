@@ -1,0 +1,22 @@
+{
+  "name": "@medai/labs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AI 学习实验区：0 基础新学阶段的「边学边练」代码，不属于生产模块",
+  "scripts": {
+    "hello": "tsx phase1-cognition/00-hello-llm/index.ts",
+    "token": "tsx phase1-cognition/01-token-window/index.ts",
+    "boundary": "tsx phase1-cognition/02-boundary/index.ts",
+    "params": "tsx phase1-cognition/03-params/index.ts",
+    "cost": "tsx phase1-cognition/04-cost/index.ts"
+  },
+  "dependencies": {
+    "gpt-tokenizer": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.4.0"
+  }
+}

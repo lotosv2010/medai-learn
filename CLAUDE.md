@@ -175,6 +175,21 @@ NEXTAUTH_URL=http://localhost:3000
 
 **非 AI 系列写作顺序**：Node.js 全栈（08）→ 网络原理（09）→ 数据结构与算法（11）→ 设计模式（12）→ 泛客户端小程序（10）→ 前端运维（13）
 
+**AI 工程系列（14）例外**：这是唯一「0 基础新学」的轨道，**不适用「已学知识整理发布」的流程**。它的流程是：
+
+```
+读原理 → 跑实验（labs/）→ 写文章（docs/articles/00 AI/{阶段}/）→ 回填 progress.json
+```
+
+理由是 AI 这条线没有现成笔记可参照；不先动手调用真实 API，抽象概念（token、幻觉、温度）写了也是抄来的说法。因此：
+
+- **本系列不建 `docs/notes/` 笔记目录**——AI 文章的输入就是实验输出，不经过「笔记 → 文章」这一层
+- 学习路径以 `docs/roadmap/ai-agent-learning-roadmap.md` 为准（它答「按什么顺序学」）
+- 阶段大纲放 `docs/roadmap/`，按阶段顺序命名 `ai-phase-{NN}-{英文 slug}-outline.md`（如阶段一 → `docs/roadmap/ai-phase-01-cognitive-foundation-outline.md`）——**不放 `docs/plans/`**，那里是已学知识整理的系列大纲
+- **学完一个阶段才定下一阶段大纲**，不提前把全部篇目定稿（AI 知识更新快，提前定稿等于提前作废）
+- 文章按阶段建文件夹：`docs/articles/00 AI/{阶段序号} {阶段名}/`（十个已建好，说明见 `docs/articles/00 AI/README.md`）
+- 实验代码统一放仓库顶层 `labs/`，约定见 `labs/README.md`
+
 完整大纲索引见 `docs/plans/00 frontend-engineering-outline.md`
 
 ---
@@ -188,5 +203,5 @@ NEXTAUTH_URL=http://localhost:3000
 重点知识：TypeScript 严格模式配置 + CI/CD（GitHub Actions）
 已完成：8 个知识点
 本周目标：完成 packages/shared 的类型定义层 + 认证系统
-上次学习：2026-10-22T02:33:00.411Z
+上次学习：2026-10-28T08:24:12.428Z
 <!-- LEARNING_FOCUS_END -->

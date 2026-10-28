@@ -2,13 +2,14 @@
 
 > **目标读者**：5-10 年经验的前端 / Node.js 全栈开发，正在系统转型「AI 应用工程师」，希望有一条清晰、可执行、不走弯路的完整学习路径。
 >
-> **本文件的定位**：一份**独立的学习路径导航**——回答「按什么顺序、学什么、学到什么程度」。它不是文章大纲、不占系列编号，与 `docs/plans/` 下的系列规划文件互补：路线图负责「怎么学」，系列大纲负责「怎么讲」。
+> **本文件的定位**：一份**独立的学习路径导航**——回答「按什么顺序、学什么、学到什么程度」。它不是文章大纲、不占系列编号，与本目录下的阶段大纲（`ai-phase-NN-*.md`）互补：本文件负责「怎么学」，阶段大纲负责「这一阶段怎么讲」；`docs/plans/` 则收纳其余系列（已学知识整理）的写作大纲。
 
 ---
 
 ## 目录
 
 - 一、导读
+  - 1.0 本文件 / 阶段大纲 与 docs/plans/ 系列大纲的区别
   - 1.1 职业定位（三合一）
   - 1.2 两条核心原则
   - 1.3 一条主线：从「会调用」到「能生产」
@@ -23,6 +24,40 @@
 ---
 
 ## 一、导读
+
+### 1.0 本文件 / 阶段大纲 与 docs/plans/ 系列大纲的区别
+
+> 这一节回答一个容易被忽略的问题：**同样是「大纲」，为什么 AI 这条路要单独一个文件、单独一套流程。**
+
+`docs/plans/` 下的 10 份系列大纲，服务的是**已经学会的知识**——把它们整理成公众号文章。本路线图服务的是**还没学会的知识**——从 0 开始学，边学边写。两者的流程、产出物、失效风险都不一样：
+
+| 维度 | `docs/plans/` 系列大纲 | 本路线图 + 阶段大纲 |
+|------|----------------------|-------------------|
+| 知识来源 | 已掌握，整理输出 | 0 起点，边学边写 |
+| 起点 | 有现成笔记可参照 | 无笔记，**实验输出就是输入** |
+| 产出物 | 公众号文章 | 文章 + 可运行实验代码 + 阶段产出物（备忘录 / demo） |
+| 编排依据 | 知识点密度、面试权重 | 依赖关系、学习里程碑、**练习可行性** |
+| 交付节奏 | 大纲定稿后连续写 | **学完一个阶段才定下一阶段大纲** |
+| 失效风险 | 低 | 高（知识可能被证伪，需回炉修订） |
+
+一句话分工：**本文件 + 阶段大纲答「按什么顺序学、这一阶段练什么、每一篇怎么讲」；`docs/plans/` 答其余 14 个系列「已学知识怎么整理输出」。**
+
+因此 AI 这条线的每个阶段都会配一份**阶段大纲**，它比常规系列大纲多出一个固定小节——**「动手实验」**，因为 0 基础新学必须靠真实调用把抽象认知变成手感。阶段大纲也放在 `docs/roadmap/`，按阶段顺序命名 `ai-phase-{NN}-{英文 slug}-outline.md`，NN 与 `labs/phaseN-*`、`docs/articles/00 AI/{NN} {阶段名}/` 同号：
+
+| 阶段 | 阶段大纲文件 | 状态 |
+|------|-------------|------|
+| 一 认知地基 | `ai-phase-01-cognitive-foundation-outline.md` | ✅ 已定稿（5 篇） |
+| 二 应用底座 | `ai-phase-02-api-foundation-outline.md` | ⬜ 待建 |
+| 三 上下文工程 | `ai-phase-03-context-engineering-outline.md` | ⬜ 待建 |
+| 四 RAG | `ai-phase-04-rag-outline.md` | ⬜ 待建 |
+| 五 Agent | `ai-phase-05-agent-outline.md` | ⬜ 待建 |
+| 六 框架整合 | `ai-phase-06-framework-outline.md` | ⬜ 待建 |
+| 七 模型定制 | `ai-phase-07-finetune-outline.md` | ⬜ 待建 |
+| 八 部署与推理优化 | `ai-phase-08-deploy-outline.md` | ⬜ 待建 |
+| 九 生产化 | `ai-phase-09-production-outline.md` | ⬜ 待建 |
+| 十 前沿扩展 | `ai-phase-10-frontier-outline.md` | ⬜ 待建 |
+
+实验代码统一落在仓库顶层 `labs/` 目录；文章按阶段归档到 `docs/articles/00 AI/{阶段}/`，**不建 `docs/notes/` 笔记目录**——实验输出直接喂给文章，中间不设笔记这一层。
 
 ### 1.1 职业定位（三合一）
 
@@ -49,7 +84,7 @@
 
 **为什么是这个组合**：前端 10 年经验天然擅长「客户界面」与工程化交付，是 FDE 最稀缺的能力；医疗电商背景构成行业壁垒；Agent 开发提供技术护城河。三层互相拉动——能「做出来」→「做聪明」→「卖出去」。
 
-> FDE 的完整转型路径、Echo/Delta 能力框架与市场数据，见 `docs/plans/12 ai-engineering-series-outline.md` 的 FDE 篇。
+> FDE 的完整转型路径、Echo/Delta 能力框架与市场数据，见已发布文章 `docs/articles/00 AI/2026-09-09-fde-forward-deployed-engineer-career-transition.md`。
 
 **目标公司类型**：
 
@@ -119,6 +154,8 @@
 ### 1.4 总进度清单
 
 > 这是整份路线图的「跟踪视图」。学完一个阶段，勾掉对应行。
+>
+> 文章归档：每完成一个阶段，文章写进 `docs/articles/00 AI/{阶段序号} {阶段名}/`（十个文件夹已建好，见 `docs/articles/00 AI/README.md`）。
 
 | 阶段 | 主题 | 核心产出物 | 建议周期 | 对应仓库模块 | 状态 |
 |------|------|-----------|---------|-------------|------|
@@ -142,6 +179,9 @@
 > 解决「大模型是什么、能信多少、该用哪个」的心智模型问题。
 
 **前置依赖**：无
+
+> **文章大纲**：`docs/roadmap/ai-phase-01-cognitive-foundation-outline.md`（5 篇，每篇配一个 `labs/phase1-cognition/` 下的真实 API 实验）
+> **文章归档**：`docs/articles/00 AI/01 认知地基/`
 
 **学习目标**：建立对 LLM 的正确心智模型，能理性判断「什么能信、什么不能信、什么时候该用哪个模型」。
 
@@ -670,7 +710,7 @@
 
 #### 模块 10.4 — FDE 实战（解决方案能力）★
 
-> FDE 的系统性转型指导见 `docs/plans/12 ai-engineering-series-outline.md` 的 FDE 篇，本模块聚焦「技术侧实战」。
+> FDE 的系统性转型指导见已发布文章 `docs/articles/00 AI/2026-09-09-fde-forward-deployed-engineer-career-transition.md`，本模块聚焦「技术侧实战」。
 
 - **POC 快速验证**：如何在 1-2 周内基于客户场景搭建可演示的 AI 原型（技术选型、范围裁剪、效果演示）
 - **方案包装能力**：技术方案 → 客户能听懂的商业价值（ROI 计算、效率提升、风险降低）
@@ -762,8 +802,8 @@ FDE 不是独立阶段，而是**贯穿所有阶段的视角**：
 - **框架工具**：LangSmith / Langfuse / Braintrust（可观测与评估）、Ragas（RAG 评估）、LLaMA-Factory / Unsloth（微调）、Ollama / vLLM（推理）
 - **数据工程**：Unstructured / LlamaParse / MinerU（PDF 解析）、Tavily / Serper（联网检索）
 - **经典读物**：《Designing Machine Learning Systems》（Chip Huyen，工程化与评估）、Anthropic《Building Effective Agents》、OWASP Top 10 for LLM Applications
-- **本项目对照**：`docs/ARCHITECTURE.md`、`docs/decisions/0002-ai-model-strategy.md`、`docs/plans/11 ai-application-engineering-outline.md`（应用层系列大纲，与本路线图互补）、`docs/plans/12 ai-engineering-series-outline.md`（FDE 篇）
+- **本项目对照**：`docs/ARCHITECTURE.md`、`docs/decisions/0002-ai-model-strategy.md`、`docs/roadmap/ai-phase-01-cognitive-foundation-outline.md`（阶段一文章大纲，与本路线图互补）、`docs/plans/00 frontend-engineering-outline.md`（系列总索引）、`labs/README.md`（实验区约定）
 
 ---
 
-*维护说明：本文件为独立学习路径导航，随业界演进持续更新（如新的协议、推理框架、最佳实践）。与 `docs/plans/` 下的系列文章大纲分工：路线图回答「按什么顺序学什么」，系列大纲回答「每一篇怎么讲」。*
+*维护说明：本文件为独立学习路径导航，随业界演进持续更新（如新的协议、推理框架、最佳实践）。与本目录下的阶段大纲（`ai-phase-NN-*.md`）分工：路线图回答「按什么顺序学什么」，阶段大纲回答「这一阶段每一篇怎么讲」；`docs/plans/` 只放其余系列（已学知识整理）的大纲。*
