@@ -10,6 +10,13 @@
 
 **非 AI 系列写作顺序**：Node.js 全栈 → 网络原理 → 数据结构与算法 → 设计模式 → 泛客户端（小程序）→ 前端运维 → 测试体系。先深后广，Node 是其余系列的基础设施。
 
+**AI 系列（14）走特殊轨道**：这是全部 15 个系列里唯一「0 基础新学」的一条，不走「整理已学笔记」流程——它没有现成笔记可参照，且每篇必须先跑通可运行实验才能落笔。文章按阶段归档，不设 `docs/notes/` 笔记层。
+
+- 怎么学（阶段依赖、里程碑、产出物）→ [`docs/roadmap/ai-agent-learning-roadmap.md`](../roadmap/ai-agent-learning-roadmap.md)
+- 阶段一怎么讲 + 怎么练 → [`docs/roadmap/ai-phase-01-cognitive-foundation-outline.md`](../roadmap/ai-phase-01-cognitive-foundation-outline.md)（阶段大纲统一放 `docs/roadmap/`，`ai-phase-{NN}-{slug}-outline.md` 顺序命名；后续阶段学完一个再定一份，不提前定稿）
+- 实验代码 → 仓库顶层 `labs/`
+- 文章归档 → `docs/articles/00 AI/` 的十个阶段文件夹（`01 认知地基/` … `10 前沿扩展/`，已建好，见该目录 `README.md`）
+
 ---
 
 ## 系列总览
@@ -30,7 +37,7 @@
 | 11 | 数据结构与算法 | 📋 规划中（大纲已定稿 16 篇，详见 `docs/plans/07 data-structures-algorithms-outline.md`） | — | ③ |
 | 12 | 设计模式 | 📋 规划中（大纲已定稿 17 篇，详见 `docs/plans/08 design-patterns-series-outline.md`） | — | ④ |
 | 13 | 前端运维 | 📋 规划中（大纲已定稿 18 篇，详见 `docs/plans/10 frontend-ops-series-outline.md`） | — | ⑥ |
-| 14 | AI 工程（应用开发） | 📋 规划中（大纲已定稿 16 篇，详见 `docs/plans/11 ai-application-engineering-outline.md`） | — | ★ 同步进行 |
+| 14 | AI 工程（应用开发） | 📋 规划中（0 基础新学轨道，阶段一大纲已定稿 5 篇，详见 `docs/roadmap/ai-phase-01-cognitive-foundation-outline.md`） | 0/5（阶段一） | ★ 同步进行 |
 
 ---
 
@@ -278,26 +285,20 @@
 
 ---
 
-## 14 AI 工程（📋 规划中，大纲已定稿 16 篇，详见 `docs/plans/11 ai-application-engineering-outline.md`）
+## 14 AI 工程（📋 规划中，0 基础新学轨道，阶段一大纲已定稿 5 篇，详见 `docs/roadmap/ai-phase-01-cognitive-foundation-outline.md`）
 
-> ★ 与其他系列同步进行；主线：基础设施层（多模型接入 → 流式传输）→ 交互层（Prompt 工程化 → RAG 检索增强）→ 推理层（AI Agent：工具调用 → 多步编排）→ 框架整合层（Vercel AI SDK）→ 生产化层（安全防护 → 评估体系 → 成本与可观测性）→ 综合实战；与《00 AI 工具与职业发展》系列分工不重复，pgvector 索引原理见《08 Node.js 全栈》系列
+> ★ 与其他系列同步进行，但流程不同：本系列是唯一的「0 基础新学」轨道，不走整理已学笔记的流程。学习路径以 [`docs/roadmap/ai-agent-learning-roadmap.md`](../roadmap/ai-agent-learning-roadmap.md) 的十个阶段为准，**学完一个阶段才定一份阶段大纲**，不提前把全部篇目定死（AI 领域知识更新快，提前定稿等于提前作废）。每篇须先跑通 `labs/` 下的真实实验，再落文章。
+>
+> 阶段一已完成大纲（5 篇，文章归档到 `docs/articles/00 AI/01 认知地基/`）：
 
-- 导读：从 Demo 到生产级 AI 系统——AI 应用工程师技术地图
-- LLM API 接入与多模型抽象：用 Strategy Pattern 统一 Claude / GPT / 通义千问
-- Streaming 与 SSE：Token 流如何变成打字机效果
-- Prompt Engineering 进阶：结构化输出与 Function Calling Schema 设计
-- RAG 系统（上）：文档分块策略与 Embedding 实战
-- RAG 系统（下）：向量检索、重排序与混合检索
-- pgvector 应用实战：从 Schema 设计到召回质量优化
-- AI Agent 基础：Tool Use 与 Function Calling 模式
-- AI Agent 进阶：ReAct 框架与多步骤编排
-- MCP 协议深度：从工具定义到 MCP Server 构建与发布
-- 多智能体系统：LangGraph 状态机 / Agent 间消息路由 / 防循环死锁
-- Vercel AI SDK 实战：useChat / useCompletion 与 RSC Streaming
-- AI 应用安全：Prompt Injection 防护与输出过滤
-- AI 工程化（上）：评估体系与 A/B 测试
-- AI 工程化（下）：成本控制与可观测性
-- 收官篇：药品问答系统实战——RAG + Agent + SSE 全链路整合
+- 大模型到底是什么：一次 API 调用背后发生了什么
+- 从 Token 到上下文窗口：模型眼里的文字长什么样
+- 能力边界：幻觉、知识截止与「它不知道自己不知道」
+- 采样参数与推理模型：temperature 到底在调什么
+- 模型图谱与选型：把成本算清楚（阶段一收官）
+
+> 阶段二至十的篇目在对应阶段学完后逐份新增（阶段二 → 多模型接入 / Streaming / 结构化输出 / Embedding / 并发控制）。
+> 与《00 AI 工具与职业发展》系列分工不重复（那个系列讲「人怎么用 AI 工具」，本系列讲「系统怎么调用模型」）。
 
 ## 文章命名规范
 
@@ -307,6 +308,14 @@ docs/articles/{系列编号} {系列名}/YYYY-MM-DD-{slug}.md
 
 系列编号两位数字，文章按实际发布日期命名，slug 全小写连字符。
 
+**AI 工程系列（14）例外**：按学习阶段再分一层子目录，因为它按阶段产出、每个阶段是一次独立的写作批次：
+
+```
+docs/articles/00 AI/{阶段序号} {阶段名}/YYYY-MM-DD-{slug}.md
+```
+
+例：`docs/articles/00 AI/01 认知地基/2026-11-05-token-and-context-window.md`。
+
 ---
 
-*更新时间：2026-09-11（修正总览表与章节标题的编号/篇数矛盾：10 小程序 / 11 数据结构与算法（13 篇）/ 12 设计模式，React 18 补全 14 篇大纲；写作顺序：08 Node.js 全栈优先，14 AI 工程同步进行；删除 15 测试体系（已在 Vue 系列覆盖）；系列总数 15 个）| 当前已发布文章数：60 篇*
+*更新时间：2026-10-28（AI 系列（14）改为「0 基础新学」独立轨道：学习路径移交 `docs/roadmap/ai-agent-learning-roadmap.md`，阶段一大纲新建为 `docs/roadmap/ai-phase-01-cognitive-foundation-outline.md`（5 篇 + 配套 `labs/` 实验区），文章按阶段归档到 `docs/articles/00 AI/{阶段}/` 且不设 `docs/notes/` 笔记层，停止使用已删除的 `11 ai-application-engineering-outline.md` 与 `12 ai-engineering-series-outline.md`；其余系列不变）｜ 历史更新：2026-09-11（修正总览表与章节标题的编号/篇数矛盾；写作顺序：08 Node.js 全栈优先，14 AI 工程同步进行；删除 15 测试体系；系列总数 15 个）｜ 当前已发布文章数：60 篇*
