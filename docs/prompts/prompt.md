@@ -1,56 +1,80 @@
 # prompt
 
 ```text
-/publish 下面我们规划前端设计模式系列的第2篇文章，具体如下：
+/publish 下面我们规划前端设计模式系列的第3篇文章，具体如下：
 {{
 ## 知识点范围
 
-### 第 02 篇：设计原则：SOLID 五原则与前端落地场景
+### 第 03 篇：单例模式：从 ESM 模块缓存到全局状态管理
 
-**副标题**：所有设计模式都是 SOLID 原则的具体实现，脱离原则死记模式没有意义
+**副标题**：ESM 模块天然是单例，但"天然"不等于"有设计意图"
 
-> 本篇为原则篇，采用「五大原则逐一」专用骨架，不套七步骨架的「结构与角色」段。
+#### 一、场景切入
 
-#### 一、场景切入：为什么你的代码越改越难改
+- 医疗系统里全局唯一的消息提示（Toast）、权限配置（PermissionConfig）、WebSocket 连接管理器——每次 `new` 都会产生副作用，必须保证唯一实例
+- Redux Store 是前端最典型单例：整个应用共享同一个 state 树，`createStore` 只调用一次
+- axios 实例化一次后全局复用（baseURL、拦截器只配置一遍），多次 `new axios()` 会导致配置冲突
 
-- 一个 2000 行的 `UserProfile` 组件同时处理数据请求、表单校验、UI 渲染——违反单一职责原则（SRP）的典型前端反例
-- 每次新增一种支付方式就要修改 `handlePayment` 函数内部的 `if-else`——违反开闭原则（OCP），应该对扩展开放、对修改关闭
-- 自定义 Hook 的参数设计：`useForm(options)` 的 `options` 强迫所有调用者传入不需要的字段——违反接口隔离原则（ISP）
-- 组件直接 `import axios` 发请求而不是依赖注入的 `httpClient`——违反依赖倒置原则（DIP），高层模块不应依赖低层实现细节
+#### 二、意图与本质
 
-#### 二、五大原则逐一拆解
+- **意图**：确保一个类只有一个实例，并提供全局访问点
+- 解决的核心矛盾：某个资源「全局只能有一份」与「到处都能访问」之间的张力——不做单例，就会产生多份相互冲突的实例
 
-- **SRP 单一职责**：一个类/模块/函数只负责一件事，只应有一个改变的理由——前端场景是"UI 与业务逻辑分离"（Hook 抽取逻辑，组件只管渲染）
-- **OCP 开闭原则**：对扩展开放，对修改关闭——策略模式、装饰器模式都是 OCP 的直接实现，新增行为不改老代码
-- **LSP 里氏替换原则**：子类必须能替换父类而不破坏程序——TS 中函数参数类型的协变/逆变规则本质是 LSP 的类型系统体现
-- **ISP 接口隔离原则**：不强迫模块依赖它不需要的接口——大 `interface` 应拆分为多个小 `interface` 按需组合
-- **DIP 依赖倒置原则**：高层模块不依赖低层模块，两者都依赖抽象——前端的"依赖注入 Context"、后端的"面向接口编程"都是 DIP
+#### 三、结构与角色
 
-#### 三、三个辅助原则
+```mermaid
+classDiagram
+    class Singleton {
+        -static instance: Singleton
+        -constructor()
+        +static getInstance() Singleton
+    }
+```
 
-- **DRY**（不要重复自己）、**KISS**（保持简单）、**YAGNI**（不要过度设计不需要的功能）——三者之间存在天然张力，过度追求 DRY 会导致过早抽象违反 YAGNI
+- **Singleton**：私有构造函数 + 静态 `getInstance()` + 静态私有实例字段——三个要素缺一不可
 
-#### 四、原则与模式的关系
+#### 四、核心实现
 
-- 每条原则在后文都能找到对应的模式落地：OCP→策略/装饰器、DIP→依赖注入、SRP→组合模式、ISP→接口拆分——这就是"先原则后模式"的学习顺序的意义
+```typescript
+class PrescriptionWsManager {
+  private static instance: PrescriptionWsManager | null = null;
+  private constructor() {}
+  static getInstance(): PrescriptionWsManager {
+    if (!PrescriptionWsManager.instance) {
+      PrescriptionWsManager.instance = new PrescriptionWsManager();
+    }
+    return PrescriptionWsManager.instance;
+  }
+}
+// ESM 版（更简洁）：直接导出实例，利用 module cache
+export const wsManager = new PrescriptionWsManager();
+```
 
-#### 五、前端工程落地
+- 笔记还收录了 ES5 闭包版、透明单例、单例与构造分离、封装变化（泛化单例工厂）等 5 种写法，按需挑选 2-3 种对比讲解
 
-- React Hooks 的设计哲学：`useState`/`useEffect` 每个 Hook 只做一件事，这是 SRP 在 API 设计层面的体现，对比 class 组件把状态/副作用/渲染全部塞进一个类
-- TypeScript `interface` 的组合优于继承：`interface A extends B, C {}` 允许接口按需拆分组合，是 ISP 的语言层面支持
-- 拿一个违反 OCP 的支付方式 `if-else` 函数，用策略模式重构为"新增支付方式不改一行老代码"，直观体会开闭原则（第 11 篇再展开）
+#### 五、易混淆辨析
 
-**面试核心问**：
-- SOLID 五个原则分别是什么？举一个你在项目中违反过又修复的例子。
-- 开闭原则和策略模式是什么关系？
-- DRY 原则被过度使用会导致什么问题？
-- 里氏替换原则在 TypeScript 类型系统里体现在哪？
+- **ESM 模块 vs 单例模式**：ES Module 在运行时只被解析一次（Node.js `require` 缓存、浏览器 module graph），导出的对象默认引用唯一——但这是"无意图的单例"，与设计模式里"有意识封装唯一性"是两件事
+- **懒汉式 vs 饿汉式**：懒汉式（首次调用才创建）vs 饿汉式（模块加载时立刻创建）——JS 单线程下无线程安全问题，但懒加载在浏览器中有性能意义
+- **单例 vs 全局变量**：单例是"受控的唯一实例"，全局变量是"裸奔的共享状态"——单例多了构造私有、访问点统一两重保护
+
+#### 六、前端工程落地
+
+- Redux `createStore` 是单例（整个应用一个 store）
+- axios 实例化一次全局复用（拦截器只配置一遍）
+- Node.js `require` 缓存机制——CommonJS 模块天然单例的底层原理
+
+#### 七、面试高频问
+
+- ESM 模块和单例模式有什么区别？什么时候用 Class 单例而不是直接导出对象？
+- 单例模式在单元测试中会有什么问题？怎么解决？
+- Redux Store 是单例模式吗？它和普通单例有什么不同？
 
 
 
 ## 已有笔记
 
-- @docs\notes\11 design\02 设计原则.md
+- @docs\notes\11 design\03 创建型模式\04 单例模式.md
 
 ## plans 地址
 
@@ -68,4 +92,5 @@
 - 保留笔记完整代码和图片，样式格式保持一致和这篇@docs\articles\11 design\2026-10-28-uml-and-design-patterns-overview.md，不读我没要求到的文件；
 - 可以根据你的经验和最佳实践查漏补缺；主线要明确清晰；每个知识点都要由浅入深的彻底讲透，讲明白。
 ```
+
 
