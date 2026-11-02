@@ -14,24 +14,35 @@
 labs/
 ├── package.json          ← 单一包 @medai/labs，依赖集中装
 ├── README.md             ← 本文件
-└── phase1-cognition/     ← 对应路线图阶段一：认知地基
-    ├── 00-hello-llm/     ← 一次调用背后发生了什么
-    ├── 01-token-window/  ← Token / 上下文窗口 / 注意力稀释
-    ├── 02-boundary/      ← 幻觉 / 知识截止 / 过度自信
-    ├── 03-params/        ← temperature / Top-p / 推理模型
-    └── 04-cost/          ← 模型选型与成本估算
+├── shared/               ← 共用工具：loadEnv / requireKey / printBudget / printTable
+├── phase1-cognition/     ← 对应路线图阶段一：认知地基
+│   ├── 00-hello-llm/     ← 一次调用背后发生了什么
+│   ├── 01-token-window/  ← Token / 上下文窗口 / 注意力稀释
+│   ├── 02-boundary/      ← 幻觉 / 知识截止 / 过度自信
+│   ├── 03-params/        ← temperature / Top-p / 推理模型
+│   └── 04-cost/          ← 模型选型与成本估算
+└── phase2-api/           ← 对应路线图阶段二：应用底座（大纲已定稿，7 个实验待建）
+    ├── _sdk/             ← 逐篇长大的网关：Adapter / 错误分类 / 流式 / 执行器
+    │   └── mock-provider.ts  ← 假模型：注入 401/429/500/超时，零成本
+    ├── _fixtures/        ← 首次真实调用的原始响应快照，重跑默认读这里
+    └── 01-provider-router … 07-concurrency-sdk/  ← 一篇一目录，编号见阶段二大纲
 ```
 
 后续阶段按 `phase2-api/`、`phase3-context/`、`phase4-rag/` 依次新增，编号与 `docs/roadmap/ai-agent-learning-roadmap.md` 的十个阶段对齐。
 
-## 六条规则
+## 九条规则
 
 1. **一个实验一个目录**。目录内必须有 `README.md`，写清三件事：要验证什么 / 怎么跑 / 看到什么算成功。
 2. **依赖统一装在 `labs` 包**。不要在实验子目录里再 `pnpm install`，避免每个实验一套 node_modules。
-3. **以真实 API 调用为主**。每篇至少 3 次真实请求；单篇预算 ≤ ¥5，阶段一合计 ≤ ¥10。脚本启动时**必须打印本次预计消耗**（token 数 + 估算金额），跑之前就知道要花多少。
+3. **以真实 API 调用为主**。每篇至少 3 次真实请求；单篇预算 ≤ ¥5，阶段一合计 ≤ ¥10（**阶段二收紧为单篇 ≤ ¥2、合计 ≤ ¥10**——那一阶段贵在调用次数而非 token 长度）。脚本启动时**必须打印本次预计消耗**（token 数 + 估算金额），跑之前就知道要花多少。
 4. **密钥只从 `.env.local` 读**，仓库里只留 `.env.local.example`。缺 key 时给出中文提示和获取地址，不要直接抛栈。
-5. **实验代码不追求生产质量**。可以有调试输出、硬编码参数、临时脚本；不进 `pnpm typecheck` 的强制门槛。
+5. **实验代码不追求生产质量**。可以有调试输出、硬编码参数、临时脚本；不进 `pnpm typecheck` 的强制门槛。**唯一例外是阶段二的 07 篇**：它的产物进 `packages/ai-sdk`，必须过 typecheck。
 6. **结论要回填**。每个实验跑完，把结论写进 `docs/learning/progress.json` 的 `ai_development` 分组；文章直接基于实验输出写（AI 系列不设 `docs/notes/` 笔记层）。实验目录保留下来作为复现证据。
+7. **增量实验（阶段二起）**。实验不再彼此独立，而是在 `phase2-api/_sdk/` 里逐篇加一块：01 建 Adapter → 01 加错误分类与降级 → 02 加流式 → 04 加结构化 → 07 加执行器并整体搬进 `packages/ai-sdk`。实验目录编号就是代码的演进顺序。
+8. **录制复用（阶段二起）**。首次真实调用后把原始响应写进 `_fixtures/*.json`（带 `capturedAt` 与文档链接）；重跑默认读 fixture，加 `--live` 才打真 API。既省钱，又让文章里的数字可复现。
+9. **假模型（阶段二起）**。`_sdk/mock-provider.ts` 支持按脚本注入 401 / 402 / 429 / 500 / 超时 / 慢响应；错误路径与并发场景全部走 mock，不产生费用。
+
+> 7~9 是阶段二引入的三条，详见 `docs/roadmap/ai-phase-02-api-foundation-outline.md` 的「实验区约定」。
 
 ## 怎么跑
 
@@ -53,4 +64,4 @@ pnpm --filter @medai/labs hello     # 或 token / boundary / params / cost
 
 ## 与文章的关系
 
-每个实验目录对应一篇文章（见 `docs/roadmap/ai-phase-01-cognitive-foundation-outline.md`）。写作顺序是：**先跑通实验 → 记下真实输出 → 再写文章**。文章里的数字、截图、对比表都来自这里跑出来的结果，不编造。
+每个实验目录对应一篇文章（阶段一见 `docs/roadmap/ai-phase-01-cognitive-foundation-outline.md`，阶段二见 `docs/roadmap/ai-phase-02-api-foundation-outline.md`）。写作顺序是：**先跑通实验 → 记下真实输出 → 再写文章**。文章里的数字、截图、对比表都来自这里跑出来的结果，不编造。

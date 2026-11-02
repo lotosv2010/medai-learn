@@ -47,7 +47,7 @@
 | 阶段 | 阶段大纲文件 | 状态 |
 |------|-------------|------|
 | 一 认知地基 | `ai-phase-01-cognitive-foundation-outline.md` | ✅ 已定稿（5 篇） |
-| 二 应用底座 | `ai-phase-02-api-foundation-outline.md` | ⬜ 待建 |
+| 二 应用底座 | `ai-phase-02-api-foundation-outline.md` | ✅ 已定稿（7 篇） |
 | 三 上下文工程 | `ai-phase-03-context-engineering-outline.md` | ⬜ 待建 |
 | 四 RAG | `ai-phase-04-rag-outline.md` | ⬜ 待建 |
 | 五 Agent | `ai-phase-05-agent-outline.md` | ⬜ 待建 |
@@ -214,6 +214,9 @@
 ### 阶段二：应用底座（调用能力）
 
 > 解决「怎么把模型调用起来」的问题，是前端 + Node 的主场。
+
+> **文章大纲**：`docs/roadmap/ai-phase-02-api-foundation-outline.md`（7 篇，每篇配一个 `labs/phase2-api/` 下的实验；实验是同一个网关逐篇长大，07 篇收进 `packages/ai-sdk`）
+> **文章归档**：`docs/articles/00 AI/02 应用底座/`
 
 **前置依赖**：阶段一
 

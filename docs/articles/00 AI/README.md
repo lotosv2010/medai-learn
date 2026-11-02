@@ -15,7 +15,7 @@ AI 工程系列是全部系列里唯一「0 基础新学」的轨道，按**阶�
 | 阶段 | 文件夹 | 路线图主题 | 实验代码 | 状态 |
 |------|--------|-----------|---------|------|
 | 阶段一 | `01 认知地基/` | 认识大模型 | `labs/phase1-cognition/` | ✅ 已完成（5 篇 + 备忘录） |
-| 阶段二 | `02 应用底座/` | 调用能力 | `labs/phase2-api/` | ⬜ 待建 |
+| 阶段二 | `02 应用底座/` | 调用能力 | `labs/phase2-api/` | 📝 大纲已定稿（7 篇，待写） |
 | 阶段三 | `03 上下文工程/` | Context Engineering（核心进阶） | `labs/phase3-context/` | ⬜ 待建 |
 | 阶段四 | `04 RAG/` | 检索增强生成 | `labs/phase4-rag/` | ⬜ 待建 |
 | 阶段五 | `05 Agent/` | 智能体 | `labs/phase5-agent/` | ⬜ 待建 |
@@ -45,5 +45,6 @@ AI 工程系列是全部系列里唯一「0 基础新学」的轨道，按**阶�
 
 - 学习路径：`docs/roadmap/ai-agent-learning-roadmap.md`
 - 阶段一大纲：`docs/roadmap/ai-phase-01-cognitive-foundation-outline.md`
+- 阶段二大纲：`docs/roadmap/ai-phase-02-api-foundation-outline.md`
 - 系列总索引：`docs/plans/00 frontend-engineering-outline.md`
 - 实验区约定：`labs/README.md`
