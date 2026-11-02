@@ -37,7 +37,7 @@
 | 11 | 数据结构与算法 | 📋 规划中（大纲已定稿 16 篇，详见 `docs/plans/07 data-structures-algorithms-outline.md`） | — | ③ |
 | 12 | 设计模式 | 📋 规划中（大纲已定稿 17 篇，详见 `docs/plans/08 design-patterns-series-outline.md`） | — | ④ |
 | 13 | 前端运维 | 📋 规划中（大纲已定稿 18 篇，详见 `docs/plans/10 frontend-ops-series-outline.md`） | — | ⑥ |
-| 14 | AI 工程（应用开发） | 📋 规划中（0 基础新学轨道，阶段一大纲已定稿 5 篇，详见 `docs/roadmap/ai-phase-01-cognitive-foundation-outline.md`） | 0/5（阶段一） | ★ 同步进行 |
+| 14 | AI 工程（应用开发） | 🚧 进行中（阶段一已完成 5 篇 + 备忘录，详见 `docs/roadmap/ai-phase-01-cognitive-foundation-outline.md`） | 5/5（阶段一） | ★ 同步进行 |
 
 ---
 
@@ -285,11 +285,11 @@
 
 ---
 
-## 14 AI 工程（📋 规划中，0 基础新学轨道，阶段一大纲已定稿 5 篇，详见 `docs/roadmap/ai-phase-01-cognitive-foundation-outline.md`）
+## 14 AI 工程（🚧 进行中，0 基础新学轨道，阶段一已完成 5 篇，详见 `docs/roadmap/ai-phase-01-cognitive-foundation-outline.md`）
 
 > ★ 与其他系列同步进行，但流程不同：本系列是唯一的「0 基础新学」轨道，不走整理已学笔记的流程。学习路径以 [`docs/roadmap/ai-agent-learning-roadmap.md`](../roadmap/ai-agent-learning-roadmap.md) 的十个阶段为准，**学完一个阶段才定一份阶段大纲**，不提前把全部篇目定死（AI 领域知识更新快，提前定稿等于提前作废）。每篇须先跑通 `labs/` 下的真实实验，再落文章。
 >
-> 阶段一已完成大纲（5 篇，文章归档到 `docs/articles/00 AI/01 认知地基/`）：
+> 阶段一已完成（5 篇 + 阶段交付物，文章归档到 `docs/articles/00 AI/01 认知地基/`，实验代码在 `labs/phase1-cognition/`）：
 
 - 大模型到底是什么：一次 API 调用背后发生了什么
 - 从 Token 到上下文窗口：模型眼里的文字长什么样

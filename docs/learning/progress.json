@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 497,
-  "lastSession": "2026-10-29T03:42:11.847Z",
+  "totalSessionCount": 508,
+  "lastSession": "2026-11-02T03:13:56.416Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -74,7 +74,44 @@
       "Next.js": []
     },
     {
-      "AI 开发": []
+      "AI 开发": [
+        {
+          "LLM API 基础": [
+            "一次 chat/completions 调用的请求与响应结构",
+            "usage 字段：prompt / completion / total tokens",
+            "OpenAI 兼容接口与 Anthropic 原生接口的差异"
+          ]
+        },
+        {
+          "Token 与上下文": [
+            "中英文 token 密度差异与中文更贵的原因",
+            "上下文窗口是预算不是保险柜",
+            "Lost in the Middle 与 needle-in-a-haystack 实验设计"
+          ]
+        },
+        {
+          "模型能力边界": [
+            "幻觉的成因：优化「像真的」而非「是真的」",
+            "知识截止与「它不知道自己过时了」",
+            "Prompt 约束 vs 资料注入的分层降低手段"
+          ]
+        },
+        {
+          "采样与推理档": [
+            "temperature 改分布形状，Top-k / Top-p 改候选集范围",
+            "推理被做成同一模型的开关，思考 token 按输出计费",
+            "思考模式下 temperature 被忽略：参数生效先于调参"
+          ]
+        },
+        {
+          "模型选型与成本": [
+            "输入价 / 输出价分离计价，输出贵 4-10 倍",
+            "缓存命中价可低至未命中价的 1/20",
+            "比价三口径：输入输出配比 / 缓存命中率 / tokenizer 归一化",
+            "70-30 模型路由与四维选型（合规→复杂度→上下文→成本）"
+          ]
+        }
+      ]
     },
     {
       "工程实践": []
@@ -140,16 +177,16 @@
       "Edge Runtime": "未开始"
     },
     "ai_development": {
-      "LLM API 基础接入": "未开始",
+      "LLM API 基础接入": "理解",
       "Streaming 流式输出": "未开始",
       "Function Calling / Tool Use": "未开始",
-      "Prompt Engineering 基础": "未开始",
+      "Prompt Engineering 基础": "理解",
       "RAG 完整流程": "未开始",
       "向量数据库使用": "未开始",
       "文档分块策略": "未开始",
       "AI Agent 设计": "未开始",
       "LangChain 核心概念": "未开始",
-      "多模型路由策略": "未开始"
+      "多模型路由策略": "理解"
     },
     "engineering": {
       "Monorepo + Turborepo": "理解",
