@@ -1,80 +1,116 @@
 # prompt
 
 ```text
-/publish 下面我们规划前端设计模式系列的第3篇文章，具体如下：
+/publish 下面我们规划前端设计模式系列的第4篇文章，具体如下：
 {{
 ## 知识点范围
 
-### 第 03 篇：单例模式：从 ESM 模块缓存到全局状态管理
+### 第 04 篇：工厂与建造者模式：创建哪种对象 vs 怎么组装对象
 
-**副标题**：ESM 模块天然是单例，但"天然"不等于"有设计意图"
+**副标题**：工厂负责"创建哪种对象"，建造者负责"按什么步骤组装复杂对象"
 
 #### 一、场景切入
 
-- 医疗系统里全局唯一的消息提示（Toast）、权限配置（PermissionConfig）、WebSocket 连接管理器——每次 `new` 都会产生副作用，必须保证唯一实例
-- Redux Store 是前端最典型单例：整个应用共享同一个 state 树，`createStore` 只调用一次
-- axios 实例化一次后全局复用（baseURL、拦截器只配置一遍），多次 `new axios()` 会导致配置冲突
+- 医疗系统对接多家物流商（顺丰/京东/极兔），每家 SDK 接口不同，但上层只关心"给我一个快递下单器"——工厂方法模式：把实例化逻辑集中到子类，调用方只调用 `createShipper()`
+- 药品详情页需要组装一个复杂 `ReportConfig` 对象（数十个字段，部分可选），直接 `new ReportConfig(field1, field2, ..., field20)` 可读性极差——建造者模式：链式 `.setTitle().setDrugId().setShowWarning().build()` 清晰且防止漏传必填字段
 
 #### 二、意图与本质
 
-- **意图**：确保一个类只有一个实例，并提供全局访问点
-- 解决的核心矛盾：某个资源「全局只能有一份」与「到处都能访问」之间的张力——不做单例，就会产生多份相互冲突的实例
+- **工厂模式**（简单工厂/工厂方法/抽象工厂）：把"实例化哪个类"的变化点从调用方抽离，调用方只面向抽象接口编程——解决的是"创建**哪种**对象"的变化
+- **建造者模式**：把复杂对象的构建过程分解为多个步骤，构建与表示分离——解决的是"**怎么**创建复杂对象"的变化
 
 #### 三、结构与角色
 
+**工厂系**（三个递进层次，笔记一篇收全）：
+
 ```mermaid
 classDiagram
-    class Singleton {
-        -static instance: Singleton
-        -constructor()
-        +static getInstance() Singleton
+    class SimpleFactory {
+        +static order(name) Product
     }
+    class AbstractFactory {
+        <<abstract>>
+        +createProduct()* Product
+    }
+    class ConcreteFactory {
+        +createProduct() Product
+    }
+    Product <|.. ConcreteProduct
+    AbstractFactory <|-- ConcreteFactory
 ```
 
-- **Singleton**：私有构造函数 + 静态 `getInstance()` + 静态私有实例字段——三个要素缺一不可
+- **简单工厂**：一个工厂对象通过 switch/if 决定创建哪个产品——是函数，新增产品要改 switch，违反 OCP
+- **工厂方法**：定义创建接口 `createProduct()`，子类决定实例化哪个类——新增产品只加子类，不改父类，遵守 OCP
+- **抽象工厂**：生产一系列相关产品族（如 `MacUIFactory` 同时生产 `MacButton`/`MacInput`），与工厂方法区别在于产品族 vs 单一产品
+
+**建造者**：
+
+```mermaid
+classDiagram
+    class Director {
+        +construct(builder)
+    }
+    class Builder {
+        <<abstract>>
+        +buildPart()*
+        +getResult()* Product
+    }
+    class ConcreteBuilder {
+        +buildPart()
+        +getResult() Product
+    }
+    Director --> Builder
+    Builder <|-- ConcreteBuilder
+    ConcreteBuilder --> Product
+```
+
+- 四个角色：**Product**（复杂对象）/ **Builder**（定义构建步骤）/ **ConcreteBuilder**（实现步骤）/ **Director**（控制构建顺序）
+- TypeScript 中常用链式调用版本（流式建造者），省略 `Director`
 
 #### 四、核心实现
 
 ```typescript
-class PrescriptionWsManager {
-  private static instance: PrescriptionWsManager | null = null;
-  private constructor() {}
-  static getInstance(): PrescriptionWsManager {
-    if (!PrescriptionWsManager.instance) {
-      PrescriptionWsManager.instance = new PrescriptionWsManager();
-    }
-    return PrescriptionWsManager.instance;
+// 工厂方法：物流商工厂
+abstract class ShipperFactory {
+  abstract createShipper(): Shipper;
+  ship(order: Order) { return this.createShipper().ship(order); }
+}
+// 建造者：药品报告配置
+class ReportConfigBuilder {
+  private config: Partial<ReportConfig> = {};
+  setDrugId(id: string) { this.config.drugId = id; return this; }
+  setShowWarning(show: boolean) { this.config.showWarning = show; return this; }
+  build(): ReportConfig {
+    if (!this.config.drugId) throw new Error('drugId required');
+    return this.config as ReportConfig;
   }
 }
-// ESM 版（更简洁）：直接导出实例，利用 module cache
-export const wsManager = new PrescriptionWsManager();
 ```
-
-- 笔记还收录了 ES5 闭包版、透明单例、单例与构造分离、封装变化（泛化单例工厂）等 5 种写法，按需挑选 2-3 种对比讲解
 
 #### 五、易混淆辨析
 
-- **ESM 模块 vs 单例模式**：ES Module 在运行时只被解析一次（Node.js `require` 缓存、浏览器 module graph），导出的对象默认引用唯一——但这是"无意图的单例"，与设计模式里"有意识封装唯一性"是两件事
-- **懒汉式 vs 饿汉式**：懒汉式（首次调用才创建）vs 饿汉式（模块加载时立刻创建）——JS 单线程下无线程安全问题，但懒加载在浏览器中有性能意义
-- **单例 vs 全局变量**：单例是"受控的唯一实例"，全局变量是"裸奔的共享状态"——单例多了构造私有、访问点统一两重保护
+- **简单工厂 vs 工厂方法**：简单工厂是函数（违反 OCP），工厂方法把变化点封装进子类（遵守 OCP）——本质区别在"新增产品时改不改工厂代码"
+- **工厂方法 vs 抽象工厂**：工厂方法针对"一个产品等级"，抽象工厂针对"多个产品族"——抽象工厂里包含多个工厂方法
+- **建造者 vs 工厂**：工厂一次性返回完整对象（关心"创建哪种"），建造者分步骤组装（关心"怎么组装"）——参数超过 5 个且可选字段多时选建造者
 
 #### 六、前端工程落地
 
-- Redux `createStore` 是单例（整个应用一个 store）
-- axios 实例化一次全局复用（拦截器只配置一遍）
-- Node.js `require` 缓存机制——CommonJS 模块天然单例的底层原理
+- React `createElement` 是简单工厂（内部 switch 决定元素类型）
+- React 早期 `createFactory(type)` 是工厂方法（`createElement.bind(null, type)`）
+- jQuery `$()` 是简单工厂，`$.ajax(options)` 是建造者（options 对象分步骤装配）
 
 #### 七、面试高频问
 
-- ESM 模块和单例模式有什么区别？什么时候用 Class 单例而不是直接导出对象？
-- 单例模式在单元测试中会有什么问题？怎么解决？
-- Redux Store 是单例模式吗？它和普通单例有什么不同？
+- 工厂方法和简单工厂有什么区别？各自违反或遵守了哪条设计原则？
+- 建造者模式和工厂模式的区别是什么？什么场景下选建造者？
+- 抽象工厂和工厂方法的关系是什么？
 
 
 
 ## 已有笔记
 
-- @docs\notes\11 design\03 创建型模式\04 单例模式.md
+- @docs\notes\11 design\03 创建型模式\01 工厂模式.md
+- @docs\notes\11 design\03 创建型模式\02 建造者模式_.md
 
 ## plans 地址
 
