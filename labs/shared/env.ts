@@ -12,8 +12,9 @@ import { fileURLToPath } from 'node:url'
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-/** labs/ 目录，从任意 phaseX/yy-name/ 往上两级 */
-export const LABS_ROOT = resolve(HERE, '../..')
+/** labs/ 目录：本文件在 labs/shared/，往上一级即是 */
+export const LABS_ROOT = resolve(HERE, '..')
+/** 仓库根目录：labs/ 的上一级 */
 export const REPO_ROOT = resolve(LABS_ROOT, '..')
 
 /** 极简 .env 解析：KEY=VALUE，忽略注释与空行 */
