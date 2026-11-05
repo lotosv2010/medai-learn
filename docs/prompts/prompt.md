@@ -1,116 +1,77 @@
 # prompt
 
 ```text
-/publish 下面我们规划前端设计模式系列的第4篇文章，具体如下：
+/publish 下面我们规划前端设计模式系列的第6篇文章，具体如下：
 {{
 ## 知识点范围
 
-### 第 04 篇：工厂与建造者模式：创建哪种对象 vs 怎么组装对象
+### 第 04 篇：原型模式：克隆创建对象，与 JS 原型链的本质区别
 
-**副标题**：工厂负责"创建哪种对象"，建造者负责"按什么步骤组装复杂对象"
+**副标题**：把这两件事搞清楚，一道高频辨析题就彻底解决了
 
 #### 一、场景切入
 
-- 医疗系统对接多家物流商（顺丰/京东/极兔），每家 SDK 接口不同，但上层只关心"给我一个快递下单器"——工厂方法模式：把实例化逻辑集中到子类，调用方只调用 `createShipper()`
-- 药品详情页需要组装一个复杂 `ReportConfig` 对象（数十个字段，部分可选），直接 `new ReportConfig(field1, field2, ..., field20)` 可读性极差——建造者模式：链式 `.setTitle().setDrugId().setShowWarning().build()` 清晰且防止漏传必填字段
+- 医疗后台需要复制一张"处方模板"生成新处方——复制已有对象比重新配置一个新对象更高效，用原型模式 `clone()` 而不是 `new Prescription()`
+- 大量相似配置对象（如多种药品规格 `DrugSpec`）的批量创建：以一个基准对象为原型，按需浅/深克隆修改少数字段
 
 #### 二、意图与本质
 
-- **工厂模式**（简单工厂/工厂方法/抽象工厂）：把"实例化哪个类"的变化点从调用方抽离，调用方只面向抽象接口编程——解决的是"创建**哪种**对象"的变化
-- **建造者模式**：把复杂对象的构建过程分解为多个步骤，构建与表示分离——解决的是"**怎么**创建复杂对象"的变化
+- **意图**：通过复制（克隆）一个已有对象来创建新对象，而不是通过实例化类——当对象创建代价高（复杂初始化、大量配置）时更高效
+- 解决的核心矛盾：对象"创建成本高"与"差异小"之间的张力——与其重新走一遍昂贵初始化，不如复制后微调
 
 #### 三、结构与角色
 
-**工厂系**（三个递进层次，笔记一篇收全）：
-
 ```mermaid
 classDiagram
-    class SimpleFactory {
-        +static order(name) Product
+    class Prototype {
+        <<interface>>
+        +clone() Prototype
     }
-    class AbstractFactory {
-        <<abstract>>
-        +createProduct()* Product
+    class ConcretePrototype {
+        +clone() ConcretePrototype
     }
-    class ConcreteFactory {
-        +createProduct() Product
-    }
-    Product <|.. ConcreteProduct
-    AbstractFactory <|-- ConcreteFactory
+    Prototype <|.. ConcretePrototype
 ```
 
-- **简单工厂**：一个工厂对象通过 switch/if 决定创建哪个产品——是函数，新增产品要改 switch，违反 OCP
-- **工厂方法**：定义创建接口 `createProduct()`，子类决定实例化哪个类——新增产品只加子类，不改父类，遵守 OCP
-- **抽象工厂**：生产一系列相关产品族（如 `MacUIFactory` 同时生产 `MacButton`/`MacInput`），与工厂方法区别在于产品族 vs 单一产品
-
-**建造者**：
-
-```mermaid
-classDiagram
-    class Director {
-        +construct(builder)
-    }
-    class Builder {
-        <<abstract>>
-        +buildPart()*
-        +getResult()* Product
-    }
-    class ConcreteBuilder {
-        +buildPart()
-        +getResult() Product
-    }
-    Director --> Builder
-    Builder <|-- ConcreteBuilder
-    ConcreteBuilder --> Product
-```
-
-- 四个角色：**Product**（复杂对象）/ **Builder**（定义构建步骤）/ **ConcreteBuilder**（实现步骤）/ **Director**（控制构建顺序）
-- TypeScript 中常用链式调用版本（流式建造者），省略 `Director`
+- **Prototype**：声明 `clone()` 接口；**ConcretePrototype**：实现克隆逻辑
+- 原型注册表（`Map<string, Prototype>`）按名称存储和检索原型
 
 #### 四、核心实现
 
 ```typescript
-// 工厂方法：物流商工厂
-abstract class ShipperFactory {
-  abstract createShipper(): Shipper;
-  ship(order: Order) { return this.createShipper().ship(order); }
-}
-// 建造者：药品报告配置
-class ReportConfigBuilder {
-  private config: Partial<ReportConfig> = {};
-  setDrugId(id: string) { this.config.drugId = id; return this; }
-  setShowWarning(show: boolean) { this.config.showWarning = show; return this; }
-  build(): ReportConfig {
-    if (!this.config.drugId) throw new Error('drugId required');
-    return this.config as ReportConfig;
+interface Cloneable<T> { clone(): T; }
+class PrescriptionTemplate implements Cloneable<PrescriptionTemplate> {
+  constructor(public drugId: string, public dosage: string, public warnings: string[]) {}
+  clone(): PrescriptionTemplate {
+    return new PrescriptionTemplate(this.drugId, this.dosage, [...this.warnings]);
   }
 }
+const registry = new Map<string, PrescriptionTemplate>();
 ```
 
 #### 五、易混淆辨析
 
-- **简单工厂 vs 工厂方法**：简单工厂是函数（违反 OCP），工厂方法把变化点封装进子类（遵守 OCP）——本质区别在"新增产品时改不改工厂代码"
-- **工厂方法 vs 抽象工厂**：工厂方法针对"一个产品等级"，抽象工厂针对"多个产品族"——抽象工厂里包含多个工厂方法
-- **建造者 vs 工厂**：工厂一次性返回完整对象（关心"创建哪种"），建造者分步骤组装（关心"怎么组装"）——参数超过 5 个且可选字段多时选建造者
+- **JavaScript 原型链 ≠ 原型模式**：原型链是 JS 的**继承机制**（对象通过 `[[Prototype]]` 共享方法），原型模式是一种**创建型设计模式**（克隆对象）。两者名字相同但完全不同概念——这是最高频的面试辨析点
+- **浅克隆 vs 深克隆**：浅克隆（`Object.assign`/`{...obj}`）只复制一层，嵌套对象/数组仍共享引用；深克隆（`structuredClone`/`JSON.parse(JSON.stringify)`/lodash `cloneDeep`）递归复制——按需选择
+- **原型 vs 工厂**：原型靠"复制"创建对象，工厂靠"实例化类"创建对象——对象初始化成本高、与原型差异小时选原型
 
 #### 六、前端工程落地
 
-- React `createElement` 是简单工厂（内部 switch 决定元素类型）
-- React 早期 `createFactory(type)` 是工厂方法（`createElement.bind(null, type)`）
-- jQuery `$()` 是简单工厂，`$.ajax(options)` 是建造者（options 对象分步骤装配）
+- `Object.create()` 以指定原型创建对象，是原型模式的直接体现
+- `structuredClone` 现代深克隆 API（注意函数/类实例无法克隆）
+- 笔记中 Canvas 圆点动画的 `Circle` 复用即原型模式思路
 
 #### 七、面试高频问
 
-- 工厂方法和简单工厂有什么区别？各自违反或遵守了哪条设计原则？
-- 建造者模式和工厂模式的区别是什么？什么场景下选建造者？
-- 抽象工厂和工厂方法的关系是什么？
+- JavaScript 的原型链和 GoF 原型模式是同一件事吗？分别解释。
+- 浅克隆和深克隆的区别？`Object.assign` 是浅克隆还是深克隆，有什么坑？
+- 什么场景下原型模式比工厂模式更合适？
 
 
 
 ## 已有笔记
 
-- @docs\notes\11 design\03 创建型模式\01 工厂模式.md
-- @docs\notes\11 design\03 创建型模式\02 建造者模式_.md
+- @docs\notes\11 design\03 创建型模式\03 原型模式.md
 
 ## plans 地址
 
