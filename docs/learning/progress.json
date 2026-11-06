@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 516,
-  "lastSession": "2026-11-05T06:56:46.007Z",
+  "totalSessionCount": 536,
+  "lastSession": "2026-11-06T08:56:04.817Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -120,6 +120,15 @@
             "降级链三问：顺序按成本能力、次数每层 1 次链 3 家、状态失败踢出",
             "双维路由：先可用性过滤，再复杂度分流，顺序不能反"
           ]
+        },
+        {
+          "SSE 服务端流式": [
+            "流式改的不是总耗时，是首字节时间（TTFB）：度量要用对指标",
+            "DeepSeek 流式帧结构：首帧 delta.role 有值、末帧带完整 usage、data: [DONE] 收尾",
+            "SSE 帧格式：两个换行是帧结束、冒号开头是心跳注释帧",
+            "X-Accel-Buffering: no 是「本地流、线上不流」的头号解药，每个代理开关不同",
+            "客户端断开要 abort 上游，否则关了页面账单还在跑"
+          ]
         }
       ]
     },
@@ -188,7 +197,7 @@
     },
     "ai_development": {
       "LLM API 基础接入": "理解",
-      "Streaming 流式输出": "未开始",
+      "Streaming 流式输出": "理解",
       "Function Calling / Tool Use": "未开始",
       "Prompt Engineering 基础": "理解",
       "RAG 完整流程": "未开始",

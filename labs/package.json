@@ -10,7 +10,9 @@
     "boundary": "tsx phase1-cognition/02-boundary/index.ts",
     "params": "tsx phase1-cognition/03-params/index.ts",
     "cost": "tsx phase1-cognition/04-cost/index.ts",
-    "p2-router": "tsx phase2-api/01-provider-router/index.ts"
+    "p2-router": "tsx phase2-api/01-provider-router/index.ts",
+    "p2-sse": "tsx phase2-api/02-sse-server/index.ts",
+    "p2-sse-proxy": "tsx phase2-api/02-sse-server/proxy.ts"
   },
   "dependencies": {
     "gpt-tokenizer": "^4.1.0"

@@ -168,7 +168,7 @@
   - 读 `.env.local`，对每个**已配置**的 provider 发一次最小聊天请求 + 一次 `stream: true`，打印一张能力矩阵：`有 key` / `流式可用` / `支持 response_format` / `提供 embedding 接口`
   - **要看见**：没配的 key 不影响开跑（列显示 `—`）；DeepSeek 的 embedding 列是空的（这个空缺一直延伸到 06 篇，成为「接口要拆」的论据）
 - 实验 B：原始报文采集 + 归一化（**不许用任何 SDK，只用 `fetch`**）
-  - 同一句医疗问题（如「阿莫西林胶囊的常见不良反应有哪些」）打 DeepSeek，打印请求体（脱敏）、非流式响应全文、流式前 3 帧与最后 1 帧；原始报文存进 `_fixtures/*.json`（带 `capturedAt` 与文档链接）
+  - 同一句医疗问题（如「阿莫西林胶囊的常见不良反应有哪些」）打 DeepSeek，打印请求体（脱敏）、非流式响应全文、流式前 3 帧与最后 1 帧；原始报文直接打印留存，需要复现时再存进 `_fixtures/*.json`（带 `capturedAt` 与文档链接）
   - 写 `normalize()` 把响应映射成统一 `ChatResult`：`{ content, usage: { prompt, completion, cached? }, finishReason, raw }`
   - **要看见**：`ChatResult` 归一化成功，但**错误对象仍然各不相同**——直接引出实验 C
 - 实验 C：降级链 + 双维路由（**全部走 mock，零成本**）
@@ -197,7 +197,7 @@
 - Anthropic：Messages API、Streaming（`content_block_delta`）、Tool Use
 - OpenAI：Chat Completions、Responses API、Batch API
 
-**产出物**：一张本机能力矩阵 + `_fixtures/` 原始报文 + 一个 `normalize()` + 一张错误分类表 + 带决策日志的降级链实现
+**产出物**：一张本机能力矩阵 + 一份原始报文记录（需要离线复现时再落 `_fixtures/`）+ 一个 `normalize()` + 一张错误分类表 + 带决策日志的降级链实现
 
 ---
 
@@ -365,7 +365,7 @@
 - 实验 C（对照组，必须做）：思考模式开着 vs 关着，同一 Schema 的失败率
   - **要看见**：`temperature` 在思考模式下不生效，按阶段一习惯调温度求稳定会得出假结论
 - 关键结论：**能被机器拒绝的输出才叫可靠；而机器只能拒绝它被允许检查的那部分**
-- 脚本要求：打印「20 条 × 3 组 ≈ 60 次调用，约 ¥0.6」；`--live` 才真实调用，默认读 fixture
+- 脚本要求：打印「20 条 × 3 组 ≈ 60 次调用，约 ¥0.6」；首次跑完把 60 条原始响应存进 `_fixtures/`，之后默认读快照、`--live` 才重打真 API（本篇是阶段二唯一必须做录制复用的实验——60 次调用重跑一次就是 ¥0.6）
 
 #### 四、总结
 
@@ -610,7 +610,7 @@
 | 质量 | 一次性学习脚手架，不追求生产质量，不进 `pnpm typecheck` 强制门槛——**唯一例外是 07 篇**，它的产物进 `packages/ai-sdk` 且必须过 typecheck |
 | 归档 | 结论回填 `docs/learning/progress.json` 的 `ai_development`；文章进 `docs/articles/00 AI/02 应用底座/`；**不建 `docs/notes/` 笔记层** |
 | **增量实验（本阶段新增）** | 实验不是彼此独立的脚本，而是在 `_sdk/` 里逐篇加一块：01 建 Adapter → 01 加分类与降级 → 02 加流式 → 04 加结构化 → 07 加执行器并搬进 `packages/ai-sdk` |
-| **录制复用（本阶段新增）** | 首次真实调用后把原始响应写进 `_fixtures/*.json`（含 `capturedAt` 与文档链接），重跑默认读 fixture，加 `--live` 才打真 API——省钱，且文章里的数字可复现 |
+| **录制复用（本阶段新增，按需）** | 仅「重跑贵」或「必须精确复现」的实验才建 `_fixtures/*.json`（含 `capturedAt` 与文档链接）：04 篇的 20 条样本矩阵、07 篇的并发场景。**默认路径仍是真实调用**——02 篇单次 ¥0.01、全部观察 ¥0.05，加一层回放间接不值得 |
 | **假模型（本阶段新增）** | `_sdk/mock-provider.ts` 支持按脚本注入 401/402/429/500/超时/慢响应，01/07 的错误场景全部零成本 |
 | 脚本名 | `p2-router` / `p2-sse` / `p2-client` / `p2-schema` / `p2-tools` / `p2-embed` / `p2-sdk`（加 `p2-` 前缀避免与阶段一的 `token`/`params`/`cost` 冲突） |
 
