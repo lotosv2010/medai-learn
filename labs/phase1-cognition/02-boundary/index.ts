@@ -9,7 +9,7 @@ import { loadEnv, requireKey, printBudget, printTable } from '../../shared/env.t
  * 这篇的结论直接指向阶段四：RAG 不是「更高级的玩法」，是幻觉问题的必然解法。
  */
 
-const BASE_URL = 'https://api.deepseek.com/v1'
+const BASE_URL = 'https://api.deepseek.com'
 const MODEL = 'deepseek-chat'
 
 interface Case {

@@ -46,7 +46,7 @@ const PROVIDERS: ProviderConfig[] = [
     name: 'DeepSeek',
     envKey: 'DEEPSEEK_API_KEY',
     hint: 'https://platform.deepseek.com/api_keys',
-    baseURL: 'https://api.deepseek.com/v1',
+    baseURL: 'https://api.deepseek.com',
     model: 'deepseek-chat',
     pricePerMillionYuan: 2,
   },

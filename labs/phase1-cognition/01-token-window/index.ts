@@ -95,7 +95,7 @@ async function askLong(baseURL: string, apiKey: string, model: string, content: 
 async function experimentB(): Promise<void> {
   const env = loadEnv()
   const apiKey = requireKey(env, 'DEEPSEEK_API_KEY', 'https://platform.deepseek.com/api_keys')
-  const baseURL = 'https://api.deepseek.com/v1'
+  const baseURL = 'https://api.deepseek.com'
   const model = 'deepseek-chat'
 
   const SIZES = [5_000, 20_000, 80_000]

@@ -16,7 +16,7 @@ import { loadEnv, requireKey, printBudget, printTable } from '../../shared/env.t
  * 用同一个模型切换模式，变量只剩「要不要先写草稿」，对照才干净。
  */
 
-const BASE_URL = 'https://api.deepseek.com/v1'
+const BASE_URL = 'https://api.deepseek.com'
 /** 同一个模型，两种思考模式 */
 const MODEL = 'deepseek-flash'
 

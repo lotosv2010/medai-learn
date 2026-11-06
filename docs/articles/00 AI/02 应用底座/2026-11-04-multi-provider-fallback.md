@@ -204,7 +204,7 @@ type ErrorCategory = 'retryable' | 'terminal' | 'rate_limited' | 'auth'
 // labs/phase2-api/01-provider-router/index.ts（节选）
 import { loadEnv, printTable } from '../../shared/env.ts'
 
-const BASE_URL = 'https://api.deepseek.com/v1'
+const BASE_URL = 'https://api.deepseek.com'
 const MODEL = 'deepseek-chat'
 const QUESTION = '阿莫西林胶囊的常见不良反应有哪些？请用三句话概括。'
 ```

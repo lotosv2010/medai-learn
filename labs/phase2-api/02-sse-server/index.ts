@@ -35,7 +35,7 @@ const requestBody = (stream: boolean) =>
   })
 
 async function callModel(stream: boolean, signal: AbortSignal): Promise<Response> {
-  const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
+  const res = await fetch('https://api.deepseek.com/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: requestBody(stream),
