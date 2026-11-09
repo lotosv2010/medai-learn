@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>前端接流式 · 三组实验</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 880px; margin: 24px auto; padding: 0 16px; line-height: 1.7; }
+      section { border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0; }
+      h2 { margin-top: 0; font-size: 18px; }
+      button { margin-right: 8px; margin-bottom: 8px; padding: 6px 14px; cursor: pointer; }
+      table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+      td, th { border: 1px solid #e5e7eb; padding: 6px 10px; text-align: left; }
+      #stream-out { white-space: pre-wrap; border: 1px dashed #d1d5db; padding: 12px; min-height: 120px; border-radius: 6px; }
+      .hint { color: #6b7280; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <h1>前端接流式：接得上，更要接得住</h1>
+    <p class="hint">阶段二 · 第 03 篇实验。每次点「开始」都发一次真实 DeepSeek 流式调用（约 ¥0.01）。</p>
+
+    <section>
+      <h2>实验 A：两种渲染策略</h2>
+      <p class="hint">同一段流式回答，策略 A「每个 delta 直接写 DOM」，策略 B「buffer + requestAnimationFrame 每帧提交一次」。看三列：delta 数 / 渲染次数 / 长任务数。</p>
+      <button id="run-a">策略 A（naive）</button>
+      <button id="run-b">策略 B（rAF 批量）</button>
+      <table>
+        <thead><tr><th>策略</th><th>delta 数</th><th>渲染次数</th><th>长任务数</th></tr></thead>
+        <tbody id="counts-body"></tbody>
+      </table>
+      <div id="stream-out">（输出区）</div>
+    </section>
+
+    <section>
+      <h2>实验 B：字节边界</h2>
+      <p class="hint">「阿莫西林」四个字 12 字节，按每 2 字节一片喂给 TextDecoder——每片都切在多字节字符中间。</p>
+      <button id="run-byte">跑字节边界对照</button>
+      <table id="byte-boundary-result"></table>
+    </section>
+
+    <section>
+      <h2>实验 C：停止生成，上游停没停</h2>
+      <p class="hint">点「停止生成」后，去看两处：本页按钮变灰（前端停了），服务端终端打印「客户端主动断开，上游请求被取消」+ DevTools Network 里请求变 (canceled)。</p>
+      <button id="start-c">开始生成（策略 B）</button>
+      <button id="stop-btn" disabled>停止生成</button>
+      <div id="stream-out-c"></div>
+    </section>
+
+    <script src="/client.js"></script>
+  </body>
+</html>

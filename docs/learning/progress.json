@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 536,
-  "lastSession": "2026-11-06T08:56:04.817Z",
+  "totalSessionCount": 547,
+  "lastSession": "2026-11-09T05:41:31.562Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -129,6 +129,17 @@
             "X-Accel-Buffering: no 是「本地流、线上不流」的头号解药，每个代理开关不同",
             "客户端断开要 abort 上游，否则关了页面账单还在跑"
           ]
+        },
+        {
+          "前端消费流式": [
+            "EventSource 只能 GET、不能带自定义头，AI 对话必须用 fetch + ReadableStream.getReader()",
+            "SSE 解析三边界：按空行切帧、半帧留 buffer、一 chunk 多帧用 while 切到底",
+            "TextDecoder({stream:true}) 拼接多字节字符残片；不开时汉字被切片即变 �",
+            "渲染收敛：buffer + requestAnimationFrame，写入次数从 delta 数降到有内容的帧数",
+            "渲染优化有收益上限 = 产出速率 ÷ 帧率（实测 delta 约 140/s、60fps，收敛 2.7~3.6 倍）",
+            "abort 三处验证：按钮变灰、服务端 res.on('close') 日志、DevTools 的 (canceled)",
+            "res.writableEnded 用于区分「正常结束」与「客户端主动断开」，否则日志被假报警污染"
+          ]
         }
       ]
     },
@@ -208,7 +219,11 @@
       "多模型路由策略": "掌握",
       "多模型接入与降级链": "理解",
       "错误分类与降级链": "理解",
-      "OpenAI 兼容接口的边界": "理解"
+      "OpenAI 兼容接口的边界": "理解",
+      "前端消费流式": "理解",
+      "SSE 解析器手写": "理解",
+      "TextDecoder stream 选项": "理解",
+      "rAF 渲染收敛": "理解"
     },
     "engineering": {
       "Monorepo + Turborepo": "理解",

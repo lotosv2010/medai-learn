@@ -12,13 +12,16 @@
     "cost": "tsx phase1-cognition/04-cost/index.ts",
     "p2-router": "tsx phase2-api/01-provider-router/index.ts",
     "p2-sse": "tsx phase2-api/02-sse-server/index.ts",
-    "p2-sse-proxy": "tsx phase2-api/02-sse-server/proxy.ts"
+    "p2-sse-proxy": "tsx phase2-api/02-sse-server/proxy.ts",
+    "p2-client": "tsx phase2-api/03-stream-client/server.ts",
+    "p2-client-measure": "tsx phase2-api/03-stream-client/measure.ts"
   },
   "dependencies": {
     "gpt-tokenizer": "^4.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",
+    "esbuild": "^0.24.0",
     "tsx": "^4.20.0",
     "typescript": "^5.4.0"
   }
