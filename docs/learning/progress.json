@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 561,
-  "lastSession": "2026-11-10T03:24:31.755Z",
+  "totalSessionCount": 563,
+  "lastSession": "2026-11-10T06:32:11.353Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -140,6 +140,17 @@
             "abort 三处验证：按钮变灰、服务端 res.on('close') 日志、DevTools 的 (canceled)",
             "res.writableEnded 用于区分「正常结束」与「客户端主动断开」，否则日志被假报警污染"
           ]
+        },
+        {
+          "Function Calling / Tool Use": [
+            "模型只输出 tool_calls 不执行，执行权在代码：安全边界就在代码这一步",
+            "一次 tool call 五步骤：发定义→写调用单→代码校验执行→回传→作答，第 3 步是安全插入点",
+            "arguments 是字符串要 JSON.parse，且模型不总生成合法 JSON",
+            "参数幻觉：执行前 Zod 校验，失败回传纠错消息让模型自我修正",
+            "工具描述即 Prompt：写太宽会误触发",
+            "只读/写操作分界：只读可自动执行，写操作需人机确认（HITL 留阶段五）",
+            "Function Calling 是 Agent 的器官不是 Agent 本身：循环与终止留阶段五"
+          ]
         }
       ]
     },
@@ -209,7 +220,7 @@
     "ai_development": {
       "LLM API 基础接入": "理解",
       "Streaming 流式输出": "理解",
-      "Function Calling / Tool Use": "未开始",
+      "Function Calling / Tool Use": "理解",
       "Prompt Engineering 基础": "理解",
       "RAG 完整流程": "未开始",
       "向量数据库使用": "未开始",
@@ -227,7 +238,11 @@
       "结构化输出 / JSON 约束（三档阶梯）": "理解",
       "Zod 校验与语义盲区": "理解",
       "DeepSeek json_object 三个坑": "理解",
-      "思考模式对 temperature 的影响": "理解"
+      "思考模式对 temperature 的影响": "理解",
+      "tool_calls 是结构化意图而非执行": "理解",
+      "五步骤责任划分与安全插入点": "理解",
+      "参数幻觉与 Zod 拦截": "理解",
+      "工具描述即 Prompt（宽窄误触发）": "理解"
     },
     "engineering": {
       "Monorepo + Turborepo": "理解",
