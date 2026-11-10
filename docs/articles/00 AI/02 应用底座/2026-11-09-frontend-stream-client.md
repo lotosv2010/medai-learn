@@ -69,6 +69,7 @@ AI 对话的场景是这样的：对话历史可能有十几轮、几千字，�
 既然要用 `fetch`，就得自己解析。好消息是解析器很短，二十来行、两个函数就够。第一个函数负责「读一片、切一批」：
 
 ```typescript
+// labs/phase2-api/03-stream-client/client.ts（节选）
 async function consumeStream(body: ReadableStream<Uint8Array>, onDelta: (t: string) => void) {
   const decoder = new TextDecoder()
   const reader = body.getReader()
@@ -85,6 +86,7 @@ async function consumeStream(body: ReadableStream<Uint8Array>, onDelta: (t: stri
 第二个函数负责「切」——把 `buf` 里所有完整的帧都切出来，返回切不动的残余：
 
 ```typescript
+// labs/phase2-api/03-stream-client/client.ts（节选；完整版对 JSON.parse 做了 try/catch）
 function drain(buf: string, onDelta: (t: string) => void): string {
   let idx: number
   while ((idx = buf.indexOf('\n\n')) !== -1) {      // 👈 按「两个换行」切帧
@@ -103,7 +105,7 @@ function drain(buf: string, onDelta: (t: string) => void): string {
 
 拆成两个函数不只是为了好看——「读」管的是网络，「切」管的是字符串，两件事的失败模式完全不同，混在一起时排查 `�` 和排查帧错位会互相干扰。
 
-这三段代码里有三个必须理解的点，每一个都能单独出面试题。
+这两段代码里有三个必须理解的点，每一个都能单独出面试题。
 
 **第一，为什么按 `\n\n` 切帧而不是按 `data:` 切。** 一个网络分片可能只含半帧（`buf` 留着拼下一轮），也可能一次带来五帧（`while` 循环切五次）。切帧的依据必须是**帧结束符**（空行），而不是「看到 data 就切」——因为一个事件可以带多个字段（`data:` / `event:` / `id:`），每字段一行，空行才是事件与事件的分界。
 
@@ -173,20 +175,28 @@ onDelta((text) => {
 正确的做法是把多次更新收敛到一帧：
 
 ```typescript
+// labs/phase2-api/03-stream-client/client.ts（节选，对应 renderBatched）
 let buffer = ''
 let scheduled = false
+let renders = 0
 
-onDelta((text) => {
+const flush = (): void => {
+  if (buffer === '') return
+  out.textContent += buffer
+  buffer = ''
+  renders += 1
+  scheduled = false
+}
+
+await consumeStream(res.body!, (text) => {
   buffer += text                    // 👈 先只攒着，不碰 DOM
   if (!scheduled) {
     scheduled = true
-    requestAnimationFrame(() => {   // 👈 下一帧统一提交一次
-      output.textContent += buffer
-      buffer = ''
-      scheduled = false
-    })
+    requestAnimationFrame(flush)    // 👈 下一帧统一提交一次，每帧最多写一次 DOM
   }
 })
+
+flush()                             // 👈 收尾：把最后一帧还没提交的 buffer 刷出去
 ```
 
 `requestAnimationFrame` 的语义正是「在浏览器下一次重绘之前执行」。一帧之内不管来了多少 delta，函数体只跑一次，把攒下的内容一次性写进 DOM。
@@ -212,7 +222,7 @@ onDelta((text) => {
 
 还有两个容易漏的细节：
 
-**收尾要 flush。** 流结束时，最后一帧可能还在 `buffer` 里没提交（因为 `rAF` 还没触发）。必须在 `for await` 结束后手动调一次 flush，否则回答最后一个字会丢。
+**收尾要 flush。** 流结束时，最后一帧可能还在 `buffer` 里没提交（因为 `rAF` 还没触发）。必须在读取循环结束后手动调一次 flush（就是上面那段最后的 `flush()`），否则回答最后一个字会丢。
 
 **React 里这套逻辑去哪了。** `buffer + rAF` 是框架无关的通用解。在 React 里，等价的思路是 `useSyncExternalStore` + `startTransition`（React 18+），或者干脆用 `useChat` 这种已经封装好的 Hook。本篇不用 React，是因为原生 DOM + 一行 `rAF` 计数能把「渲染次数」量出来；在 React 里你反而看不见协调次数。
 
@@ -226,17 +236,30 @@ onDelta((text) => {
 
 用户点「停止生成」，你以为界面停了就完了——**如果只清了界面没断开连接，上游的模型还在跑，钱还在烧**。
 
-完整链路是三段：
+完整链路是三段，第一段在浏览器，后两段在服务端：
 
 ```typescript
+// ① 前端：labs/phase2-api/03-stream-client/client.ts（节选）
 const controller = new AbortController()
 
-// ① 前端：signal 传给 fetch，abort() 会真的断开 TCP 连接
+// signal 传给 fetch，abort() 会真的断开 TCP 连接
 const res = await fetch('/sse', { signal: controller.signal })
 
-// ② 服务端：客户端断开时触发 'close'，中止上游请求
-res.on('close', () => {
-  if (!res.writableEnded) ac.abort()   // 👈 区分「正常结束」和「用户中断」
+function stopStream(): void {
+  controller?.abort()                 // 👈 用户点「停止生成」
+  el('stop-btn')!.setAttribute('disabled', '')
+}
+```
+
+```typescript
+// ② 服务端：labs/phase2-api/03-stream-client/server.ts（节选）
+// 这里的 res 是 Node 的 ServerResponse，和上面浏览器里的 Response 不是同一个东西
+createServer((req, res) => {
+  const ac = new AbortController()
+  res.on('close', () => {
+    if (!res.writableEnded) ac.abort()   // 👈 区分「正常结束」和「用户中断」
+  })
+  // ...路由与转发
 })
 ```
 
@@ -262,6 +285,72 @@ res.on('close', () => {
 
 > **说明**：实验脚本在 `labs/phase2-api/03-stream-client/`，只用 Node 内置模块 + `esbuild` 打包前端，不引任何库。跑法：先 `nvm use 22`，再 `pnpm --filter @medai/labs p2-client` 起实验页，浏览器打开 `http://127.0.0.1:3004/`。想用命令行复现实验 A 的数字，另开终端跑 `pnpm --filter @medai/labs p2-client-measure`。每次点「开始」是一次真实调用，约 ¥0.01。
 
+### 实验页是怎么搭起来的：三个文件、三条路由
+
+打开 `http://127.0.0.1:3004/` 看到的那个页面，是本篇实验目录下三个文件拼出来的，一个文件只干一件事：
+
+| 文件 | 职责 | 关键内容 |
+|---|---|---|
+| `index.html` | 只有结构，零逻辑 | 三段 `<section>` 对应三个实验；末尾一行 `<script src="/client.js">` |
+| `client.ts` | 全部行为 | 解析器 + 两种渲染策略 + 字节演示 + abort，末尾 `bind()` 按 id 挂事件 |
+| `server.ts` | 起 3004 端口，同时干三件事：打包前端、发页面、转发流 | `buildSync` 内存打包、`readFileSync` 读页面、三条路由 |
+
+`index.html` 里没有一个 `<script>` 逻辑块，只有 id：`#run-a` / `#run-b` 是实验 A 的两颗按钮、`#counts-body` 是计数表、`#run-byte` 是实验 B、`#start-c` / `#stop-btn` 是实验 C。`client.ts` 末尾的 `bind()` 负责把它们对上：
+
+```typescript
+// labs/phase2-api/03-stream-client/client.ts（节选）
+function bind(): void {
+  el('run-a')!.addEventListener('click', () => renderNaive(el('stream-out')!, new AbortController().signal))
+  el('run-b')!.addEventListener('click', () => renderBatched(el('stream-out')!, new AbortController().signal))
+  el('run-byte')!.addEventListener('click', runByteBoundaryDemo)
+  el('start-c')!.addEventListener('click', startStream)
+  el('stop-btn')!.addEventListener('click', stopStream)
+}
+```
+
+`server.ts` 这边最值得看一眼的是**打包**：不开 webpack、不配 vite，`buildSync` 直接在内存里把 `client.ts` 打成单文件 IIFE，`write: false` 表示不落盘、只要 `outputFiles[0].text` 那段字符串。实验代码的「零前端工程依赖」是刻意的——让人看见每一行原始逻辑，而不是被构建配置分心。
+
+```typescript
+// labs/phase2-api/03-stream-client/server.ts（节选）
+const clientJs = buildSync({
+  entryPoints: [resolve(HERE, 'client.ts')],
+  bundle: true,
+  format: 'iife',
+  target: 'es2020',
+  write: false,                    // 👈 不写文件，结果留在内存里
+}).outputFiles[0].text
+
+const page = readFileSync(resolve(HERE, 'index.html'), 'utf-8')
+```
+
+拿到这两段内容之后，路由就是三条 `if`：
+
+```typescript
+// labs/phase2-api/03-stream-client/server.ts（节选）
+const url = req.url ?? '/'
+if (url === '/') {
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+  res.end(page)                    // 👈 实验页
+  return
+}
+if (url === '/client.js') {
+  res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' })
+  res.end(clientJs)                // 👈 打包后的前端单文件
+  return
+}
+if (url === '/sse') {
+  handleSse(res, ac.signal).catch((err) => {
+    if (!ac.signal.aborted) console.error('❌ 上游出错：', err)
+    if (!res.writableEnded) res.end()
+  })
+  return
+}
+res.writeHead(404)
+res.end()
+```
+
+所以三个实验和路由的对应关系是：**实验 A 和实验 C 打的是 `/sse`**（每次点击都是一次真实上游调用），**实验 B 一个网络请求都不发**——它在 `runByteBoundaryDemo()` 里用 `TextEncoder` 造出「阿莫西林」的 12 个字节，再按 2 字节一片喂给两个 `TextDecoder`，纯本地、零成本。
+
 ### 实验 A：两种渲染策略
 
 页面上点「策略 A」「策略 B」各跑一次，表格会记录 delta 数、渲染次数、长任务数。
@@ -283,7 +372,7 @@ res.on('close', () => {
 
 ### 实验 B：字节边界
 
-页面上点「跑字节边界对照」，结果就是前面那张表的来源：
+页面上点「跑字节边界对照」，结果就是前面那张表的来源——背后是 `client.ts` 里的 `runByteBoundaryDemo()`：`TextEncoder` 把「阿莫西林」编成 12 字节，按 2 字节循环切片，同一份 `slice` 同时喂给两个 `TextDecoder`，一个开 `stream` 一个不开，最后各自再调一次无参 `decode()` 收尾。
 
 - 不开 `stream`：12 字节 → 10 个 `�`，0 个字还原
 - 开 `stream`：12 字节 → 4 个字，完全正确
@@ -293,6 +382,8 @@ res.on('close', () => {
 ### 实验 C：abort 传播
 
 点「开始生成」，生成途中点「停止生成」，同时看三处：按钮变灰、服务端打印「🛑 客户端主动断开，上游请求被取消」、DevTools 里 `/sse` 变 `(canceled)`。
+
+实现上是 `startStream()` 新建一个 `AbortController`，把它的 `signal` 交给 `renderBatched(out, signal, false)`——第三个参数 `report = false` 表示复用策略 B 的渲染逻辑但不往实验 A 的表格里插行；`stopStream()` 只做两件事：`abort()` + 禁用按钮。
 
 三处同时对上是合格。对照组（把清空界面的代码注释掉、只保留 `abort()`）会发现界面不清了但服务端日志照常打印——这说明**「停 UI」和「停请求」是两件独立的事**，很多实现只做了前一件。
 
@@ -385,7 +476,7 @@ res.on('close', () => {
 
 **③ 本项目实验代码**
 
-- 实验目录：`labs/phase2-api/03-stream-client/`（`server.ts` 实验页与流式端点、`client.ts` 三种渲染与解析逻辑、`measure.ts` 命令行可复现测量）
+- 实验目录：`labs/phase2-api/03-stream-client/`（`index.html` 三个实验区的结构、`server.ts` 实验页与流式端点、`client.ts` 三种渲染与解析逻辑、`measure.ts` 命令行可复现测量）
 - 阶段二大纲：`docs/roadmap/ai-phase-02-api-foundation-outline.md`
 
 ---
