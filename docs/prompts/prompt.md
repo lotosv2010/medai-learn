@@ -1,77 +1,109 @@
 # prompt
 
 ```text
-/publish 下面我们规划前端设计模式系列的第6篇文章，具体如下：
+/publish 下面我们规划前端设计模式系列的第11篇文章，具体如下：
 {{
 ## 知识点范围
 
-### 第 04 篇：原型模式：克隆创建对象，与 JS 原型链的本质区别
+### 第 11 篇：观察者与发布订阅模式：有没有中介，是解耦的分水岭
 
-**副标题**：把这两件事搞清楚，一道高频辨析题就彻底解决了
+**副标题**：全系列最高频也最容易答错的一道题，这一篇彻底讲清楚
+
+> 本篇讲两种模式的通用抽象和跨框架场景（EventEmitter、DOM 自定义事件、Redux subscribe），Vue3 `track/trigger/effect` 的具体源码实现见《Vue 3 源码》系列响应式篇，避免重复
 
 #### 一、场景切入
 
-- 医疗后台需要复制一张"处方模板"生成新处方——复制已有对象比重新配置一个新对象更高效，用原型模式 `clone()` 而不是 `new Prescription()`
-- 大量相似配置对象（如多种药品规格 `DrugSpec`）的批量创建：以一个基准对象为原型，按需浅/深克隆修改少数字段
+- 医生修改患者病历后，页面上的"病历摘要卡片"、"用药提醒"、"随访计划"三个互不相关的组件都要联动更新——如果让病历模块直接持有这三个组件的引用去逐个调用，耦合度极高
+- 医患 IM 系统里，"新消息到达"这个事件需要被聊天窗口、未读计数、通知栏三个完全不知道彼此存在的模块响应——这正是发布订阅模式要解决的问题
 
 #### 二、意图与本质
 
-- **意图**：通过复制（克隆）一个已有对象来创建新对象，而不是通过实例化类——当对象创建代价高（复杂初始化、大量配置）时更高效
-- 解决的核心矛盾：对象"创建成本高"与"差异小"之间的张力——与其重新走一遍昂贵初始化，不如复制后微调
+- **观察者模式**：定义一对多的依赖关系，一个 Subject 维护一个 Observer 列表，状态变化时**直接遍历调用**每个 Observer 的更新方法——Subject 知道 Observer 的存在（持有引用），是**双方耦合**（哪怕耦合度很低）
+- **发布-订阅模式**：发布者和订阅者不直接认识，通过一个中介（Event Channel / Broker / EventBus）传递消息——是**完全解耦**，两者互不知道对方存在
+- 两者共同解决的问题：解耦"状态变化"和"响应状态变化的逻辑"，让新增响应逻辑不需要修改状态产生方的代码（体现 OCP）
 
 #### 三、结构与角色
 
+**观察者**：
+
 ```mermaid
 classDiagram
-    class Prototype {
+    class Subject {
+        -observers: Observer[]
+        +subscribe(o)
+        +notify()
+    }
+    class Observer {
         <<interface>>
-        +clone() Prototype
+        +update()
     }
-    class ConcretePrototype {
-        +clone() ConcretePrototype
-    }
-    Prototype <|.. ConcretePrototype
+    Subject --> Observer
 ```
 
-- **Prototype**：声明 `clone()` 接口；**ConcretePrototype**：实现克隆逻辑
-- 原型注册表（`Map<string, Prototype>`）按名称存储和检索原型
+**发布订阅**（多一层中介）：
+
+```mermaid
+classDiagram
+    class Publisher {
+        +publish(topic)
+    }
+    class EventBus {
+        -topics: Map
+        +subscribe(topic, cb)
+        +publish(topic, ...args)
+    }
+    class Subscriber {
+        +on(topic, cb)
+    }
+    Publisher --> EventBus
+    Subscriber --> EventBus
+```
 
 #### 四、核心实现
 
 ```typescript
-interface Cloneable<T> { clone(): T; }
-class PrescriptionTemplate implements Cloneable<PrescriptionTemplate> {
-  constructor(public drugId: string, public dosage: string, public warnings: string[]) {}
-  clone(): PrescriptionTemplate {
-    return new PrescriptionTemplate(this.drugId, this.dosage, [...this.warnings]);
+// 观察者模式：Subject 直接持有 Observer
+interface Observer { update(data: MedicalRecord): void; }
+class MedicalRecordSubject {
+  private observers: Observer[] = [];
+  subscribe(o: Observer) { this.observers.push(o); }
+  notify(data: MedicalRecord) { this.observers.forEach(o => o.update(data)); }
+}
+// 发布订阅模式：经过中介 EventBus 解耦
+class EventBus {
+  private events = new Map<string, Array<(...args: any[]) => void>>();
+  on(event: string, cb: (...args: any[]) => void) {
+    (this.events.get(event) ?? this.events.set(event, []).get(event)!).push(cb);
+  }
+  emit(event: string, ...args: any[]) {
+    this.events.get(event)?.forEach(cb => cb(...args));
   }
 }
-const registry = new Map<string, PrescriptionTemplate>();
 ```
 
 #### 五、易混淆辨析
 
-- **JavaScript 原型链 ≠ 原型模式**：原型链是 JS 的**继承机制**（对象通过 `[[Prototype]]` 共享方法），原型模式是一种**创建型设计模式**（克隆对象）。两者名字相同但完全不同概念——这是最高频的面试辨析点
-- **浅克隆 vs 深克隆**：浅克隆（`Object.assign`/`{...obj}`）只复制一层，嵌套对象/数组仍共享引用；深克隆（`structuredClone`/`JSON.parse(JSON.stringify)`/lodash `cloneDeep`）递归复制——按需选择
-- **原型 vs 工厂**：原型靠"复制"创建对象，工厂靠"实例化类"创建对象——对象初始化成本高、与原型差异小时选原型
+- **观察者 vs 发布订阅（面试必考）**：观察者模式是 Subject 与 Observer **直接关联**（Subject.notify() 里遍历 this.observers），发布订阅模式**多了一层中介**（Publisher 和 Subscriber 都只认识 EventBus，不认识对方）——**是否存在中介、是否互相知道对方**是核心区分点
+- Vue2 的 `Dep`/`Watcher` 更贴近观察者模式（Dep 直接持有 Watcher 列表并 notify）；Node.js `EventEmitter`、浏览器自定义事件、消息队列更贴近发布订阅模式（都经过一个中心化的事件通道）
 
 #### 六、前端工程落地
 
-- `Object.create()` 以指定原型创建对象，是原型模式的直接体现
-- `structuredClone` 现代深克隆 API（注意函数/类实例无法克隆）
-- 笔记中 Canvas 圆点动画的 `Circle` 复用即原型模式思路
+- DOM `addEventListener`、Redux `store.subscribe`、Node.js `EventEmitter.on` 表面都是"订阅-通知"，但底层结构不同
+- 笔记中 jQuery `Callbacks`、Vue EventBus、`http.createServer().on('request')` 都是发布订阅
+- 观察者模式如何避免内存泄漏：`subscribe` 返回 `unsubscribe` 函数，组件卸载时取消订阅
 
 #### 七、面试高频问
 
-- JavaScript 的原型链和 GoF 原型模式是同一件事吗？分别解释。
-- 浅克隆和深克隆的区别？`Object.assign` 是浅克隆还是深克隆，有什么坑？
-- 什么场景下原型模式比工厂模式更合适？
+- 观察者模式和发布订阅模式的本质区别是什么？（是否存在中介、是否互相知道对方）
+- Vue 的响应式系统属于观察者模式还是发布订阅模式？
+- Node.js 的 EventEmitter 算观察者模式吗？为什么？
+- 观察者模式如何避免内存泄漏（忘记 unsubscribe）？
 
-
+---
 
 ## 已有笔记
 
-- @docs\notes\11 design\03 创建型模式\03 原型模式.md
+- @docs\notes\11 design\04 结构型模式\10 享元模式.md
 
 ## plans 地址
 
@@ -88,6 +120,5 @@ const registry = new Map<string, PrescriptionTemplate>();
 - 本系列 适用于 5-10年的开发者，想要系统性的学习，并且想要完全掌握 设计模式 相关 的开发者。
 - 保留笔记完整代码和图片，样式格式保持一致和这篇@docs\articles\11 design\2026-10-28-uml-and-design-patterns-overview.md，不读我没要求到的文件；
 - 可以根据你的经验和最佳实践查漏补缺；主线要明确清晰；每个知识点都要由浅入深的彻底讲透，讲明白。
+
 ```
-
-
