@@ -85,7 +85,7 @@
 | 01 | 多模型接入与降级链：先把请求发出去、发得稳 | 四类差异 + Adapter 归一化 + 错误分类 + 降级与双维路由 | 2.1 全部 | `01-provider-router`：能力矩阵 + 归一化 + 注入 5 类错误走降级链 | ☐ 待写 |
 | 02 | SSE 服务端：流式不是「更快返回」，是「更早开始」 | AsyncIterable → ReadableStream → event-stream | 2.2 流式本质 / SSE vs WebSocket / 服务端写出 / 心跳与重连 | `02-sse-server`：裸 `node:http` 起一个流式端点 | ☐ 待写 |
 | 03 | 前端接流式：接得上，更要接得住 | fetch + getReader + 字节边界 + 打字机 + 不卡 + abort | 2.2 前端消费 / 避免逐 token 全量重渲染 | `03-stream-client`：两种渲染策略对比 | ☐ 待写 |
-| 04 | 结构化输出：把正确性押在 Schema 上 | Prompt 约定 vs json_object vs json_schema；Zod | 2.3 结构化输出三条路径 / Schema 设计 / System-Few-shot-CoT 定位 / TS 配合 | `04-json-schema`：20 条处方抽取 × 三种方式 | ☐ 待写 |
+| 04 | 结构化输出：把正确性押在 Schema 上 | Prompt 约定 vs json_object vs json_schema；Zod | 2.3 结构化输出三条路径 / Schema 设计 / System-Few-shot-CoT 定位 / TS 配合 | `04-json-schema`：6 条处方抽取 × 2 档（精简版，DeepSeek）+ Zod 语义盲区 + 思考模式对照 | ✅ 已发布 |
 | 05 | Function Calling：模型只写调用单，不执行 | tools schema → tool_calls → 你的执行器 | 2.3 Function Calling 本质 | `05-tool-call`：一次完整工具往返 | ☐ 待写 |
 | 06 | Embedding：把「意思相近」变成一道可以算的减法 | 向量化 + 三种度量 + 模型/维度/成本 | 2.4 全部 | `06-embedding`：12 段说明书 × 相似度矩阵 | ☐ 待写 |
 | 07 | 并发、超时与 SDK 收口：从脚本到可切换的包 | 事件循环 → 并发控制 → 超时/退避/熔断/背压 → 收进 `packages/ai-sdk` | 2.5 全部 / Batch API（了解） / 隐含主题：从 demo 到可切换 SDK | `07-concurrency-sdk`：20 题 × 3 模型三种策略 + 搬迁 + 契约测试 | ☐ 待写 |

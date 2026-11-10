@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 547,
-  "lastSession": "2026-11-09T05:41:31.562Z",
+  "totalSessionCount": 561,
+  "lastSession": "2026-11-10T03:24:31.755Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -223,7 +223,11 @@
       "前端消费流式": "理解",
       "SSE 解析器手写": "理解",
       "TextDecoder stream 选项": "理解",
-      "rAF 渲染收敛": "理解"
+      "rAF 渲染收敛": "理解",
+      "结构化输出 / JSON 约束（三档阶梯）": "理解",
+      "Zod 校验与语义盲区": "理解",
+      "DeepSeek json_object 三个坑": "理解",
+      "思考模式对 temperature 的影响": "理解"
     },
     "engineering": {
       "Monorepo + Turborepo": "理解",

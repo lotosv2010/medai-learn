@@ -14,7 +14,8 @@
     "p2-sse": "tsx phase2-api/02-sse-server/index.ts",
     "p2-sse-proxy": "tsx phase2-api/02-sse-server/proxy.ts",
     "p2-client": "tsx phase2-api/03-stream-client/server.ts",
-    "p2-client-measure": "tsx phase2-api/03-stream-client/measure.ts"
+    "p2-client-measure": "tsx phase2-api/03-stream-client/measure.ts",
+    "p2-schema": "tsx phase2-api/04-json-schema/index.ts"
   },
   "dependencies": {
     "gpt-tokenizer": "^4.1.0"
@@ -23,6 +24,7 @@
     "@types/node": "^22.7.0",
     "esbuild": "^0.24.0",
     "tsx": "^4.20.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "zod": "^4.6.7"
   }
 }
