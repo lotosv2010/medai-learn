@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 566,
-  "lastSession": "2026-11-11T03:39:58.049Z",
+  "totalSessionCount": 567,
+  "lastSession": "2026-11-11T06:18:19.647Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -161,6 +161,17 @@
             "批处理限制：分批 + 记录已处理偏移，否则失败重跑重复计费",
             "向量只解决「找候选」不解决「选对的」：混合检索 + 重排序留阶段四"
           ]
+        },
+        {
+          "并发与 SDK 收口": [
+            "LLM API 是 I/O 密集型：并发约束在对方 QPS 与预算，不在本机线程数",
+            "all 管成败 / allSettled 管归集 / 信号量管节奏，批量默认信号量 + allSettled",
+            "指数退避必须加 jitter，否则同批失败在同一毫秒重试打成雪崩",
+            "超时 ≠ 失败：超时归 retryable，但请求可能已计费，重试要有上限",
+            "熔断器三态 closed/open/half-open，熔断是「先别打」不是「更努力打」",
+            "chat 与 embed 拆两个接口是 ISP：DeepSeek 无 embedding 是实证",
+            "契约测试守「所有实现行为一致」，是可执行的接口文档"
+          ]
         }
       ]
     },
@@ -256,7 +267,13 @@
       "Embedding 向量化本质": "理解",
       "三种度量归一化后排序一致": "理解",
       "向量检索的三类失败（否定/数字/专名）": "理解",
-      "余弦/欧氏/点积度量选型": "理解"
+      "余弦/欧氏/点积度量选型": "理解",
+      "并发控制（all/allSettled/信号量）": "理解",
+      "指数退避与 jitter": "理解",
+      "熔断器三态（closed/open/half-open）": "理解",
+      "AbortSignal.timeout 超时控制": "理解",
+      "ISP 接口拆分（ChatProvider/EmbeddingProvider）": "理解",
+      "契约测试与可执行接口文档": "理解"
     },
     "engineering": {
       "Monorepo + Turborepo": "理解",
