@@ -16,7 +16,8 @@
     "p2-client": "tsx phase2-api/03-stream-client/server.ts",
     "p2-client-measure": "tsx phase2-api/03-stream-client/measure.ts",
     "p2-schema": "tsx phase2-api/04-json-schema/index.ts",
-    "p2-tools": "tsx phase2-api/05-tool-call/index.ts"
+    "p2-tools": "tsx phase2-api/05-tool-call/index.ts",
+    "p2-embed": "tsx phase2-api/06-embedding/index.ts"
   },
   "dependencies": {
     "gpt-tokenizer": "^4.1.0"
