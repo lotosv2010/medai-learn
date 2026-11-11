@@ -1284,6 +1284,31 @@ export function DrugDetail({ id }: { id: string }) {
 }
 ```
 
+到这里还差最后一环：**谁来把 `HttpDrugApi` 的实例放进 Context？** 上面的 `useDrugApi` 拿到的是 `DrugApiContext` 的默认值 `null`，如果不提供一个 Provider 往里注入实例，`useDrugApi` 一调用就会 throw。这条「实现 → 抽象 → 使用」的链，断在了装配这一步：
+
+```typescript
+// 装配点：把具体实现放进 Context
+export function DrugApiProvider({
+  api,
+  children,
+}: {
+  api: DrugApi;
+  children: React.ReactNode;
+}) {
+  return <DrugApiContext.Provider value={api}>{children}</DrugApiContext.Provider>;
+}
+
+// 组合根：全项目只有入口这一处知道具体实现是谁
+const http = new HttpClient({ baseURL: '/api' });
+const drugApi = new HttpDrugApi(http);
+
+<DrugApiProvider api={drugApi}>
+  <DrugDetail id="123" />
+</DrugApiProvider>
+```
+
+这步不是可选的收尾，而是 DIP 能落地的题眼。前面定义 `DrugApi` 抽象、`HttpDrugApi` 实现，都只是「把依赖方向掰过来」；真正让「高层不知道低层」成立的，是**全项目只有组合根这一处知道 `HttpDrugApi` 的存在**。如果让 `DrugDetail` 内部自己 `new HttpDrugApi()`，抽象就等于白定义——高层又依赖回了低层，倒置失败。所以「把装配收敛到入口」这条约束，和「定义接口」同等重要，缺了它例子跑不起来，也讲不完整这个故事。
+
 改完之后三件事同时变得容易：
 
 - **换 HTTP 库**：只改 `HttpDrugApi` 的实现，业务组件零改动
@@ -2124,10 +2149,28 @@ export function pay(order: Order, method: string): Promise<PayResult> {
 }
 ```
 
+注意：到这里 `registry` 还是空的——上面只是**定义了** `AlipayStrategy` 等策略类，还没有把它们注册进去。少了这一步，`pay()` 对任何方式都会直接 throw：
+
+```typescript
+// 组合根 / 模块加载时执行一次
+registerPayStrategy(new AlipayStrategy());
+registerPayStrategy(new WechatStrategy());
+registerPayStrategy(new BalanceStrategy());
+```
+
+注册动作收敛在这一处，业务代码此后一律面向 `pay()` 这个稳定入口。
+
 现在接入医保支付：
 
 ```typescript
-// 新增一个文件，一行注册
+// 新增一个文件：策略类 + 一行注册
+export class MedicalInsuranceStrategy implements PayStrategy {
+  readonly code = 'medical-insurance';
+  async pay(order: Order) {
+    return insuranceSdk.reimburse(order.amount);
+  }
+}
+
 registerPayStrategy(new MedicalInsuranceStrategy());
 ```
 
