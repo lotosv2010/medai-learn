@@ -2,8 +2,8 @@
   "currentPhase": 1,
   "currentWeek": 1,
   "startDate": "2025-01-01",
-  "totalSessionCount": 567,
-  "lastSession": "2026-11-11T06:18:19.647Z",
+  "totalSessionCount": 570,
+  "lastSession": "2026-11-11T08:26:07.804Z",
   "completedTopics": [
     {
       "JavaScript": [
@@ -172,6 +172,19 @@
             "chat 与 embed 拆两个接口是 ISP：DeepSeek 无 embedding 是实证",
             "契约测试守「所有实现行为一致」，是可执行的接口文档"
           ]
+        },
+        {
+          "Prompt 工程进阶": [
+            "Context Engineering ⊃ Prompt Engineering：Prompt 管「怎么下指令」，上下文管「能看见什么」",
+            "五种手段定位：角色/分隔符零成本，Few-shot 花钱换格式，CoT 只在需要算时加，ReAct/Reflection 是 Agent 器官",
+            "CoT 负优化场景：抽取、简单问答里加 CoT 拖慢且跑偏，任务只需「查」就不加",
+            "System Prompt 四要素：角色、边界、拒绝策略、输出格式约束",
+            "Prompt 版本化四能力：版本化 / 可回滚 / 可 A/B / 可回归，runEval 最小闭环",
+            "分隔符的本质是结构隔离：让「你的话」与「用户的话」可区分，是防注入第一道篱笆",
+            "短句约束反向省钱：v2 加格式约束后 token 226→155，写清楚不是多花 token 而是省 token",
+            "Few-shot 边际收益归零：格式已稳时加示例只增 token（155→225），手段加到刚好够用为止",
+            "边界收紧的回归代价：过度收紧把正常用药题误拒，边界触达率 100%→80%"
+          ]
         }
       ]
     },
@@ -273,7 +286,12 @@
       "熔断器三态（closed/open/half-open）": "理解",
       "AbortSignal.timeout 超时控制": "理解",
       "ISP 接口拆分（ChatProvider/EmbeddingProvider）": "理解",
-      "契约测试与可执行接口文档": "理解"
+      "契约测试与可执行接口文档": "理解",
+      "Context Engineering ⊃ Prompt Engineering": "理解",
+      "五种 Prompt 手段定位（角色/分隔符/Few-shot/CoT/ReAct/Reflection）": "理解",
+      "System Prompt 设计规范（角色/边界/拒绝策略/格式）": "理解",
+      "Prompt 版本化与回归测试": "理解",
+      "分隔符的防注入结构隔离": "理解"
     },
     "engineering": {
       "Monorepo + Turborepo": "理解",

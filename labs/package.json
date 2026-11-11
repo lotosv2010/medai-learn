@@ -19,7 +19,8 @@
     "p2-tools": "tsx phase2-api/05-tool-call/index.ts",
     "p2-embed": "tsx phase2-api/06-embedding/index.ts",
     "p2-sdk": "tsx phase2-api/07-concurrency-sdk/index.ts",
-    "p2-sdk-test": "tsx --test phase2-api/07-concurrency-sdk/contract.test.ts"
+    "p2-sdk-test": "tsx --test phase2-api/07-concurrency-sdk/contract.test.ts",
+    "p3-prompt": "tsx phase3-context/01-prompt-asset/index.ts"
   },
   "dependencies": {
     "gpt-tokenizer": "^4.1.0"
