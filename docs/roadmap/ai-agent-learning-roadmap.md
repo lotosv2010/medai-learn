@@ -48,7 +48,7 @@
 |------|-------------|------|
 | 一 认知地基 | `ai-phase-01-cognitive-foundation-outline.md` | ✅ 已定稿（5 篇） |
 | 二 应用底座 | `ai-phase-02-api-foundation-outline.md` | ✅ 已定稿（7 篇） |
-| 三 上下文工程 | `ai-phase-03-context-engineering-outline.md` | ⬜ 待建 |
+| 三 上下文工程 | `ai-phase-03-context-engineering-outline.md` | ✅ 已定稿（6 篇） |
 | 四 RAG | `ai-phase-04-rag-outline.md` | ⬜ 待建 |
 | 五 Agent | `ai-phase-05-agent-outline.md` | ⬜ 待建 |
 | 六 框架整合 | `ai-phase-06-framework-outline.md` | ⬜ 待建 |
