@@ -96,6 +96,10 @@ export function buildThreeOrders(): Array<{ label: string; blocks: Block[] }> {
     const parts: string[] = []
     for (let i = 0; i < 26; i++) {
       if (i === targetIndex) parts.push(TARGET)
+      // 📚 i < targetIndex ? i + 1 : i：让 25 段干扰的编号保持 01~25 连续。
+      // 若直接传 i，targetIndex 之前的干扰会用 00~12、之后的用 14~25，中间「13」凭空消失——
+      // 编号跳号会暴露「哪一份被替换过」，成为位置之外的第二个变量。+1 让它始终 01~25 连续，
+      // 三组之间的唯一差异只剩「3 级那份排在第几段」，这才是干净的位置对照。
       else parts.push(distractor(i < targetIndex ? i + 1 : i))
     }
     return parts.join('\n')

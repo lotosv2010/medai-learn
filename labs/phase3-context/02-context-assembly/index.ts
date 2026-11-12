@@ -3,7 +3,7 @@
  *
  * 实验 A：预算分配表——构造一次真实用药咨询调用的六类内容，统计每类 token 占比（纯本地，零调用）。
  * 实验 B：顺序对照实验里的隐藏变量——同一批「相似候选」上下文，temperature 0 vs 默认采样，
- *         看「中间那份唯一的 3 级」在采样下会不会漂移（18 次真实调用）。
+ *         看「中间那份唯一的 3 级」在采样下会不会漂移（24 次真实调用）。
  *
  * 跑法（仓库根目录）：
  *   nvm use 22
@@ -46,7 +46,16 @@ console.log('   上下文：26 段「X-7 与 W 相互作用」档案，只有一
 console.log('   问法：风险等级是几级？只回答等级，不要解释。')
 console.log('   对照：temperature=0（贪心，锁定最高概率 token） vs 默认采样（每 token 按概率抽）。\n')
 
-/** 判定：只把「给出确定的 3 级」算命中；答「2 级」或「无法确定」都不算 */
+/**
+ * 判定：只把「给出确定的 3 级」算命中；答「2 级」或「无法确定」都不算。
+ *
+ * 📚 这条正则有两半，各管一件事——
+ *   ① 命中半 /3\s*级|三级/：回答里必须出现「3 级」或「三级」才算「挑对了那一份」；
+ *      \s* 允许「3」和「级」之间夹空格（模型偶尔输出「3 级（高）」这类带括号的写法）。
+ *   ② 排除半 /无法|不一致|冲突|多个|不确定|矛盾|不能确定/：模型可能嘴上提到「3 级」，
+ *      却又补一句「无法确定」——这种「摇摆回答」不算命中，它其实没锁定答案，只是把候选都念了一遍。
+ *   两个条件 AND 起来：必须「明确说了 3 级」且「没有自我否定」。
+ */
 function committed(content: string): boolean {
   return /3\s*级|三级/.test(content) && !/无法|不一致|冲突|多个|不确定|矛盾|不能确定/.test(content)
 }
@@ -90,13 +99,17 @@ for (let round = 1; round <= ROUNDS; round++) {
   }
 }
 
-printTable(
-  ['采样方式', '3 级档案的位置', `命中率（${ROUNDS} 轮）`, '最近一轮回答开头'],
-  orders.flatMap(({ label }) => [
-    (() => { const t = tally.get(`temp0·${label}`)!; return ['temperature = 0', label, `${t.hits}/${t.total}`, t.sample] })(),
-    (() => { const t = tally.get(`采样·${label}`)!; return ['默认采样', label, `${t.hits}/${t.total}`, t.sample] })(),
-  ]),
-)
+// 拼最终对照表：每个位置一行 temperature=0、一行默认采样。
+// 这里不用 flatMap + 内联 IIFE，改用直白的两层循环 push——让「每轮怎么累进」一眼可读，
+// 避免函数式技巧盖过实验本身要传达的结论。
+const resultRows: string[][] = []
+for (const { label } of orders) {
+  const t0 = tally.get(`temp0·${label}`)!
+  const ts = tally.get(`采样·${label}`)!
+  resultRows.push(['temperature = 0', label, `${t0.hits}/${t0.total}`, t0.sample])
+  resultRows.push(['默认采样', label, `${ts.hits}/${ts.total}`, ts.sample])
+}
+printTable(['采样方式', '3 级档案的位置', `命中率（${ROUNDS} 轮）`, '最近一轮回答开头'], resultRows)
 
 // 结论从真实计数算出，不写死——位置效应的「中间丢」在短上下文里未必每次都出现
 const temp0All = orders.every(({ label }) => (tally.get(`temp0·${label}`)?.hits ?? 0) === ROUNDS)

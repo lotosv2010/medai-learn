@@ -16,6 +16,14 @@ import type { Message } from './prompts.ts'
 /** 一次调用里常见的六类上下文来源 */
 export type BlockKind = 'system' | 'history' | 'rag' | 'toolDesc' | 'toolResult' | 'user'
 
+/**
+ * 每类内容「最多放多少 token」的配额表。
+ *
+ * 📚 Partial<Record<BlockKind, number>> 展开读是 { system?: number; history?: number; ... }——
+ * 每一项都可选，没写的那一类不截断。起个别名，调用处一眼就知道这是「配额」而不是普通对象。
+ */
+export type Quota = Partial<Record<BlockKind, number>>
+
 export interface Block {
   kind: BlockKind
   content: string
@@ -56,7 +64,7 @@ export function truncateTo(text: string, maxTokens: number): string {
  * ② 按「稳定在前、关键在尾」排定顺序 + 按配额截断，组装成 messages。
  * 超配额的那一类（通常是被历史、工具结果塞爆）会被截断——预算管理是这些下游手段的触发条件。
  */
-export function assemble(blocks: Block[], quota: Partial<Record<BlockKind, number>>): Message[] {
+export function assemble(blocks: Block[], quota: Quota): Message[] {
   const sorted = [...blocks].sort((a, b) => ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind))
   const byKind = new Map<BlockKind, string>()
   for (const b of sorted) {

@@ -133,7 +133,7 @@ system → 工具描述 → 历史 → 检索片段 → 工具返回 → 用户�
 
 ## 🧪 动手实验：一张预算表 + 一次「隐藏变量」现形
 
-> **说明**：实验代码 `labs/phase3-context/02-context-assembly/`，模型 `deepseek-chat`。跑法：`pnpm --filter @medai/labs p3-assemble`。实验 A 纯本地零调用；实验 B 24 次真实调用，约 ¥0.5。
+> **说明**：实验代码 `labs/phase3-context/02-context-assembly/`，模型 `deepseek-chat`。跑法（仓库根目录）：先 `nvm use 22`，再 `pnpm --filter @medai/labs p3-assemble`；需先在 `.env.local` 里配好 `DEEPSEEK_API_KEY`（缺 key 时脚本给中文提示）。实验 A 纯本地零调用；实验 B 24 次真实调用，约 ¥0.5。
 
 ### 实验 A：六类内容各占多少 token
 
